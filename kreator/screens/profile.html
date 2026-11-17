@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mój profil — IKPM</title>
+  <link rel="stylesheet" href="../assets/bootstrap/bootstrap.min.css">
+  <link rel="stylesheet" href="../assets/bootstrap-icons/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="../assets/app.css">
+</head>
+<body data-section="account">
+  <main id="main"><div id="app" class="container-xxl" x-data="page" x-cloak>
+    <h1 class="page-title">Mój profil</h1>
+    <form class="list-card" style="max-width: 36rem" @submit.prevent="$store.toast.show('Profil zaktualizowany.')">
+      <div class="row g-3">
+        <div class="col-md-6"><label class="form-label" for="p-first">Imię</label><input class="form-control" id="p-first" :value="u.first_name"></div>
+        <div class="col-md-6"><label class="form-label" for="p-last">Nazwisko</label><input class="form-control" id="p-last" :value="u.last_name"></div>
+        <div class="col-12"><label class="form-label" for="p-phone">Telefon</label><input class="form-control" id="p-phone" type="tel" placeholder="np. +48 600 000 000" title="Numer telefonu: cyfry, spacje oraz + ( ) -"></div>
+        <div class="col-12"><label class="form-label" for="p-email">Email</label><input class="form-control" id="p-email" :value="u.email" readonly aria-describedby="p-email-hint">
+          <p class="form-text" id="p-email-hint">Aby zmienić email lub hasło, przejdź do <a :href="link('screens/account-edit.html')">ustawień konta</a>.</p></div>
+      </div>
+      <div class="d-flex justify-content-end"><button class="btn btn-primary btn-main" type="submit">Zapisz</button></div>
+    </form>
+  </div></main>
+  <script type="module">
+    import { start, kit } from '../assets/app.js';
+    start(() => ({ u: kit.users[0] }));
+  </script>
+</body>
+</html>

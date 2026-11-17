@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dobieranie wykonawców — IKPM</title>
+  <link rel="stylesheet" href="../assets/bootstrap/bootstrap.min.css">
+  <link rel="stylesheet" href="../assets/bootstrap-icons/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="../assets/app.css">
+</head>
+<body data-section="quotes" data-step="wykonawcy">
+  <!-- Kreator wyceny — ten sam komponent co quotes-new, builder i match-contractors; różni je krok startowy. -->
+  <main id="main"><div id="app" class="container-xxl" x-data="page" x-cloak></div></main>
+  <script type="module">
+    import { start } from '../assets/app.js';
+    import { wizard } from '../assets/wizard.js';
+    start(wizard, { partial: 'wizard.html' });
+  </script>
+</body>
+</html>

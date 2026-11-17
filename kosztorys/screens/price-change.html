@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Zmiana cen — IKPM</title>
+<link rel="stylesheet" href="../assets/bootstrap/bootstrap.min.css">
+<link rel="stylesheet" href="../assets/bootstrap-icons/bootstrap-icons.min.css">
+<link rel="stylesheet" href="../assets/app.css">
+</head>
+<body data-nav="data">
+<div id="nav"></div>
+<main x-data="page" x-cloak class="container-xxl px-3 pb-5" style="max-width: 980px">
+<template x-if="ready">
+<div>
+  <div id="alerts"></div>
+  <h1 class="h3 my-3">Zmiana cen <span x-text="scopeName"></span> o <span x-text="signed(percent)"></span></h1>
+  <div class="alert alert-info small">
+    <p class="mb-1" x-text="effect"></p>
+    <p class="mb-0">Wysłane i dopasowane wyceny mają ceny zamrożone — ta zmiana ich nie dotyczy, tak jak realizacji. Nowe ceny są w pełnych złotych (najmniej 1 zł), więc zmiana ceny różni się od wpisanego procentu; gdy po zaokrągleniu cena zostaje taka sama albo zmienia się w przeciwną stronę, pozycja jest bez zmian.</p>
+  </div>
+
+  <template x-if="priced.length">
+    <div class="card mb-3">
+      <table class="table doc-table reflow mb-0">
+        <caption class="visually-hidden">Podgląd nowych cen</caption>
+        <thead class="table-light"><tr><th scope="col">Pozycja</th><th scope="col" class="text-end">Cena teraz</th><th scope="col" class="text-end">Nowa cena</th><th scope="col" class="text-end">Zmiana</th></tr></thead>
+        <tbody>
+          <template x-for="row in priced" :key="row.key">
+            <tr><td data-label="Pozycja" class="reflow-full" x-text="row.name"></td>
+              <td data-label="Cena teraz" class="num" x-text="ik.pln(row.price)"></td>
+              <td data-label="Nowa cena" class="num fw-semibold" x-text="ik.pln(row.unchanged ? row.price : row.next)"></td>
+              <td data-label="Zmiana" class="num"><template x-if="row.unchanged"><span class="badge text-bg-secondary">bez zmian</span></template><template x-if="!row.unchanged"><span x-text="signed((row.next - row.price) / row.price * 100)"></span></template></td></tr>
+          </template>
+        </tbody>
+      </table>
+    </div>
+  </template>
+  <template x-if="skipped.length">
+    <div class="mb-3"><h2 class="h6">Pominięte (<span x-text="skipped.length"></span>)</h2>
+      <ul class="small"><template x-for="row in skipped" :key="row.key"><li><span x-text="row.name"></span> — <span class="text-body-secondary" x-text="row.skip"></span></li></template></ul></div>
+  </template>
+
+  <div class="d-flex flex-wrap gap-2 mb-4">
+    <template x-if="changes"><button type="button" class="btn btn-primary btn-main" @click="apply()"><i class="bi bi-check-lg" aria-hidden="true"></i> Zastosuj</button></template>
+    <template x-if="!changes"><p class="alert alert-secondary w-100 mb-0">Żadna cena w tym zakresie się nie zmieni — po zaokrągleniu do pełnych złotych ceny zostają takie same albo pozycje nie mają ceny.</p></template>
+    <a class="btn btn-outline-secondary btn-main" :href="backHref">Anuluj</a>
+  </div>
+  <form class="card card-body d-flex flex-row flex-wrap gap-2 align-items-end" @submit.prevent="other($event.target.elements.percent.value)">
+    <div><label class="form-label small mb-1" for="other">Inny procent — Zmień ceny o % <span class="text-body-secondary">(od -90 do +200)</span></label><input id="other" type="number" inputmode="decimal" step="0.1" min="-90" max="200" name="percent" class="form-control" required></div>
+    <button class="btn btn-outline-primary">Podgląd</button>
+  </form>
+</div>
+</template>
+</main>
+<script type="module">
+import { boot, db, save, go, param, toast, resetCatIndex } from '../assets/app.js';
+
+const FORMAT = /^[+-]?(\d+([.,]\d0*)?|[.,]\d0*)$/;
+const ONE = new Intl.NumberFormat('pl-PL', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+const plural = (n, one, few, many) => `${n} ${({ one, few })[new Intl.PluralRules('pl').select(n)] ?? many}`;
+
+boot(() => ({
+  ready: false, percent: 0, scopeName: '', effect: '', rows: [], backHref: '', kind: '', target: null,
+  init() {
+    const text = String(param('percent') ?? '').trim();
+    if (param('stage')) {
+      this.kind = 'stage'; this.target = db.catalogue.find((s) => s.id === Number(param('stage'))); this.backHref = ik.href('screens/stages.html');
+    } else if (param('contractor')) {
+      this.kind = 'contractor'; this.target = db.contractors.find((c) => c.id === Number(param('contractor'))); this.backHref = ik.href('screens/contractors.html');
+    } else {
+      this.kind = 'materials'; this.backHref = ik.href('screens/materials.html');
+    }
+    const back = this.backHref.replace(ik.href(''), '');
+    const fail = (msg) => go(back, msg, 'error', true);
+    if (this.kind !== 'materials' && !this.target) { location.replace(ik.href('screens/error-404.html')); return; }
+    if (!FORMAT.test(text)) { fail('Podaj zmianę ceny w procentach — liczbę z najwyżej jednym miejscem po przecinku, np. 10 albo -5,5.'); return; }
+    const p = Number(text.replace(',', '.'));
+    if (p === 0) { fail('Zmiana o 0% nie zmienia cen — podaj procent dodatni (podwyżka) albo ujemny (obniżka).'); return; }
+    if (p < -90 || p > 200) { fail('Zmiana cen musi mieścić się w zakresie od -90% do +200%.'); return; }
+    this.percent = p;
+    const row = (key, name, price, skip, record) => {
+      const next = price === null ? null : ik.priceRound(price * (1 + p / 100));
+      const unchanged = next === null ? false : next === price || (p > 0 && next < price) || (p < 0 && next > price);
+      return { key, name, price, next, skip, unchanged, record };
+    };
+    if (this.kind === 'stage') {
+      this.scopeName = `etapu „${this.target.name}”`;
+      this.effect = 'Średnia cena pracy to cena żywa: zmieni się razem z nią cena ekipy w szkicach wycen bez doboru wykonawców i w pozycjach ekip bez własnej ceny tej pracy.';
+      this.rows = [...this.target.jobs].sort((a, b) => a.order - b.order).map((j) => row(`j${j.id}`, j.name, ik.num(j.average_price), ik.num(j.average_price) === null ? 'bez średniej ceny' : '', j));
+    } else if (this.kind === 'contractor') {
+      if (this.target.archived) { fail(`Ekipa „${this.target.name}” jest w archiwum — przywróć ją, żeby zmienić jej ceny.`); return; }
+      this.scopeName = `ekipy „${this.target.name}”`;
+      this.effect = 'Nowa cena ekipy działa od następnego doboru wykonawców.';
+      this.rows = db.catalogue.flatMap((s) => s.jobs.flatMap((j) => j.crews.filter((c) => c.contractor === this.target.name).map((c) => row(`c${j.id}`, `${j.name} (${j.unit})`, ik.num(c.price), ik.num(c.price) === null ? 'bez własnej ceny — idzie za średnią ceną pracy, zmienia ją zmiana cen etapu' : '', c))));
+    } else {
+      const all = param('materials') === 'all';
+      const ids = String(param('ids') || '').split(',').filter(Boolean).map(Number);
+      if (!all && !ids.length) { fail('Zaznacz materiały, których ceny chcesz zmienić, albo wybierz „Wszystkie”.'); return; }
+      const list = db.materials.filter((m) => all || ids.includes(m.id)).sort((a, b) => a.name.localeCompare(b.name, 'pl') || a.id - b.id);
+      if (!list.length) { fail('Nie znaleziono zaznaczonych materiałów — odśwież stronę i zaznacz je ponownie.'); return; }
+      this.scopeName = all ? 'wszystkich materiałów' : 'zaznaczonych materiałów';
+      this.effect = 'Cena materiału to cena żywa: zmieni się razem z nią koszt materiałów w szkicach wycen bez zamrożonego kosztu (przed doborem wykonawców). Procent dotyczy ceny opakowania.';
+      this.rows = list.map((m) => row(`m${m.id}`, `${m.name} (${m.package})`, Number(m.price), Number(m.price) === 0 ? 'bez ceny (0 zł)' : '', m)).map((r) => (r.skip ? { ...r, next: null } : r));
+    }
+    this.ready = true;
+  },
+  get priced() { return this.rows.filter((r) => !r.skip); },
+  get skipped() { return this.rows.filter((r) => r.skip); },
+  get changes() { return this.priced.some((r) => !r.unchanged); },
+  signed(v) { const t = Math.abs(v) < 0.05 && v !== 0 ? new Intl.NumberFormat('pl-PL', { maximumSignificantDigits: 1 }).format(v) : ONE.format(v); return `${v > 0 ? '+' : ''}${t}%`; },
+  other(p) { const q = new URLSearchParams(location.search); q.set('percent', p); location.search = q.toString(); },
+  apply() {
+    const changed = this.priced.filter((r) => !r.unchanged);
+    changed.forEach((r) => {
+      if (this.kind === 'stage') r.record.average_price = String(r.next);
+      if (this.kind === 'contractor') { r.record.price = String(r.next); r.record.effective_price = String(r.next); }
+      if (this.kind === 'materials') { const m = r.record; const oldName = m.name; const oldPackage = m.package; m.price = String(r.next); m.unit_price = String(r.next / Number(m.quantity)); ik.syncMaterial(m, oldName, oldPackage); }
+    });
+    resetCatIndex(); save();
+    const unchanged = this.priced.length - changed.length;
+    const msg = changed.length
+      ? `Zmieniono ${plural(changed.length, 'cenę', 'ceny', 'cen')}${unchanged ? `, bez zmian po zaokrągleniu: ${unchanged}` : ''}${this.skipped.length ? `, pominięto ${plural(this.skipped.length, 'pozycję', 'pozycje', 'pozycji')}` : ''}.`
+      : 'Żadna cena się nie zmieniła — nic nie zapisano.';
+    go(this.backHref.replace(ik.href(''), ''), msg);
+  },
+}));
+</script>
+</body>
+</html>

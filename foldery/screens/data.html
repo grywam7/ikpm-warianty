@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dane — IKPM</title>
+<link rel="stylesheet" href="../assets/bootstrap/bootstrap.min.css">
+<link rel="stylesheet" href="../assets/bootstrap-icons/bootstrap-icons.min.css">
+<link rel="stylesheet" href="../assets/app.css">
+</head>
+<body data-screen="data" data-nav="stages" data-tab="dane">
+<main x-data="page" x-cloak>
+<div class="page"><div class="pane-inner">
+<div class="pane-head"><h1 class="pane-title">Dane</h1><div class="pane-sub">Cennik: prace, materiały, wykonawcy i szablony pokoi.</div></div>
+<div class="group"><a class="row-link" :href="link('stages')"><span class="row-icon"><i class="bi bi-list-task" aria-hidden="true"></i></span><span class="row-main">Prace i Etapy</span><i class="bi bi-chevron-right chev" aria-hidden="true"></i></a><a class="row-link" :href="link('materials')"><span class="row-icon"><i class="bi bi-box-seam" aria-hidden="true"></i></span><span class="row-main">Materiały</span><i class="bi bi-chevron-right chev" aria-hidden="true"></i></a><a class="row-link" :href="link('contractors')"><span class="row-icon"><i class="bi bi-person-badge" aria-hidden="true"></i></span><span class="row-main">Wykonawcy</span><i class="bi bi-chevron-right chev" aria-hidden="true"></i></a><a class="row-link" :href="link('room-templates')"><span class="row-icon"><i class="bi bi-grid-1x2" aria-hidden="true"></i></span><span class="row-main">Szablony pokoi</span><i class="bi bi-chevron-right chev" aria-hidden="true"></i></a></div>
+</div></div>
+</main>
+<script type="module">
+import { boot } from '../assets/app.js';
+boot();
+</script>
+</body>
+</html>

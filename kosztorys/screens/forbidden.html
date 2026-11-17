@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Brak uprawnień — IKPM</title>
+<link rel="stylesheet" href="../assets/bootstrap/bootstrap.min.css">
+<link rel="stylesheet" href="../assets/bootstrap-icons/bootstrap-icons.min.css">
+<link rel="stylesheet" href="../assets/app.css">
+</head>
+<body data-nav="">
+<div id="nav"></div>
+<main x-data="page" x-cloak class="container px-3 pb-5" style="max-width: 640px">
+  <div class="card my-4 text-center"><div class="card-body p-4">
+    <i class="bi bi-shield-lock display-4 text-danger" aria-hidden="true"></i>
+    <h1 class="h3 mt-2">Brak uprawnień</h1>
+    <p>Twoje konto nie ma dostępu do tej sekcji. Poproś administratora o nadanie roli.</p>
+    <a class="btn btn-primary btn-main" :href="ik.href('screens/profile.html')">Mój profil</a>
+  </div></div>
+</main>
+<script type="module">
+import { boot } from '../assets/app.js';
+boot(() => ({}));
+</script>
+</body>
+</html>

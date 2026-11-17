@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mail z ofertą — IKPM</title>
+<link rel="stylesheet" href="../assets/bootstrap/bootstrap.min.css">
+<link rel="stylesheet" href="../assets/bootstrap-icons/bootstrap-icons.min.css">
+<link rel="stylesheet" href="../assets/app.css">
+</head>
+<body data-screen="mail-offer" class="bg-body-tertiary">
+<main x-data="page" x-cloak>
+
+<template x-if="q"><article class="mail">
+  <div class="mail-head"><div><b>Od:</b> IKPM &lt;noreply@ikpm.local&gt;</div><div><b>Do:</b> <span x-text="client(q.client_id)?.email"></span></div>
+    <div><b>Temat:</b> <span x-text="'Wycena #' + q.id"></span></div><div><b>Załącznik:</b> <a :href="link('quote-pdf', {id: q.id})" x-text="'wycena-' + q.id + '.pdf'"></a></div></div>
+  <div class="mail-body">
+    <h1 class="visually-hidden" x-text="'Wycena #' + q.id"></h1>
+    <p x-text="'Dzień dobry ' + clientName(q) + ','"></p>
+    <p x-text="'Przesyłamy wycenę nr #' + q.id + ' do akceptacji.'"></p>
+    <p>PDF z wyceną znajdą Państwo w załączniku. Aby zostawić komentarze i odpowiedzieć (zaakceptować lub poprosić o zmianę), prosimy kliknąć poniższy link:</p>
+    <p class="overflow-anywhere"><a :href="link('public-quote', {id: q.id})" x-text="link('public-quote', {id: q.id})"></a></p>
+    <p>Pozostajemy do dyspozycji w razie pytań.</p>
+    <p class="mb-0">Pozdrawiamy,<br><span x-text="sender() ? q.user : 'Zespół IKPM'"></span><template x-if="sender()"><span><br><span x-text="sender().email"></span></span></template></p>
+  </div>
+</article></template>
+</main>
+<script type="module">
+import { boot, db, intParam, link } from '../assets/app.js';
+boot(() => ({
+  q: null,
+  init() { const _q = db.quotes.find((x) => x.id === intParam('id')) ?? null; if (!_q) { location.replace(link('error-404')); return; } this.q = _q; document.title = `Wycena #${_q.id} — mail — IKPM`; },
+  sender() { return db.users.find((u) => `${u.first_name} ${u.last_name}`.trim() === this.q.user) ?? null; },
+}), { shell: false });
+</script>
+</body>
+</html>

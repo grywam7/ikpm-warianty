@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Oferta — IKPM</title>
+<link rel="stylesheet" href="../assets/bootstrap/bootstrap.min.css">
+<link rel="stylesheet" href="../assets/bootstrap-icons/bootstrap-icons.min.css">
+<link rel="stylesheet" href="../assets/app.css">
+</head>
+<body data-screen="public-quote">
+<main x-data="page" x-cloak>
+<div class="public-bar">IKPM</div>
+<div class="public-main">
+<template x-if="q && q.status === 'draft'">
+  <div class="card-plain text-center py-5"><i class="bi bi-hourglass-split fs-1" aria-hidden="true"></i><h1 class="h3 mt-2">Oferta jest aktualizowana</h1><p class="mb-0">Otrzymają Państwo nową wiadomość, gdy będzie gotowa.</p></div>
+</template>
+<template x-if="q && q.status !== 'draft'">
+  <div>
+    <h1 class="h2 mb-0">Wycena #<span x-text="q.id"></span></h1>
+    <div class="text-body-secondary mb-3" x-text="'Wysłana: ' + dateTime(q.sent_at)"></div>
+    <div class="row g-3">
+      <div class="col-md-6"><div class="card-plain h-100"><div class="doc-label">Od</div><div class="fw-semibold" x-text="q.user || 'Zespół IKPM'"></div><div class="small" x-text="senderEmail()"></div></div></div>
+      <div class="col-md-6"><div class="card-plain h-100"><div class="doc-label">Klient</div><div class="fw-semibold" x-text="clientName(q)"></div><div class="small" x-text="client(q.client_id)?.email"></div></div></div>
+    </div>
+    <div class="card-plain mt-3">
+      <div class="doc-label">Status</div><div class="mb-2"><span class="badge fs-6" :class="QUOTE_STATUS[q.status][1]"><i class="bi" :class="QUOTE_STATUS[q.status][2]" aria-hidden="true"></i><span x-text="CLIENT_STATUS[q.status]"></span></span></div>
+      <div class="row g-2">
+        <div class="col-sm-4" x-show="q.site_address"><div class="doc-label">Adres inwestycji</div><div x-text="q.site_address"></div></div>
+        <div class="col-sm-4" x-show="q.planned_start_on"><div class="doc-label">Planowany start</div><div x-text="date(q.planned_start_on)"></div></div>
+        <div class="col-sm-4" x-show="q.planned_end_on"><div class="doc-label">Termin zakończenia</div><div x-text="date(q.planned_end_on)"></div></div>
+      </div>
+    </div>
+    <div class="alert alert-success mt-3" x-show="['accepted', 'rejected'].includes(q.status)" x-text="'Wycena ma już zapisaną odpowiedź z dnia ' + date(q.responded_at) + '. Dziękujemy.'"></div>
+    <template x-if="trackable()"><div class="alert alert-info mt-3"><p class="mb-2" x-text="trackable().status === 'done' ? 'Prace z tej wyceny zostały zakończone —' : 'Prace z tej wyceny są w realizacji —'"></p>
+      <a class="btn btn-primary btn-main" :href="link('public-realization', {id: trackable().id})"><i class="bi bi-cone-striped" aria-hidden="true"></i> Śledź postęp prac</a></div></template>
+    <template x-for="pr in q.rooms" :key="pr.id">
+      <section class="mt-4">
+        <h2 class="h4 mb-0" x-text="pr.name"></h2><div class="small text-body-secondary mb-2" x-text="sizeLine(pr)"></div>
+        <ul class="group">
+          <template x-for="j in sortJobs(pr.jobs)" :key="j.id">
+            <li class="row-item"><span class="row-main"><div x-text="j.name"></div><div class="small text-body-secondary" x-text="j.stage + ' · ' + dec(j.quantity) + ' ' + j.unit + ' × ' + pln(jobUnitPrice(j, q)) + ' (cena jedn. netto)'"></div></span>
+              <span class="row-end"><span class="small text-body-secondary d-block">Wartość netto</span><b x-text="pln(jobValue(j, q))"></b></span></li>
+          </template>
+          <li class="row-item" x-show="!pr.jobs.length"><span class="text-body-secondary">(brak prac w tym pokoju)</span></li>
+        </ul>
+        <template x-if="respondable()"><div class="mt-2"><label class="form-label" :for="'cc-' + pr.id">Komentarz do pokoju</label>
+          <textarea class="form-control" rows="2" maxlength="5000" placeholder="Opcjonalnie..." :id="'cc-' + pr.id" x-model="comments[pr.id]"></textarea></div></template>
+        <template x-if="!respondable()"><div class="small mt-2"><b>Komentarz do pokoju:</b> <span x-text="pr.client_comment || '—'"></span></div></template>
+      </section>
+    </template>
+    <div class="mt-4"><template x-if="respondable()"><div><label class="form-label" for="cc-general">Komentarz ogólny</label>
+      <textarea id="cc-general" class="form-control" rows="3" maxlength="5000" placeholder="Uwagi do całej wyceny..." x-model="general"></textarea></div></template>
+      <template x-if="!respondable()"><div class="small"><b>Komentarz ogólny:</b> <span x-text="q.client_general_comment || '—'"></span></div></template></div>
+    <h2 class="h4 mt-4">Podsumowanie</h2>
+    <ul class="group">
+      <li class="row-item"><span class="row-main">Razem netto</span><span class="row-end" x-text="pln(totals(q).net)"></span></li>
+      <li class="row-item"><span class="row-main" x-text="'VAT ' + Number(q.vat_rate) + '%'"></span><span class="row-end" x-text="pln(totals(q).vat)"></span></li>
+      <li class="row-item"><span class="row-main fw-bold">Razem brutto</span><span class="row-end fw-bold fs-5" x-text="pln(totals(q).gross)"></span></li>
+    </ul>
+    <template x-if="respondable()"><div class="d-flex flex-wrap gap-2 mt-4">
+      <button type="button" class="btn btn-outline-warning text-dark btn-main flex-fill" @click="answer('changes_requested')"><i class="bi bi-chat-left-text" aria-hidden="true"></i> Oczekuję zmiany</button>
+      <button type="button" class="btn btn-success btn-main flex-fill" @click="answer('accepted')"><i class="bi bi-check-circle" aria-hidden="true"></i> Akceptuję wycenę</button></div></template>
+  </div>
+</template>
+</div><footer class="text-center small text-body-secondary py-4">Wygenerowane przez system IKPM.</footer>
+</main>
+<script type="module">
+import { boot, db, save, intParam, link, todayISO, toast, alertBox, confirmBox } from '../assets/app.js';
+boot(() => ({
+  q: null, comments: {}, general: '',
+  init() {
+    const _q = db.quotes.find((x) => x.id === intParam('id')) ?? null;
+    if (!_q || (_q.link_valid_until && _q.link_valid_until < todayISO())) { location.replace(link('error-404')); return; }
+    for (const r of _q.rooms) this.comments[r.id] = r.client_comment ?? '';
+    this.general = _q.client_general_comment ?? ''; this.q = _q; document.title = `Wycena #${_q.id} — IKPM`;
+  },
+  senderEmail() { const _u = db.users.find((u) => `${u.first_name} ${u.last_name}`.trim() === this.q.user); return _u?.email ?? ''; },
+  respondable() { return ['sent', 'changes_requested'].includes(this.q.status); },
+  trackable() { const _r = this.q.status === 'accepted' && this.realizationOf(this.q); return _r && _r.status !== 'cancelled' && (!_r.link_valid_until || _r.link_valid_until >= todayISO()) ? _r : null; },
+  async answer(decision) {
+    const _ok = await confirmBox(decision === 'accepted'
+      ? { title: 'Zaakceptować wycenę?', consequences: ['Wykonawca dostanie Państwa akceptację; odpowiedzi nie da się potem zmienić.'], ok: 'Akceptuję wycenę', okClass: 'btn-success' }
+      : { title: 'Wysłać prośbę o zmianę wyceny?', consequences: ['Wykonawca dostanie Państwa komentarze i przygotuje nową wersję oferty.'], ok: 'Oczekuję zmiany' });
+    if (!_ok) return;
+    if ([this.general, ...Object.values(this.comments)].some((t) => (t ?? '').length > 5000)) { alertBox('Uwaga jest za długa — najwyżej 5000 znaków.'); return; }
+    for (const r of this.q.rooms) r.client_comment = (this.comments[r.id] ?? '').trim() || null;
+    this.q.client_general_comment = this.general.trim() || null;
+    this.q.status = decision; this.q.responded_at = new Date().toISOString(); save('quotes');
+    toast(decision === 'accepted' ? 'Dziękujemy za akceptację wyceny!' : 'Dziękujemy — odpowiedź z prośbą o zmianę została wysłana do wykonawcy.');
+  },
+}), { shell: false });
+</script>
+</body>
+</html>

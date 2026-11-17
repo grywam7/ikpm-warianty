@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Szablony pokoi — IKPM</title>
+<link rel="stylesheet" href="../assets/bootstrap/bootstrap.min.css">
+<link rel="stylesheet" href="../assets/bootstrap-icons/bootstrap-icons.min.css">
+<link rel="stylesheet" href="../assets/app.css">
+<style>tr.detail-row > td { box-shadow: inset 4px 0 0 var(--bs-primary-border-subtle); }</style>
+</head>
+<body data-nav="data">
+<div id="nav"></div>
+<main x-data="page" x-cloak class="container-xxl px-3 mw-doc pb-5">
+  <div id="alerts"></div>
+  <h1 class="h3 mt-3 mb-0">Szablony pokoi</h1>
+  <div id="data-tabs" data-active="room-templates"></div>
+
+  <details class="card mb-3">
+    <summary class="card-header tap fw-semibold"><i class="bi bi-plus-lg" aria-hidden="true"></i> Nowy szablon</summary>
+    <form class="card-body row g-2 align-items-end" @submit.prevent="add()">
+      <div class="col-12 col-md-5"><label class="form-label small mb-1" for="t-name">Nazwa szablonu</label><input id="t-name" class="form-control" maxlength="100" placeholder="np. Łazienka standardowa" x-model="draft.name" required></div>
+      <div class="col-6 col-md-2"><label class="form-label small mb-1" for="t-order">Kolejność</label><input id="t-order" type="number" inputmode="decimal" min="0" max="10000" class="form-control" x-model="draft.order"></div>
+      <div class="col-12 col-md-5"><label class="form-label small mb-1" for="t-desc">Opis (opcjonalnie)</label><input id="t-desc" class="form-control" x-model="draft.description"></div>
+      <p class="col-12 small text-body-secondary mb-0">Typowe wymiary (opcjonalnie) — wybór szablonu w oknie pokoju wpisze je w puste pola.</p>
+      <template x-for="d in DIMS" :key="d[0]"><div class="col-6 col-md-2"><label class="form-label small mb-1" :for="'t-' + d[0]" x-text="d[1]"></label><input type="number" inputmode="decimal" step="any" min="0" class="form-control text-end" :id="'t-' + d[0]" x-model="draft[d[0]]"></div></template>
+      <div class="col-12 col-md-4"><button class="btn btn-success w-100">Dodaj szablon</button></div>
+    </form>
+  </details>
+
+  <section class="card" aria-labelledby="list-title">
+    <div class="card-header bg-body"><h2 id="list-title" class="h6 mb-0">Szablony</h2></div>
+    <p class="card-body mb-0 text-body-secondary" x-show="!templates.length">Brak szablonów. Dodaj pierwszy szablon klikając przycisk powyżej.</p>
+    <table class="table doc-table reflow mb-0">
+      <caption class="visually-hidden">Szablony pokoi</caption>
+      <thead class="table-light"><tr><th scope="col"><span class="visually-hidden">Szczegóły</span></th><th scope="col">Nazwa szablonu</th><th scope="col">Kolejność</th><th scope="col">Opis</th><th scope="col">Prace</th><th scope="col"><span class="visually-hidden">Usuń</span></th></tr></thead>
+      <template x-for="t in templates" :key="t.id">
+        <tbody>
+          <tr>
+            <td><button type="button" class="btn btn-outline-secondary" :aria-expanded="(!!open[t.id]).toString()" :aria-controls="'td-' + t.id" :aria-label="(open[t.id] ? 'Zwiń: ' : 'Rozwiń: ') + t.name" @click="open[t.id] = !open[t.id]"><i class="bi" :class="open[t.id] ? 'bi-chevron-down' : 'bi-chevron-right'" aria-hidden="true"></i></button></td>
+            <td data-label="Nazwa szablonu"><input class="form-control" maxlength="100" :value="t.name" :aria-label="'Nazwa szablonu: ' + t.name" @change="rename(t, $event.target)"></td>
+            <td data-label="Kolejność"><input type="number" inputmode="decimal" min="0" max="10000" class="form-control text-end" style="max-width: 6rem" :value="t.order" :aria-label="'Kolejność: ' + t.name" @change="t.order = Number($event.target.value) || 0; saved(t)"></td>
+            <td data-label="Opis"><input class="form-control" placeholder="Opis..." :value="t.description" :aria-label="'Opis: ' + t.name" @change="t.description = $event.target.value; saved(t)"></td>
+            <td data-label="Prace"><span class="badge text-bg-secondary" title="Liczba prac" x-text="ik.jobsCount(t.jobs.length)"></span></td>
+            <td class="text-end"><button type="button" class="btn btn-outline-danger" :aria-label="'Usuń szablon ' + t.name" @click="remove(t)"><i class="bi bi-trash" aria-hidden="true"></i></button></td>
+          </tr>
+          <tr class="detail-row" x-show="open[t.id]" :id="'td-' + t.id">
+            <td colspan="6" class="reflow-full">
+              <form class="row g-2 align-items-end mb-3" @submit.prevent="saveDims(t, $event.target)">
+                <p class="col-12 small fw-semibold mb-0">Typowe wymiary (opcjonalnie) — wybór szablonu w oknie pokoju wpisze je w puste pola.</p>
+                <template x-for="d in DIMS" :key="d[0]"><div class="col-6 col-md-2"><label class="form-label small mb-1" :for="d[0] + t.id" x-text="d[1]"></label><input type="number" inputmode="decimal" step="any" min="0" class="form-control text-end" :id="d[0] + t.id" :name="d[0]" :value="t[d[0]] === null ? '' : Number(t[d[0]])"></div></template>
+                <div class="col-12 col-md-4"><button class="btn btn-outline-primary w-100">Zapisz wymiary</button></div>
+              </form>
+              <table class="table table-sm bg-body reflow mb-2">
+                <caption class="visually-hidden" x-text="'Prace szablonu ' + t.name"></caption>
+                <thead><tr><th scope="col">Etap</th><th scope="col">Praca</th><th scope="col">Ilość</th><th scope="col"><span class="visually-hidden">Usuń</span></th></tr></thead>
+                <tbody>
+                  <template x-for="tj in [...t.jobs].sort((a, b) => a.order - b.order)" :key="tj.name">
+                    <tr><td data-label="Etap"><span class="badge text-bg-light border" x-text="stageOf(tj.name)"></span></td>
+                      <td data-label="Praca" x-text="tj.name + ' (' + tj.unit + ')'"></td>
+                      <td data-label="Ilość"><template x-if="tj.area_type === 'manual'"><input type="number" inputmode="decimal" step="any" min="0" class="form-control text-end" style="max-width: 8rem" placeholder="1" :value="tj.quantity === null ? '' : Number(tj.quantity)" :aria-label="'Ilość: ' + tj.name" @change="setQty(tj, $event.target)"></template><template x-if="tj.area_type !== 'manual'"><span class="badge text-bg-info" x-text="tj.area_type_label"></span></template></td>
+                      <td class="text-end"><button type="button" class="btn btn-sm btn-outline-danger" :aria-label="'Usuń pracę ' + tj.name + ' z szablonu'" @click="removeJob(t, tj)"><i class="bi bi-trash" aria-hidden="true"></i></button></td></tr>
+                  </template>
+                  <tr x-show="!t.jobs.length"><td colspan="4" class="small text-body-secondary">Brak prac w szablonie. Dodaj prace poniżej.</td></tr>
+                </tbody>
+              </table>
+              <form class="row g-2 align-items-end" @submit.prevent="addJob(t, $event.target)">
+                <div class="col-12 col-md-7"><label class="form-label small mb-1" :for="'aj-' + t.id">Dodaj pracę</label><select class="form-select" name="job" :id="'aj-' + t.id" required><option value="">-- Wybierz pracę --</option><template x-for="s in db.catalogue" :key="s.id"><optgroup :label="s.name"><template x-for="j in s.jobs.filter(j => !t.jobs.some(x => x.name === j.name))" :key="j.id"><option :value="j.id" x-text="j.name + ' (' + j.unit + ')'"></option></template></optgroup></template></select></div>
+                <div class="col-6 col-md-2"><label class="form-label small mb-1" :for="'ao-' + t.id">Kolejność</label><input type="number" inputmode="decimal" min="0" class="form-control" name="order" :id="'ao-' + t.id" :value="t.jobs.length + 1"></div>
+                <div class="col-6 col-md-3"><button class="btn btn-success w-100">Dodaj</button></div>
+              </form>
+            </td>
+          </tr>
+        </tbody>
+      </template>
+    </table>
+  </section>
+</main>
+<script type="module">
+import { boot, db, save, nextId, toast, alertError, ask } from '../assets/app.js';
+
+const squish = (s) => s.replace(/\s+/g, ' ').trim().toLowerCase();
+boot(() => ({
+  open: {}, DIMS: [], draft: {},
+  init() { this.DIMS = Object.entries(ik.labels().dimension); this.reset(); },
+  reset() { this.draft = { name: '', order: db.templates.length + 1, description: '', length: '', width: '', height: '', holes_area: '' }; },
+  get templates() { return [...db.templates].sort((a, b) => a.order - b.order || a.name.localeCompare(b.name, 'pl')); },
+  stageOf(name) { const f = ik.catJobs().byName.get(name); return f ? f.stage.name : ''; },
+  saved(t) { save(); toast(`Szablon '${t.name}' został zaktualizowany.`); },
+  taken(name, except) { return db.templates.some((t) => t !== except && squish(t.name) === squish(name)); },
+  rename(t, el) { const v = el.value.trim(); if (!v || this.taken(v, t)) { el.value = t.name; alertError(v ? 'Szablon o tej nazwie już istnieje — zmień nazwę' : 'Nazwa nie może być pusta'); return; } t.name = v; this.saved(t); },
+  dims(src) { const out = {}; this.DIMS.forEach(([k]) => { const v = src[k] === '' || src[k] === undefined ? null : ik.parseNumber(src[k]); out[k] = v; }); return out; },
+  add() {
+    const name = this.draft.name.trim();
+    if (!name) { alertError('Nazwa nie może być pusta'); return; }
+    if (this.taken(name)) { alertError('Szablon o tej nazwie już istnieje — zmień nazwę'); return; }
+    db.templates.push({ id: nextId('template'), name, order: Number(this.draft.order) || 0, description: this.draft.description.trim(), ...this.dims(this.draft), jobs: [] });
+    save(); this.reset(); toast(`Szablon '${name}' został utworzony.`);
+  },
+  saveDims(t, form) {
+    const d = this.dims(Object.fromEntries(new FormData(form)));
+    if (Object.values(d).some((v) => v !== null && (Number.isNaN(v) || v < 0))) { alertError('Długość musi być większa lub równa 0'); return; }
+    Object.assign(t, d); this.saved(t);
+  },
+  setQty(tj, el) {
+    if (el.value === '') { tj.quantity = null; save(); toast(`Zapisano ilość pracy „${tj.name}”.`); return; }
+    const v = ik.parseNumber(el.value); if (Number.isNaN(v) || v <= 0) { el.value = tj.quantity ?? ''; alertError('Ilość musi być większa od 0'); return; }
+    tj.quantity = String(v); save(); toast(`Zapisano ilość pracy „${tj.name}”.`);
+  },
+  addJob(t, form) {
+    const job = db.catalogue.flatMap((s) => s.jobs).find((j) => j.id === Number(form.elements.job.value)); if (!job) return;
+    t.jobs.push({ name: job.name, unit: job.unit, area_type: job.area_type, area_type_label: job.area_type_label, quantity: null, order: Number(form.elements.order.value) || t.jobs.length + 1 });
+    save(); form.reset(); toast('Praca została dodana do szablonu.');
+  },
+  async removeJob(t, tj) {
+    if (!(await ask({ title: 'Usuń pracę z szablonu', text: `Usunąć pracę '${tj.name}' z szablonu?`, ok: 'Usuń pracę', okClass: 'danger' }))) return;
+    t.jobs.splice(t.jobs.indexOf(tj), 1); save(); toast('Praca została usunięta z szablonu.');
+  },
+  async remove(t) {
+    if (!(await ask({ title: 'Usuń szablon', text: `Usunąć szablon '${t.name}'?`, points: ['Szablon zniknie z okna pokoju w edytorze wyceny. Pokoje już utworzone z niego zostają bez zmian.'], ok: 'Usuń szablon', okClass: 'danger' }))) return;
+    db.templates.splice(db.templates.indexOf(t), 1); save(); toast(`Szablon '${t.name}' został usunięty.`);
+  },
+}));
+</script>
+</body>
+</html>

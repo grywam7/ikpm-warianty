@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dobieranie wykonawców — IKPM</title>
+<link rel="stylesheet" href="../assets/bootstrap/bootstrap.min.css">
+<link rel="stylesheet" href="../assets/bootstrap-icons/bootstrap-icons.min.css">
+<link rel="stylesheet" href="../assets/app.css">
+</head>
+<body data-screen="match-contractors" data-nav="quotes-index" data-tab="wyceny">
+<main x-data="page" x-cloak>
+<template x-if="q">
+<div class="panes" data-level="3">
+  <section class="pane pane-list" aria-label="Lista wycen" data-partial="quote-list"></section>
+  <section class="pane pane-folder" aria-label="Wycena" data-partial="quote-folder"></section>
+  <section class="pane pane-detail" aria-label="Dobieranie wykonawców">
+    <div class="pane-inner" style="max-width:1200px">
+      <div class="pane-head">
+        <a class="back-link" :href="link('builder', {id: q.id})"><i class="bi bi-chevron-left" aria-hidden="true"></i><span x-text="'Wycena #' + q.id"></span></a>
+        <h1 class="pane-title">Dobieranie wykonawców — Wycena #<span x-text="q.id"></span></h1>
+        <a class="btn btn-outline-secondary align-self-start d-none d-md-inline-flex align-items-center gap-1" :href="link('builder', {id: q.id})"><i class="bi bi-arrow-left" aria-hidden="true"></i>Wróć do edytora</a>
+      </div>
+      <p x-show="!qJobs(q).length" class="alert alert-secondary">Wycena nie ma jeszcze żadnych prac. Dodaj prace w edytorze.</p>
+      <div x-show="qJobs(q).length && !src" class="alert alert-warning" role="note"><span class="koncepcja">prototyp</span>
+        Plany doboru pochodzą z prawdziwego doboru wykonawców i są policzone tylko dla ilości z danych testowych tej wyceny. Dla obecnych ilości prototyp nie ma planu — w aplikacji plan liczy się zawsze.</div>
+      <template x-if="src">
+        <div>
+          <p class="small text-body-secondary">Plany pomijają ekipy o nietypowej dla danej pracy cenie, tempie lub jakości. Poza „Najszybszym” żaden etap nie trwa ponad 2 × tyle, co przy najszybszym podziale prac na najwyżej 3 ekipy naraz (o ile ekipy na to pozwalają) — dlatego „Najtańszy” nie zawsze bierze najtańsze ekipy, a „Minimum ekip” dobiera kolejną ekipę, gdy jedna robiłaby etap za długo. Plan najlepszy w kilku miarach widać na kilku kartach.</p>
+          <div class="row row-cols-1 row-cols-lg-2 g-3">
+            <template x-for="key in Object.keys(PROFILES)" :key="key">
+              <div class="col"><article class="card-plain h-100 d-flex flex-column" :aria-labelledby="'plan-' + key">
+                <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                  <h2 class="h5 mb-0 me-auto" :id="'plan-' + key"><i class="bi" :class="PROFILE_ICONS[key]" aria-hidden="true"></i> <span x-text="PROFILES[key]"></span></h2>
+                  <template x-if="q.applied_profile_name === key"><span class="badge text-bg-success"><i class="bi bi-check-circle-fill" aria-hidden="true"></i>Zastosowany</span></template>
+                  <span class="badge" :class="plan(key).summary.coverage_pct === 100 ? 'text-bg-light border' : 'text-bg-danger'" x-text="plan(key).summary.coverage_pct + '%'"></span>
+                </div>
+                <dl class="row small mb-2 g-0">
+                  <dt class="col-7 fw-normal text-body-secondary">Koszt ekip:</dt><dd class="col-5 text-end fw-bold mb-1" x-text="pln(plan(key).summary.total_cost)"></dd>
+                  <dt class="col-7 fw-normal text-body-secondary">Liczba ekip:</dt><dd class="col-5 text-end fw-bold mb-1" x-text="plan(key).summary.contractor_count"></dd>
+                  <dt class="col-7 fw-normal text-body-secondary"><i class="bi bi-clock" aria-hidden="true"></i> Czas realizacji:</dt>
+                  <dd class="col-5 text-end mb-1"><b x-text="hoursText(plan(key).summary.makespan_hours)"></b><span class="d-block text-body-secondary" x-show="plan(key).work_days" x-text="workDaysText(plan(key).work_days) + ' z odbiorami etapów'"></span></dd>
+                  <dt class="col-7 fw-normal text-body-secondary">Łącznie roboczogodzin:</dt><dd class="col-5 text-end fw-bold mb-1" x-text="hoursText(plan(key).summary.total_work_hours)"></dd>
+                  <dt class="col-7 fw-normal text-body-secondary">Śr. jakość:</dt><dd class="col-5 text-end mb-1"><b x-text="pct1(plan(key).summary.avg_quality)"></b> /10</dd>
+                  <dt class="col-12 fw-normal text-body-secondary">Pokrycie:</dt>
+                  <dd class="col-12 mb-1"><div class="progress" style="height:20px" role="progressbar" :aria-label="'Pokrycie — ' + PROFILES[key]" aria-valuemin="0" aria-valuemax="100" :aria-valuenow="plan(key).summary.coverage_pct">
+                    <div class="progress-bar text-dark" :class="plan(key).summary.coverage_pct === 100 ? 'bg-success-subtle' : 'bg-warning'" :style="'width:' + plan(key).summary.coverage_pct + '%'" x-text="plan(key).summary.coverage_pct + '%'"></div></div></dd>
+                </dl>
+                <h3 class="h6 small text-body-secondary mb-1">Harmonogram etapów:</h3>
+                <ul class="list-unstyled small mb-2">
+                  <template x-for="(st, i) in plan(key).stage_schedule" :key="st.stage">
+                    <li class="mb-1"><div class="d-flex justify-content-between gap-2"><span x-text="st.stage"></span><span class="text-nowrap" x-text="hoursText(st.duration_hours) + ' → ' + hoursText(cumulative(key, i))"></span></div>
+                      <div class="progress mini-progress" role="progressbar" :aria-label="'Etap ' + st.stage" aria-valuemin="0" aria-valuemax="100" :aria-valuenow="Math.round(st.duration_hours / Math.max(plan(key).summary.makespan_hours, 0.1) * 100)">
+                        <div class="progress-bar" :style="'width:' + (st.duration_hours / Math.max(plan(key).summary.makespan_hours, 0.1) * 100) + '%'"></div></div></li>
+                  </template>
+                </ul>
+                <p class="small text-danger-emphasis" x-show="plan(key).summary.unassigned_job_names.length" x-text="'Bez wykonawcy (brak w cenniku ekipy z ceną): ' + plan(key).summary.unassigned_job_names.join(', ')"></p>
+                <h3 class="h6 small text-body-secondary mb-1">Wykonawcy:</h3>
+                <div class="d-flex flex-wrap gap-1 mb-3"><template x-for="c in plan(key).summary.contractors_used" :key="c"><span class="badge text-bg-light border"><i class="bi bi-person" aria-hidden="true"></i><span x-text="c"></span></span></template></div>
+                <button type="button" class="btn btn-main mt-auto" :class="q.applied_profile_name === key ? 'btn-outline-success' : 'btn-primary'" @click="apply(key)">
+                  <i class="bi" :class="q.applied_profile_name === key ? 'bi-arrow-clockwise' : 'bi-check-lg'" aria-hidden="true"></i>
+                  <span x-text="q.applied_profile_name === key ? 'Zastosuj ponownie' : 'Zastosuj ten plan'"></span></button>
+              </article></div>
+            </template>
+          </div>
+          <details class="mt-4"><summary class="btn btn-outline-secondary">Harmonogram etapów — porównanie planów</summary>
+            <div class="table-box mt-2" tabindex="0"><table class="table table-sm mb-0">
+              <thead><tr><th scope="col">Etap</th><template x-for="key in Object.keys(PROFILES)" :key="key"><th scope="col" class="num" x-text="PROFILES[key]"></th></template></tr></thead>
+              <tbody><template x-for="stage in stageNames()" :key="stage"><tr><th scope="row" class="fw-normal" x-text="stage"></th>
+                <template x-for="key in Object.keys(PROFILES)" :key="key"><td class="num small" x-text="stageCell(key, stage)"></td></template></tr></template></tbody>
+              <tfoot><tr><th scope="row">RAZEM</th><template x-for="key in Object.keys(PROFILES)" :key="key"><td class="num fw-bold" x-text="hoursText(plan(key).summary.makespan_hours)"></td></template></tr></tfoot>
+            </table></div></details>
+          <details class="mt-3"><summary class="btn btn-outline-secondary">Porównanie — kto robi co w każdym planie</summary>
+            <div class="table-box mt-2" tabindex="0"><table class="table table-sm mb-0 small">
+              <thead><tr><th scope="col">Pokój</th><th scope="col">Praca</th><th scope="col" class="num">Ilość</th><template x-for="key in Object.keys(PROFILES)" :key="key"><th scope="col" x-text="PROFILES[key]"></th></template></tr></thead>
+              <tbody><template x-for="row in whoDoesWhat()" :key="row.id"><tr><td x-text="row.room"></td><td x-text="row.job"></td><td class="num" x-text="row.qty"></td>
+                <template x-for="cell in row.cells"><td x-text="cell"></td></template></tr></template></tbody>
+            </table></div></details>
+        </div>
+      </template>
+    </div>
+  </section>
+</div>
+</template>
+</main>
+<script type="module">
+import { boot, db, quoteOps, intParam, link, go, flashNext, alertBox, confirmBox, planSource, applyPlan, PROFILES, jobsGen, pln, hoursText, dec, sortJobs } from '../assets/app.js';
+boot(() => ({
+  ...quoteOps(),
+  room: null, view: null, src: null,
+  init() {
+    const _id = intParam('id');
+    const _q = db.quotes.find((x) => x.id === _id) ?? null;
+    if (!_q) { location.replace(link('error-404')); return; }
+    if (_q.status !== 'draft') { flashNext('alert', 'Wycena jest u klienta — przywróć ją do edycji, aby ją zmienić.'); location.replace(link('quote-show', { id: _id })); return; }
+    this.currentQuoteId = _id; this.src = planSource(_q); this.q = _q;
+    document.title = `Dobieranie wykonawców — Wycena #${_id} — IKPM`;
+  },
+  plan(key) { return this.src.plans[key]; },
+  cumulative(key, i) { return this.plan(key).stage_schedule.slice(0, i + 1).reduce((s, st) => s + st.duration_hours, 0); },
+  stageNames() { return [...new Set(Object.keys(PROFILES).flatMap((k) => this.plan(k).stage_schedule.map((s) => s.stage)))]; },
+  stageCell(key, stage) {
+    const _s = this.plan(key).stage_schedule.find((x) => x.stage === stage);
+    return _s ? `${hoursText(_s.duration_hours)} (${_s.crews.map((c) => `${c.contractor}: ${hoursText(c.hours)}`).join(', ')})` : '—';
+  },
+  whoDoesWhat() {
+    return this.q.rooms.flatMap((r) => sortJobs(r.jobs).map((j) => ({
+      id: j.id, room: r.name, job: j.name, qty: `${dec(j.quantity)} ${j.unit}`,
+      cells: Object.keys(PROFILES).map((k) => {
+        const _a = this.plan(k).assignments.find((x) => x.quote_job_id === j.id) ?? this.plan(k).assignments.find((x) => x.room === r.name && x.job === j.name);
+        return _a ? `${_a.contractor} · ${pln(_a.price)} · ${hoursText(_a.job_hours)}` : 'brak';
+      }),
+    })));
+  },
+  async apply(key) {
+    const _again = this.q.applied_profile_name === key;
+    const _ok = await confirmBox({
+      title: `${_again ? 'Zastosować ponownie' : 'Zastosować'} plan '${PROFILES[key]}'? Przypisze wykonawców do ${jobsGen(this.plan(key).assignments.length)}; cennik zastąpi ręcznie wpisane ceny ekipy.`,
+      consequences: ['Ceny ekip i koszt materiałów zostaną zamrożone w wycenie — zmiany cennika ich nie przesuną.',
+        `Sugerowany termin: ${this.plan(key).work_days ? `${this.workDaysText(this.plan(key).work_days)} od planowanego startu` : '—'}.`],
+      ok: _again ? 'Zastosuj ponownie' : 'Zastosuj ten plan',
+    });
+    if (!_ok) return;
+    const _r = applyPlan(this.q, key);
+    if (!_r.ok) { alertBox(_r.error); return; }
+    flashNext('notice', _r.notice); go('builder', { id: this.q.id });
+  },
+}));
+</script>
+</body>
+</html>

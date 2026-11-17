@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Klient — IKPM</title>
+  <link rel="stylesheet" href="../assets/bootstrap/bootstrap.min.css">
+  <link rel="stylesheet" href="../assets/bootstrap-icons/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="../assets/app.css">
+</head>
+<body data-section="clients">
+  <main id="main"><div id="app" class="container-xxl" x-data="page" x-cloak>
+    <template x-if="c">
+      <div>
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 page-title">
+          <h1 class="mb-0" x-text="c.name"></h1>
+          <div class="d-flex gap-2">
+            <a class="btn btn-outline-primary" :href="link('screens/client-form.html?id=' + c.id)"><i class="bi bi-pencil" aria-hidden="true"></i> Edytuj</a>
+            <button type="button" class="btn btn-outline-danger" @click="askDelete()"><i class="bi bi-trash" aria-hidden="true"></i> Usuń</button>
+          </div>
+        </div>
+        <dl class="row list-card mx-0">
+          <dt class="col-sm-3">Email</dt><dd class="col-sm-9"><template x-if="c.email"><a class="tap-link" :href="'mailto:' + c.email" x-text="c.email"></a></template><span x-show="!c.email">—</span></dd>
+          <dt class="col-sm-3">Telefon</dt><dd class="col-sm-9"><template x-if="c.phone"><a class="tap-link" :href="'tel:' + c.phone.replace(/\s/g, '')" x-text="c.phone"></a></template><span x-show="!c.phone">—</span></dd>
+          <dt class="col-sm-3">Notatki</dt><dd class="col-sm-9 mb-0 text-pre" x-text="c.notes || '—'"></dd>
+        </dl>
+        <div class="row g-4 mt-1">
+          <section class="col-lg-6" aria-labelledby="h-q">
+            <h2 class="h4" id="h-q">Wyceny</h2>
+            <template x-for="q in myQuotes" :key="q.id">
+              <article class="list-card d-flex flex-wrap gap-2 justify-content-between align-items-center">
+                <div><a class="fw-semibold tap-link" :href="link('screens/quote-show.html?id=' + q.id)" x-text="'Wycena #' + q.id"></a> <span x-html="badge('quote', q.status)"></span>
+                  <span class="d-block small" x-text="'Wartość: ' + pln(net(q)) + ' · Wysłana: ' + dateText(q.sent_at)"></span></div>
+                <template x-if="q.status === 'draft'"><a class="btn btn-outline-primary" :href="builderLink(q, 'sprawdz')">Edytuj</a></template>
+              </article>
+            </template>
+            <p x-show="!myQuotes.length">Brak wycen.</p>
+          </section>
+          <section class="col-lg-6" aria-labelledby="h-r">
+            <h2 class="h4" id="h-r">Realizacje</h2>
+            <template x-for="r in myRealizations" :key="r.id">
+              <article class="list-card">
+                <a class="fw-semibold tap-link" :href="link('screens/realization-show.html?id=' + r.id)" x-text="'Realizacja #' + r.id"></a> <span x-html="badge('realization', r.status)"></span>
+                <span class="d-block small" x-text="'Wartość (z wyceny): ' + pln(r.total_price)"></span>
+                <div class="d-flex align-items-center gap-2 small mt-1">
+                  <div class="progress flex-grow-1" role="progressbar" :aria-label="'Postęp: ' + prog(r).pct + '%'" aria-valuemin="0" aria-valuemax="100" :aria-valuenow="prog(r).pct"><div class="progress-bar bg-success" :style="`width: ${prog(r).pct}%`"></div></div>
+                  <span x-text="prog(r).pct + '%'"></span>
+                </div>
+              </article>
+            </template>
+            <p x-show="!myRealizations.length">Brak realizacji.</p>
+          </section>
+        </div>
+      </div>
+    </template>
+  </div></main>
+  <script type="module">
+    import { start, clientById, quotes, realizations, totals, progress, builderLink, go } from '../assets/app.js';
+    const _c = clientById(new URLSearchParams(location.search).get('id') ?? 1);
+    if (!_c) location.replace('error-404.html');
+    start(() => ({
+      c: _c, builderLink, prog: (r) => progress(r), net: (q) => totals(q).net,
+      myQuotes: quotes().filter((q) => q.client?.name === _c?.name),
+      myRealizations: realizations().filter((r) => r.client.name === _c?.name),
+      askDelete() {
+        this.$store.confirm.ask({ title: `Usunąć klienta „${this.c.name}”?`, lines: ['Klienta z wycenami lub realizacjami nie da się usunąć.'], ok: 'Usuń', variant: 'danger',
+          run: () => {
+            if (this.myQuotes.length || this.myRealizations.length) { this.$store.alert.msg = 'Nie można usunąć, gdyż istnieją zależne od niego wyceny'; return; }
+            go('screens/clients.html', 'Klient usunięty.');
+          } });
+      },
+    }));
+  </script>
+</body>
+</html>

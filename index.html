@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" href="data:,">
+<title>IKPM — trzy wersje</title>
+<style>
+  :root { --text: #1f2328; --muted: #59636e; --line: #d1d9e0; --card: #fff; --bg: #f6f8fa; --accent: #0d6efd; }
+  @media (prefers-color-scheme: dark) {
+    :root { --text: #e6edf3; --muted: #9198a1; --line: #3d444d; --card: #151b23; --bg: #0d1117; --accent: #4493f8; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+    font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 760px; margin: 0 auto; padding: 32px 16px 48px; }
+  h1 { font-size: 1.6rem; margin: 0 0 .5rem; }
+  p { margin: 0 0 1rem; }
+  .muted { color: var(--muted); }
+  .variants { list-style: none; padding: 0; margin: 1.5rem 0; display: grid; gap: 12px; }
+  .variant { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
+  .variant h2 { font-size: 1.2rem; margin: 0 0 .25rem; }
+  .variant a.open { display: inline-block; margin-top: .5rem; padding: .55rem 1rem; border-radius: 8px;
+    background: var(--accent); color: #fff; text-decoration: none; font-weight: 600; }
+  .variant a.reset { margin-left: .75rem; color: var(--accent); font-size: .9rem; }
+  footer { border-top: 1px solid var(--line); padding-top: 1rem; font-size: .9rem; }
+</style>
+</head>
+<body>
+<main>
+  <h1>IKPM — trzy wersje programu</h1>
+  <p>Prototypy programu do wycen i realizacji prac remontowych. To ten sam program na tych samych danych
+    w trzech różnych układach. Można w nich klikać, wpisywać i zapisywać jak w prawdziwej aplikacji.</p>
+  <p class="muted">Działają na telefonie, tablecie i komputerze. Dane są przykładowe, a zmiany zapisują się tylko
+    w tej przeglądarce. Nic nie trafia do klientów i żaden mail nie wychodzi.</p>
+
+  <ul class="variants">
+    <li class="variant">
+      <h2>Foldery</h2>
+      <p class="muted">Listy i szczegóły, jak Ustawienia w telefonie.</p>
+      <a class="open" href="foldery/index.html">Otwórz Foldery</a>
+      <a class="reset" href="foldery/index.html?reset=1">zacznij od nowa</a>
+    </li>
+    <li class="variant">
+      <h2>Kreator</h2>
+      <p class="muted">Krok po kroku, jedno pytanie na ekran.</p>
+      <a class="open" href="kreator/index.html">Otwórz Kreator</a>
+      <a class="reset" href="kreator/index.html?reset=1">zacznij od nowa</a>
+    </li>
+    <li class="variant">
+      <h2>Kosztorys</h2>
+      <p class="muted">Cała wycena jako jeden dokument, zmiany w miejscu.</p>
+      <a class="open" href="kosztorys/index.html">Otwórz Kosztorys</a>
+      <a class="reset" href="kosztorys/index.html?reset=1">zacznij od nowa</a>
+    </li>
+  </ul>
+
+  <footer class="muted">„Zacznij od nowa” przywraca dane przykładowe tej wersji. Prototyp, nie działająca aplikacja:
+    mail i PDF oferty są tylko podglądem.</footer>
+</main>
+</body>
+</html>

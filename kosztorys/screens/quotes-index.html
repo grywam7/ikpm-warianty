@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wyceny — IKPM</title>
+<link rel="stylesheet" href="../assets/bootstrap/bootstrap.min.css">
+<link rel="stylesheet" href="../assets/bootstrap-icons/bootstrap-icons.min.css">
+<link rel="stylesheet" href="../assets/app.css">
+</head>
+<body data-nav="quotes">
+<div id="nav"></div>
+<main x-data="page" x-cloak class="container-xxl px-3 mw-doc pb-5">
+  <div id="alerts"></div>
+  <div class="d-grid d-sm-flex flex-wrap align-items-center gap-2 my-3">
+    <h1 class="h3 mb-0 me-sm-auto">Wyceny</h1>
+    <a class="btn btn-success btn-main" :href="ik.href('screens/quotes-new.html?mode=rooms')"><i class="bi bi-grid-3x2" aria-hidden="true"></i> Nowa wycena (pokoje)</a>
+    <a class="btn btn-outline-success btn-main" :href="ik.href('screens/quotes-new.html?mode=simple')"><i class="bi bi-file-earmark-plus" aria-hidden="true"></i> Nowa wycena (prosta)</a>
+  </div>
+  <p x-show="!quotes.length" class="text-body-secondary">Brak wycen. Utwórz pierwszą wycenę.</p>
+  <div class="card" x-show="quotes.length">
+    <table class="table doc-table reflow reflow-lg mb-0">
+      <caption class="visually-hidden">Lista wycen, najnowsze pierwsze</caption>
+      <thead class="table-light"><tr><th scope="col">#</th><th scope="col">Klient</th><th scope="col">Status</th><th scope="col" class="text-end">Pokoje</th><th scope="col" class="text-end">Prace</th><th scope="col" class="text-end">Wartość</th><th scope="col">Wysłana</th><th scope="col">Odpowiedź</th><th scope="col" class="text-end">Akcje</th></tr></thead>
+      <tbody>
+        <template x-for="q in quotes" :key="q.id">
+          <tr>
+            <td data-label="#"><a class="tap fw-semibold" :href="openHref(q)" x-text="'#' + q.id"></a></td>
+            <td data-label="Klient" class="reflow-full"><span x-text="q.client ? q.client.name : '(brak klienta)'"></span><small class="d-block text-body-secondary" x-text="q.site_address || ''"></small></td>
+            <td data-label="Status" x-html="ik.quoteBadge(q.status)"></td>
+            <td data-label="Pokoje" class="num" x-text="q.rooms.length"></td>
+            <td data-label="Prace" class="num" x-text="ik.jobsOf(q).length"></td>
+            <td data-label="Wartość" class="num fw-semibold" x-text="ik.pln(ik.quoteTotals(q).net)"></td>
+            <td data-label="Wysłana" x-text="ik.date(q.sent_at)"></td>
+            <td data-label="Odpowiedź" x-text="ik.date(q.responded_at)"></td>
+            <td data-label="Akcje" class="text-end">
+              <div class="d-inline-flex flex-wrap gap-1 justify-content-end">
+                <template x-if="q.status === 'draft'"><a class="btn btn-sm btn-primary btn-main" :href="ik.href('screens/builder.html?id=' + q.id)"><i class="bi bi-pencil" aria-hidden="true"></i> Edytuj</a></template>
+                <template x-if="q.status === 'draft'"><a class="btn btn-sm btn-outline-primary" :href="ik.href('screens/match-contractors.html?id=' + q.id)" :aria-label="'Dobierz wykonawców — wycena #' + q.id" title="Dobierz wykonawców"><i class="bi bi-people" aria-hidden="true"></i></a></template>
+                <a class="btn btn-sm btn-outline-secondary" :href="ik.href('screens/quote-show.html?id=' + q.id)" :aria-label="'Podgląd — wycena #' + q.id" title="Podgląd"><i class="bi bi-eye" aria-hidden="true"></i></a>
+                <button type="button" class="btn btn-sm btn-outline-secondary" :aria-label="'Kopiuj — wycena #' + q.id" title="Kopiuj" @click="copy(q)"><i class="bi bi-copy" aria-hidden="true"></i></button>
+                <template x-if="q.status === 'draft'"><button type="button" class="btn btn-sm btn-outline-danger" :aria-label="'Usuń — wycena #' + q.id" title="Usuń" @click="remove(q)"><i class="bi bi-trash" aria-hidden="true"></i></button></template>
+              </div>
+            </td>
+          </tr>
+        </template>
+      </tbody>
+    </table>
+  </div>
+</main>
+<script type="module">
+import { boot, db, save, nextId, go, toast, ask } from '../assets/app.js';
+
+boot(() => ({
+  get quotes() { return [...db.quotes].sort((a, b) => b.id - a.id); },
+  openHref(q) { return ik.href(`screens/${q.status === 'draft' ? 'builder' : 'quote-show'}.html?id=${q.id}`); },
+  async remove(q) {
+    const ok = await ask({ title: 'Usuń wycenę', text: `Usunąć wycenę #${q.id}?`, points: [`Szkic z ${ik.jobsCount(ik.jobsOf(q).length)} w ${q.rooms.length} pokojach zniknie z listy.`, 'Tego nie da się cofnąć.'], ok: 'Usuń wycenę', okClass: 'danger' });
+    if (!ok) return;
+    db.quotes.splice(db.quotes.indexOf(q), 1); save(); toast('Wycena usunięta.');
+  },
+  copy(q) {
+    const id = nextId('quote');
+    const rooms = q.rooms.map((room) => ({ ...JSON.parse(JSON.stringify(room)), id: nextId('room'), client_comment: null,
+      jobs: room.jobs.map((j) => { const cat = ik.catJobs().byId.get(j.job_id); return { ...j, id: nextId('job'), contractor: null, contractor_price: null, matched_quantity: null, effective_material_unit_cost: cat ? cat.job.material_unit_cost : j.effective_material_unit_cost, average_price: cat ? cat.job.average_price : j.average_price }; }) }));
+    db.quotes.push({ id, notes: null, status: 'draft', client: q.client ? { ...q.client } : null, user: db.users[0].display_name, markup_percent: q.markup_percent, vat_rate: q.vat_rate,
+      site_address: null, planned_start_on: null, planned_end_on: null, suggested_work_days: null, applied_profile_name: null, client_general_comment: null, sent_at: null, responded_at: null, rooms });
+    save();
+    go(`screens/builder.html?id=${id}`, `Utworzono kopię wyceny #${q.id}. Ceny są z aktualnego cennika — dobierz wykonawców i uzupełnij termin oferty.`);
+  },
+}));
+</script>
+</body>
+</html>

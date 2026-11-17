@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Użytkownicy — IKPM</title>
+  <link rel="stylesheet" href="../assets/bootstrap/bootstrap.min.css">
+  <link rel="stylesheet" href="../assets/bootstrap-icons/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="../assets/app.css">
+</head>
+<body data-section="users">
+  <main id="main"><div id="app" class="container-xxl" x-data="page" x-cloak>
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 page-title">
+      <h1 class="mb-0">Użytkownicy</h1>
+      <a class="btn btn-primary btn-main" :href="link('screens/user-form.html')"><i class="bi bi-person-plus" aria-hidden="true"></i> Dodaj użytkownika</a>
+    </div>
+    <template x-for="u in kit.users" :key="u.email">
+      <article class="list-card d-flex flex-wrap gap-2 justify-content-between align-items-center">
+        <div class="min-w-0">
+          <strong x-text="u.email"></strong>
+          <span class="badge text-bg-danger" x-show="!u.active"><i class="bi bi-slash-circle" aria-hidden="true"></i> Nieaktywne</span>
+          <span class="d-block" x-text="u.display_name"></span>
+          <span class="d-block small">Telefon: —</span>
+          <span class="d-flex flex-wrap gap-1 mt-1"><template x-for="r in u.role_labels" :key="r"><span class="badge text-bg-secondary" x-text="r"></span></template><span x-show="!u.role_labels.length">brak</span></span>
+        </div>
+        <a class="btn btn-outline-primary" :href="link('screens/user-form.html?email=' + encodeURIComponent(u.email))" :aria-label="'Edytuj: ' + u.email">Edytuj</a>
+      </article>
+    </template>
+  </div></main>
+  <script type="module">
+    import { start } from '../assets/app.js';
+    start();
+  </script>
+</body>
+</html>

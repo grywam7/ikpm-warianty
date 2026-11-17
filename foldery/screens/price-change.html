@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Zmiana cen — podgląd — IKPM</title>
+<link rel="stylesheet" href="../assets/bootstrap/bootstrap.min.css">
+<link rel="stylesheet" href="../assets/bootstrap-icons/bootstrap-icons.min.css">
+<link rel="stylesheet" href="../assets/app.css">
+</head>
+<body data-screen="price-change" data-nav="stages" data-tab="dane">
+<main x-data="page" x-cloak>
+<div class="page"><div class="pane-inner">
+  <div class="pane-head"><a class="back-link keep" :href="scopeUrl()"><i class="bi bi-chevron-left" aria-hidden="true"></i><span x-text="scopeBack()"></span></a>
+    <h1 class="pane-title" x-text="'Zmiana cen ' + scopeName() + ' o ' + signed(percent)"></h1></div>
+  <template x-if="error"><div class="alert alert-danger" role="alert" x-text="error"></div></template>
+  <template x-if="!error">
+    <div>
+      <div class="alert alert-info small">
+        <p class="mb-1" x-text="effect()"></p>
+        <p class="mb-0">Wysłane i dopasowane wyceny mają ceny zamrożone — ta zmiana ich nie dotyczy, tak jak realizacji. Nowe ceny są w pełnych złotych (najmniej 1 zł), więc zmiana ceny różni się od wpisanego procentu; gdy po zaokrągleniu cena zostaje taka sama albo zmienia się w przeciwną stronę, pozycja jest bez zmian.</p>
+      </div>
+      <div class="table-box" tabindex="0" x-show="priced().length"><table class="table table-sm align-middle mb-0">
+        <thead><tr><th scope="col">Pozycja</th><th scope="col" class="num">Cena teraz</th><th scope="col" class="num">Nowa cena</th><th scope="col" class="num d-none d-sm-table-cell">Zmiana</th></tr></thead>
+        <tbody><template x-for="row in priced()" :key="row.key"><tr :class="row.unchanged && 'text-body-secondary'">
+          <td style="overflow-wrap:anywhere" x-text="row.name"></td><td class="num" x-text="pln(row.price)"></td>
+          <td class="num"><span x-text="pln(row.newPrice)"></span><span class="d-block d-sm-none" x-html="changeHtml(row)"></span></td>
+          <td class="num d-none d-sm-table-cell" x-html="changeHtml(row)"></td></tr></template></tbody></table></div>
+      <p class="alert alert-secondary mt-3" x-show="!priced().some(r => !r.unchanged)">Żadna cena w tym zakresie się nie zmieni — po zaokrągleniu do pełnych złotych ceny zostają takie same albo pozycje nie mają ceny.</p>
+      <template x-if="skipped().length"><div class="mt-3"><h2 class="h6" x-text="'Pominięte (' + skipped().length + ')'"></h2>
+        <ul class="small text-body-secondary"><template x-for="row in skipped()" :key="row.key"><li x-text="row.name + ' — ' + row.reason"></li></template></ul></div></template>
+      <div class="d-flex flex-wrap gap-2 my-3">
+        <button type="button" class="btn btn-primary btn-main px-4" x-show="priced().some(r => !r.unchanged)" @click="apply()">Zastosuj</button>
+        <a class="btn btn-outline-secondary btn-main px-4" :href="scopeUrl()">Anuluj</a></div>
+      <form class="card-plain" @submit.prevent="go('price-change', {scope, id: param('id'), ids: param('ids'), percent: again})">
+        <h2 class="h6">Inny procent</h2>
+        <label class="form-label" for="again">Zmień ceny o % (od -90 do 200)</label>
+        <div class="d-flex gap-2"><input id="again" class="form-control" type="number" inputmode="decimal" step="0.1" min="-90" max="200" required x-model="again"><button type="submit" class="btn btn-outline-primary">Podgląd</button></div>
+      </form>
+    </div>
+  </template>
+</div></div>
+</main>
+<script type="module">
+import { boot, db, save, param, intParam, link, go, flashNext, alertBox, parseNumber, pln, contractor, catJob, materialPackage, pricesAcc, positionsAcc } from '../assets/app.js';
+document.body.dataset.nav = { materials: 'materials', contractor: 'contractors' }[param('scope')] ?? 'stages';
+const ROUND = (v) => Math.max(1, Math.round(Math.round(v * 1e6) / 1e6));
+const PCT = new Intl.NumberFormat('pl-PL', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+boot(() => ({
+  scope: param('scope'), percent: NaN, again: '', error: '', target: null,
+  init() {
+    const _txt = String(param('percent') ?? '');
+    this.percent = /^-?(\d+([.,]\d0*)?|[.,]\d0*|\d+[.,]\d0*)$/.test(_txt.trim()) || /^-?\d+$/.test(_txt.trim()) ? parseNumber(_txt) : NaN;
+    this.again = _txt;
+    if (this.scope === 'stage') this.target = db.stages.find((s) => s.id === intParam('id'));
+    if (this.scope === 'contractor') this.target = contractor(intParam('id'));
+    if (Number.isNaN(this.percent)) this.error = 'Podaj zmianę ceny w procentach — liczbę z najwyżej jednym miejscem po przecinku, np. 10 albo -5,5.';
+    else if (this.percent === 0) this.error = 'Zmiana o 0% nie zmienia cen — wpisz inny procent.';
+    else if (this.percent < -90 || this.percent > 200) this.error = 'Zmiana cen musi mieścić się w zakresie od -90% do +200%.';
+    else if (this.scope === 'contractor' && this.target?.archived) this.error = `Ekipa „${this.target.name}” jest w archiwum — przywróć ją, żeby zmienić jej ceny.`;
+    document.title = 'Zmiana cen — podgląd — IKPM';
+  },
+  signed(v) { return Number.isNaN(v) ? '' : `${v > 0 ? '+' : ''}${PCT.format(v)}%`; },
+  scopeName() {
+    if (this.scope === 'stage') return `etapu „${this.target?.name}”`;
+    if (this.scope === 'contractor') return `ekipy „${this.target?.name}”`;
+    return param('ids') ? 'zaznaczonych materiałów' : 'wszystkich materiałów';
+  },
+  scopeUrl() {
+    if (this.scope === 'stage') return link('stages', { stage: this.target?.id });
+    if (this.scope === 'contractor') return link('contractors', { id: this.target?.id });
+    return link('materials');
+  },
+  scopeBack() { return this.scope === 'stage' ? this.target?.name : this.scope === 'contractor' ? this.target?.name : 'Materiały'; },
+  effect() {
+    if (this.scope === 'stage') return 'Średnia cena pracy to cena żywa: zmieni się razem z nią cena ekipy w szkicach wycen bez doboru wykonawców i w pozycjach ekip bez własnej ceny tej pracy.';
+    if (this.scope === 'contractor') return 'Nowa cena ekipy działa od następnego doboru wykonawców.';
+    return 'Cena materiału to cena żywa: zmieni się razem z nią koszt materiałów w szkicach wycen bez zamrożonego kosztu (przed doborem wykonawców). Procent dotyczy ceny opakowania.';
+  },
+  rows() {
+    const _f = 1 + this.percent / 100;
+    const _mk = (key, name, price, reason, apply) => {
+      if (reason) return { key, name, reason };
+      const _new = ROUND(price * _f);
+      const _unchanged = _new === price || (this.percent > 0 ? _new < price : _new > price);
+      return { key, name, price, newPrice: _unchanged ? price : _new, unchanged: _unchanged, apply };
+    };
+    if (this.scope === 'stage') return [...(this.target?.jobs ?? [])].sort((a, b) => a.id - b.id).map((j) => _mk(j.id, j.name, j.average_price, j.average_price ? null : 'bez średniej ceny', (v) => { j.average_price = v; }));
+    if (this.scope === 'contractor') {
+      return db.stages.flatMap((s) => s.jobs.flatMap((j) => j.crews.filter((c) => c.contractor_id === this.target?.id).map((c) => _mk(j.id, j.name, c.price, c.price ? null : 'bez własnej ceny — idzie za średnią ceną pracy, zmienia ją zmiana cen etapu', (v) => { c.price = v; }))));
+    }
+    const _ids = param('ids') ? param('ids').split(',').map(Number) : null;
+    return db.materials.filter((m) => !_ids || _ids.includes(m.id)).sort((a, b) => a.name.localeCompare(b.name, 'pl') || a.id - b.id)
+      .map((m) => _mk(m.id, `${m.name} (${materialPackage(m)})`, m.price, m.price ? null : 'bez ceny (0 zł)', (v) => { m.price = v; }));
+  },
+  priced() { return this.rows().filter((r) => !r.reason); },
+  skipped() { return this.rows().filter((r) => r.reason); },
+  changeHtml(row) {
+    if (row.unchanged) return '<span class="badge text-bg-secondary">bez zmian</span>';
+    const _c = (row.newPrice / row.price - 1) * 100;
+    return Math.abs(_c) < 0.05 ? `${_c > 0 ? '+' : ''}${new Intl.NumberFormat('pl-PL', { maximumSignificantDigits: 1 }).format(_c)}%` : this.signed(_c);
+  },
+  apply() {
+    const _rows = this.rows(); let _changed = 0; let _same = 0;
+    for (const r of _rows) { if (r.reason) continue; if (r.unchanged) { _same += 1; continue; } r.apply(r.newPrice); _changed += 1; }
+    const _skipped = _rows.filter((r) => r.reason).length;
+    save(this.scope === 'materials' ? 'materials' : 'stages');
+    flashNext('notice', _changed ? `Zmieniono ${pricesAcc(_changed)}${_same ? `, bez zmian po zaokrągleniu: ${_same}` : ''}${_skipped ? `, pominięto ${positionsAcc(_skipped)}` : ''}.` : 'Żadna cena się nie zmieniła — nic nie zapisano.');
+    location.href = this.scopeUrl();
+  },
+}));
+</script>
+</body>
+</html>

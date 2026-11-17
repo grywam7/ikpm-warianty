@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Klient — formularz — IKPM</title>
+<link rel="stylesheet" href="../assets/bootstrap/bootstrap.min.css">
+<link rel="stylesheet" href="../assets/bootstrap-icons/bootstrap-icons.min.css">
+<link rel="stylesheet" href="../assets/app.css">
+</head>
+<body data-nav="clients">
+<div id="nav"></div>
+<main x-data="page" x-cloak class="container px-3 pb-5" style="max-width: 720px">
+  <form class="card my-3" @submit.prevent="submit()" novalidate aria-labelledby="f-title">
+    <div class="card-body">
+      <h1 id="f-title" class="h3" x-text="client ? 'Edycja klienta ' + client.name : 'Nowy klient'"></h1>
+      <div class="alert alert-danger" role="alert" x-show="errors.length"><ul class="mb-0"><template x-for="e in errors" :key="e"><li x-text="e"></li></template></ul></div>
+      <label class="form-label" for="f-name">Nazwa *</label><input id="f-name" class="form-control mb-3" maxlength="100" x-model="form.name" required>
+      <label class="form-label" for="f-email">Email</label><input id="f-email" type="email" class="form-control mb-3" maxlength="254" x-model="form.email">
+      <label class="form-label" for="f-phone">Telefon</label><input id="f-phone" type="tel" class="form-control mb-3" placeholder="+48 600 000 000" title="Numer telefonu: cyfry, spacje oraz + ( ) -" x-model="form.phone">
+      <label class="form-label" for="f-notes">Notatki</label><textarea id="f-notes" class="form-control mb-3" rows="3" x-model="form.notes"></textarea>
+      <div class="d-flex justify-content-end gap-2"><a class="btn btn-outline-secondary btn-main" :href="ik.href(client ? 'screens/client-show.html?id=' + client.id : 'screens/clients.html')">Anuluj</a><button class="btn btn-primary btn-main">Zapisz</button></div>
+    </div>
+  </form>
+</main>
+<script type="module">
+import { boot, db, save, nextId, go, param } from '../assets/app.js';
+
+boot(() => ({
+  client: null, form: { name: '', email: '', phone: '', notes: '' }, errors: [],
+  init() {
+    if (param('id')) { this.client = db.clients.find((c) => c.id === Number(param('id'))); if (this.client) this.form = { name: this.client.name, email: this.client.email || '', phone: this.client.phone || '', notes: this.client.notes || '' }; }
+  },
+  submit() {
+    const f = this.form; const e = [];
+    if (!f.name.trim()) e.push('Nazwa nie może być pusta');
+    if (f.email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(f.email)) e.push('Email jest nieprawidłowy');
+    if (f.phone && !/^[0-9 +()-]{7,20}$/.test(f.phone)) e.push('Telefon jest nieprawidłowy');
+    this.errors = e; if (e.length) return;
+    const data = { name: f.name.trim(), email: f.email.trim() || null, phone: f.phone.trim() || null, notes: f.notes.trim() };
+    if (this.client) {
+      const old = this.client.name;
+      [...db.quotes, ...db.realizations].forEach((x) => { if (x.client && x.client.name === old) Object.assign(x.client, { name: data.name, email: data.email, phone: data.phone }); });
+      Object.assign(this.client, data); save(); go(`screens/client-show.html?id=${this.client.id}`, 'Klient zaktualizowany.');
+    } else {
+      const id = nextId('client'); db.clients.push({ id, ...data }); save(); go(`screens/client-show.html?id=${id}`, 'Klient utworzony.');
+    }
+  },
+}));
+</script>
+</body>
+</html>

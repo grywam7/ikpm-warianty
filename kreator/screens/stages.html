@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Prace i Etapy — IKPM</title>
+  <link rel="stylesheet" href="../assets/bootstrap/bootstrap.min.css">
+  <link rel="stylesheet" href="../assets/bootstrap-icons/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="../assets/app.css">
+</head>
+<body data-section="data">
+  <main id="main"><div id="app" class="container-xxl" x-data="page" x-cloak>
+    <nav aria-label="Dane"><ul class="subnav">
+      <template x-for="n in DATA_NAV" :key="n.key"><li><a class="btn" :class="n.key === 'stages' ? 'btn-primary' : 'btn-outline-primary'" :href="link(n.href)" :aria-current="n.key === 'stages' ? 'page' : null" x-text="n.label"></a></li></template>
+    </ul></nav>
+    <h1 class="page-title mt-0">Prace i Etapy</h1>
+    <div class="d-flex flex-wrap gap-2 mb-3">
+      <a class="btn btn-primary btn-main" :href="link('screens/job-wizard.html')"><i class="bi bi-plus-lg" aria-hidden="true"></i> Dodaj pracę</a>
+      <button type="button" class="btn btn-outline-primary btn-main" @click="stageFormOpen = !stageFormOpen" :aria-expanded="stageFormOpen" aria-controls="new-stage"><i class="bi bi-plus-lg" aria-hidden="true"></i> Dodaj etap</button>
+    </div>
+    <div class="list-card mb-3" id="new-stage" x-show="stageFormOpen">
+      <div class="row g-2 align-items-end">
+        <div class="col-md-6"><label class="form-label" for="stage-name">Nazwa etapu</label><input class="form-control" id="stage-name" placeholder="np. Przygotowanie podłoża" maxlength="100" x-model="newStage"></div>
+        <div class="col-6 col-md-3"><label class="form-label" for="stage-order">Kolejność</label><input class="form-control" id="stage-order" type="number" inputmode="decimal" min="0" max="10000" step="1" :value="stages.length + 1"></div>
+        <div class="col-6 col-md-3"><button type="button" class="btn btn-primary w-100" @click="addStage()">Dodaj etap</button></div>
+      </div>
+    </div>
+    <label class="form-label" for="job-filter">Szukaj pracy</label>
+    <input class="form-control mb-3" id="job-filter" type="search" x-model="filter" autocomplete="off">
+
+    <template x-for="s in shownStages" :key="s.id">
+      <details class="list-card" :open="filter.trim() !== '' || openStage === s.id" @toggle="if ($el.open) openStage = s.id">
+        <summary class="justify-content-between">
+          <span class="flex-grow-1"><strong x-text="s.name"></strong></span>
+          <span class="badge text-bg-light border" title="Liczba prac" x-text="jobsText(s.jobs.length)"></span>
+        </summary>
+        <div class="d-flex flex-wrap gap-2 align-items-end my-2">
+          <a class="btn btn-outline-primary" :href="link('screens/job-wizard.html?etap=' + s.id)"><i class="bi bi-plus-lg" aria-hidden="true"></i> Dodaj pracę do tego etapu</a>
+          <div class="d-flex gap-2 align-items-end">
+            <div><label class="form-label small mb-1" :for="'pct-' + s.id">Zmień ceny o %<span class="visually-hidden" x-text="' — etap ' + s.name"></span></label>
+              <input class="form-control qty" :id="'pct-' + s.id" type="number" inputmode="decimal" step="0.1" min="-90" max="200"></div>
+            <button type="button" class="btn btn-outline-secondary" @click="preview(s)">Podgląd</button>
+          </div>
+          <button type="button" class="btn btn-outline-danger ms-auto" @click="askDeleteStage(s)" :aria-label="'Usuń etap: ' + s.name"><i class="bi bi-trash" aria-hidden="true"></i> Usuń etap</button>
+        </div>
+        <ul class="list-unstyled mb-0">
+          <template x-for="j in s.jobs" :key="j.id">
+            <li class="border-top py-1" :id="'job-' + j.id">
+              <button type="button" class="choice border-0 px-1" :class="openJob === j.id ? 'selected' : ''" :aria-expanded="openJob === j.id" @click="openJob = openJob === j.id ? null : j.id">
+                <span class="min-w-0 flex-grow-1"><span class="d-block" x-text="j.name"></span>
+                  <span class="small d-block">
+                    <span class="badge text-bg-light border" x-text="j.unit"></span>
+                    <span class="badge text-bg-light border" x-text="j.area_type_label"></span>
+                    <span x-text="'Śr. cena: ' + (j.average_price ? pln(j.average_price) : '-') + ' · Śr. tempo: ' + (j.average_speed ? measure(j.average_speed) + ' h' : '-')"></span>
+                  </span></span>
+                <i class="bi" :class="openJob === j.id ? 'bi-chevron-up' : 'bi-chevron-down'" aria-hidden="true"></i>
+              </button>
+              <div class="px-1 pb-2" x-show="openJob === j.id">
+                <p class="small mb-2" x-show="j.description" x-text="j.description"></p>
+                <div class="row g-3">
+                  <div class="col-md-6">
+                    <h3 class="h6">Materiały potrzebne do pracy</h3>
+                    <ul class="small ps-3 mb-0">
+                      <template x-for="m in j.materials" :key="m.name + m.package"><li x-text="`${m.name} (${pln(m.unit_price)}/${materialUnit(m)} · opak. ${m.package} za ${pln(m.price)}) — ${dec(m.quantity_per_unit)} ${materialUnit(m)} na ${j.unit}`"></li></template>
+                      <li x-show="!j.materials.length">Brak materiałów.</li>
+                    </ul>
+                  </div>
+                  <div class="col-md-6">
+                    <h3 class="h6">Wykonawcy mogący wykonać tę pracę</h3>
+                    <ul class="small ps-3 mb-0">
+                      <template x-for="c in j.crews.filter((x) => !x.archived)" :key="c.contractor"><li x-text="`${c.contractor} — Cena: ${c.price ? pln(c.price) : 'średnia'} · Tempo: ${tempoText(c)} · Jakość: ${c.quality ? kit.labels.quality[c.quality] : 'brak oceny'}`"></li></template>
+                      <li x-show="!j.crews.filter((x) => !x.archived).length">Brak wykonawców.</li>
+                    </ul>
+                  </div>
+                </div>
+                <div class="d-flex flex-wrap gap-2 mt-2">
+                  <a class="btn btn-outline-primary" :href="link('screens/job-wizard.html?praca=' + j.id)"><i class="bi bi-pencil" aria-hidden="true"></i> Zmień pracę</a>
+                  <button type="button" class="btn btn-outline-danger" @click="askDeleteJob(j)"><i class="bi bi-trash" aria-hidden="true"></i> Usuń pracę</button>
+                </div>
+              </div>
+            </li>
+          </template>
+          <li x-show="!s.jobs.length" class="border-top pt-2">Brak prac w tym etapie. Dodaj pierwszą pracę powyżej.</li>
+        </ul>
+      </details>
+    </template>
+    <p x-show="!stages.length">Brak etapów. Dodaj pierwszy etap powyżej.</p>
+  </div></main>
+  <script type="module">
+    import { start, catalogue, DATA_NAV, materialUnit, state, persist, resetCatalogueCache, nextId, jobInUse, saveCatalogueJob, link, kit } from '../assets/app.js';
+    const _p = new URLSearchParams(location.search);
+    start(() => ({
+      DATA_NAV, materialUnit, kit,
+      stages: catalogue(), filter: '', newStage: '', stageFormOpen: false,
+      openStage: Number(_p.get('etap')) || null, openJob: Number(_p.get('praca')) || null,
+      init() { if (this.openJob) this.$nextTick(() => document.getElementById('job-' + this.openJob)?.scrollIntoView({ block: 'center' })); },
+      get shownStages() {
+        const _f = this.filter.trim().toLowerCase();
+        if (!_f) return this.stages;
+        return this.stages.map((s) => ({ ...s, jobs: s.jobs.filter((j) => j.name.toLowerCase().includes(_f)) })).filter((s) => s.jobs.length);
+      },
+      reload() { resetCatalogueCache(); this.stages = catalogue(); },
+      addStage() {
+        if (!this.newStage.trim()) { this.$store.alert.msg = 'Nazwa nie może być pusta'; return; }
+        state.newStages.push({ id: nextId(), name: this.newStage.trim() }); persist(); this.reload();
+        this.$store.toast.show(`Etap '${this.newStage.trim()}' został dodany.`); this.newStage = ''; this.stageFormOpen = false;
+      },
+      askDeleteStage(s) {
+        this.$store.confirm.ask({ title: `Usunąć etap '${s.name}'? Etapu z pracami nie da się usunąć.`, lines: ['Etap zniknie z cennika.'], ok: 'Usuń etap', variant: 'danger',
+          run: () => {
+            if (s.jobs.length) { this.$store.alert.msg = 'Nie można usunąć, gdyż istnieją zależne od niego prace'; return; }
+            state.newStages = state.newStages.filter((x) => x.id !== s.id); persist(); this.reload(); this.$store.toast.show(`Etap '${s.name}' został usunięty.`);
+          } });
+      },
+      askDeleteJob(j) {
+        this.$store.confirm.ask({ title: `Usunąć pracę '${j.name}'?`, lines: ['Praca zniknie z cennika. Pracy użytej w wycenach lub realizacjach nie da się usunąć.'], ok: 'Usuń pracę', variant: 'danger',
+          run: () => {
+            if (jobInUse(j.id)) { this.$store.alert.msg = 'Nie można usunąć, gdyż istnieją zależne od niej prace w wycenach i realizacjach'; return; }
+            const { stage, ...rest } = j; saveCatalogueJob({ ...rest, deleted: true }); this.reload(); this.$store.toast.show(`Praca '${j.name}' została usunięta.`);
+          } });
+      },
+      preview(s) {
+        const _v = document.getElementById('pct-' + s.id).value;
+        location.href = link(`screens/price-change.html?scope=stage&id=${s.id}&percent=${encodeURIComponent(_v)}`);
+      },
+    }));
+  </script>
+</body>
+</html>

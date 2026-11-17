@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Postęp prac — IKPM</title>
+  <link rel="stylesheet" href="../assets/bootstrap/bootstrap.min.css">
+  <link rel="stylesheet" href="../assets/bootstrap-icons/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="../assets/app.css">
+</head>
+<body data-section="public">
+  <!-- Strona klienta /r/:token — tylko statusy, komentarze, postęp, zdjęcia widoczne dla klienta; bez cen i notatek wewnętrznych. -->
+  <header class="public-bar"><div class="container-xxl"><strong class="fs-4">IKPM</strong></div></header>
+  <main id="main"><div id="app" class="container-xxl" x-data="page" x-cloak style="max-width: 960px">
+    <template x-if="r">
+      <div>
+        <h1 class="page-title mb-1">Postęp prac</h1>
+        <p class="lead-line mb-3">dla <span x-text="r.client.name"></span></p>
+        <div class="row g-3">
+          <div class="col-md-6"><div class="list-card h-100">
+            <h2 class="h6">Status realizacji</h2>
+            <p x-html="badge('realization', r.status)"></p>
+            <h2 class="h6">Postęp prac</h2>
+            <p class="mb-1" x-text="`${prog.pct}% (${prog.done} / ${prog.all})`"></p>
+            <div class="progress" role="progressbar" aria-label="Postęp prac" aria-valuemin="0" aria-valuemax="100" :aria-valuenow="prog.pct"><div class="progress-bar bg-success" :style="`width: ${prog.pct}%`"></div></div>
+          </div></div>
+          <div class="col-md-6"><div class="list-card h-100">
+            <template x-if="r.site_address"><div><h2 class="h6">Adres inwestycji</h2><p x-text="r.site_address"></p></div></template>
+            <template x-if="endText"><div><h2 class="h6">Termin zakończenia</h2><p class="mb-2" x-text="endText"></p></div></template>
+            <p class="mb-0" x-text="from"></p>
+          </div></div>
+        </div>
+        <template x-for="room in r.rooms" :key="room.id">
+          <section class="list-card mt-3" :aria-labelledby="'room-' + room.id">
+            <h2 class="h5" :id="'room-' + room.id" x-text="room.name"></h2>
+            <table class="table stack-table mb-0">
+              <thead><tr><th scope="col">Praca</th><th scope="col">Etap</th><th scope="col">Status</th><th scope="col">Komentarz</th></tr></thead>
+              <tbody>
+                <template x-for="job in sorted(room.jobs)" :key="job.id">
+                  <tr><td class="lead-cell" x-text="job.name"></td><td data-label="Etap" x-text="job.stage"></td>
+                    <td data-label="Status" x-html="badge('job', job.status)"></td><td data-label="Komentarz" x-text="job.notes || '—'"></td></tr>
+                </template>
+                <tr x-show="!room.jobs.length"><td colspan="4">(brak prac w tym pomieszczeniu)</td></tr>
+              </tbody>
+            </table>
+          </section>
+        </template>
+        <section class="mt-4" aria-labelledby="h-photos" x-show="groups.length">
+          <h2 class="h4" id="h-photos">Zdjęcia</h2>
+          <template x-for="g in groups" :key="g.name">
+            <div class="mb-3"><h3 class="h6" x-text="g.name"></h3>
+              <div class="photo-grid">
+                <template x-for="ph in g.photos" :key="ph.filename + ph.i">
+                  <div class="photo-card">
+                    <template x-if="ph.src"><img class="photo-thumb" :src="ph.src" :alt="'Zdjęcie ' + ph.filename"></template>
+                    <template x-if="!ph.src"><div class="photo-thumb" role="img" :aria-label="'Zdjęcie ' + ph.filename"><i class="bi bi-image" aria-hidden="true"></i><span x-text="ph.filename"></span></div></template>
+                  </div>
+                </template>
+              </div></div>
+          </template>
+        </section>
+      </div>
+    </template>
+  </div></main>
+  <footer class="app-footer"><div class="container-xxl">Wygenerowane przez system IKPM.</div></footer>
+  <script type="module">
+    import { start, getRealization, progress, sortJobs, endDateText, getQuote, sender } from '../assets/app.js';
+    const _r = getRealization(new URLSearchParams(location.search).get('id') ?? 1);
+    if (!_r || _r.deleted) location.replace('error-404.html');
+    const _q = _r?.quote_id ? getQuote(_r.quote_id) : null;
+    const _from = _q && sender(_q);
+    start(() => ({
+      r: _r, sorted: sortJobs, prog: _r && progress(_r), endText: _r && endDateText(_r),
+      from: _from ? `${_from.display_name}, ${_from.email}` : 'Zespół IKPM',
+      get groups() {
+        const _vis = (this.r.photos ?? []).map((p, i) => ({ ...p, i })).filter((p) => p.client_visible);
+        return [{ name: 'Ogólne', photos: _vis.filter((p) => !p.room) }, ...this.r.rooms.map((rm) => ({ name: rm.name, photos: _vis.filter((p) => p.room === rm.name) }))].filter((g) => g.photos.length);
+      },
+    }));
+  </script>
+</body>
+</html>

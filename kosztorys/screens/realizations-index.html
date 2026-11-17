@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Realizacje — IKPM</title>
+<link rel="stylesheet" href="../assets/bootstrap/bootstrap.min.css">
+<link rel="stylesheet" href="../assets/bootstrap-icons/bootstrap-icons.min.css">
+<link rel="stylesheet" href="../assets/app.css">
+</head>
+<body data-nav="realizations">
+<div id="nav"></div>
+<main x-data="page" x-cloak class="container-xxl px-3 mw-doc pb-5">
+  <div id="alerts"></div>
+  <h1 class="h3 my-3">Realizacje</h1>
+  <p class="text-body-secondary" x-show="!list.length">Brak realizacji — przekształć zaakceptowaną wycenę na jej stronie (przycisk „Przekształć w realizację").</p>
+  <div class="card" x-show="list.length">
+    <table class="table doc-table reflow reflow-lg mb-0">
+      <caption class="visually-hidden">Lista realizacji, najnowsze pierwsze</caption>
+      <thead class="table-light"><tr><th scope="col">Klient</th><th scope="col">Status</th><th scope="col" class="text-end">Wartość (z wyceny)</th><th scope="col" class="text-end">Koszt</th><th scope="col" style="min-width: 8rem">Postęp</th><th scope="col">Termin</th><th scope="col">Wycena</th><th scope="col"><span class="visually-hidden">Akcje</span></th></tr></thead>
+      <tbody>
+        <template x-for="r in list" :key="r.id">
+          <tr>
+            <td data-label="Klient" class="reflow-full"><strong x-text="'#' + r.id + ' ' + r.client.name"></strong><small class="d-block text-body-secondary" x-text="r.site_address"></small></td>
+            <td data-label="Status" x-html="ik.realBadge(r.status)"></td>
+            <td data-label="Wartość (z wyceny)" class="num" x-text="ik.pln(r.total_price)"></td>
+            <td data-label="Koszt" class="num" x-text="ik.pln(ik.realCost(r))"></td>
+            <td data-label="Postęp"><div class="d-flex align-items-center gap-2 w-100"><div class="progress flex-grow-1" role="progressbar" :aria-label="'Postęp prac #' + r.id" :aria-valuenow="ik.progress(r)" aria-valuemin="0" aria-valuemax="100"><div class="progress-bar bg-success" :style="'width:' + ik.progress(r) + '%'"></div></div><span class="small num" x-text="ik.progress(r) + '%'"></span></div></td>
+            <td data-label="Termin"><span x-text="r.status === 'cancelled' ? '—' : ik.date(ik.endOn(r))"></span><small class="d-block text-danger" x-show="ik.delayed(r)" x-text="'obiecany ' + ik.date(r.promised_end_on)"></small></td>
+            <td data-label="Wycena"><template x-if="r.quote_id"><a class="tap" :href="ik.href('screens/quote-show.html?id=' + r.quote_id)" x-text="'#' + r.quote_id"></a></template><template x-if="!r.quote_id"><span>—</span></template></td>
+            <td class="text-end text-nowrap">
+              <a class="btn btn-primary" :href="ik.href('screens/realization-show.html?id=' + r.id)" :aria-label="'Otwórz realizację #' + r.id">Otwórz</a>
+              <template x-if="r.status !== 'done'"><button type="button" class="btn btn-outline-danger" :aria-label="'Usuń realizację #' + r.id" @click="remove(r)"><i class="bi bi-trash" aria-hidden="true"></i></button></template>
+            </td>
+          </tr>
+        </template>
+      </tbody>
+    </table>
+  </div>
+</main>
+<script type="module">
+import { boot, db, save, toast, ask } from '../assets/app.js';
+
+boot(() => ({
+  get list() { return [...db.realizations].sort((a, b) => b.id - a.id); },
+  async remove(r) {
+    if (!(await ask({ title: 'Usuń', text: 'Usunąć realizację wraz z pokojami, pracami i zdjęciami?', points: ['Klient straci stronę postępu prac.', 'Tego nie da się cofnąć.'], ok: 'Usuń realizację', okClass: 'danger' }))) return;
+    db.realizations.splice(db.realizations.indexOf(r), 1); save(); toast('Realizacja usunięta.');
+  },
+}));
+</script>
+</body>
+</html>

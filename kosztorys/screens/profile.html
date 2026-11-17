@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mój profil — IKPM</title>
+<link rel="stylesheet" href="../assets/bootstrap/bootstrap.min.css">
+<link rel="stylesheet" href="../assets/bootstrap-icons/bootstrap-icons.min.css">
+<link rel="stylesheet" href="../assets/app.css">
+</head>
+<body data-nav="profile">
+<div id="nav"></div>
+<main x-data="page" x-cloak class="container px-3 pb-5" style="max-width: 640px">
+  <form class="card my-3" @submit.prevent="submit()" novalidate aria-labelledby="p-title">
+    <div class="card-body">
+      <h1 id="p-title" class="h3">Mój profil</h1>
+      <div class="alert alert-danger" role="alert" x-show="error" x-text="error"></div>
+      <label class="form-label" for="p-first">Imię</label><input id="p-first" class="form-control mb-3" x-model="form.first_name">
+      <label class="form-label" for="p-last">Nazwisko</label><input id="p-last" class="form-control mb-3" x-model="form.last_name">
+      <label class="form-label" for="p-phone">Telefon</label><input id="p-phone" type="tel" class="form-control" placeholder="np. +48 600 000 000" title="Numer telefonu: cyfry, spacje oraz + ( ) -" aria-describedby="p-phone-hint" x-model="form.phone">
+      <p id="p-phone-hint" class="small text-body-secondary">Numer telefonu: cyfry, spacje oraz + ( ) -</p>
+      <label class="form-label" for="p-email">Email</label><input id="p-email" type="email" class="form-control" readonly :value="user.email">
+      <p class="small text-body-secondary mt-1">Aby zmienić email lub hasło, przejdź do <a class="tap" :href="ik.href('screens/account-edit.html')">ustawień konta</a>.</p>
+      <div class="d-flex justify-content-end"><button class="btn btn-primary btn-main">Zapisz</button></div>
+    </div>
+  </form>
+</main>
+<script type="module">
+import { boot, db, save, toast } from '../assets/app.js';
+
+boot(() => ({
+  user: null, form: {}, error: '',
+  init() { this.user = db.users[0]; this.form = { first_name: this.user.first_name, last_name: this.user.last_name, phone: this.user.phone || '' }; },
+  submit() {
+    if (this.form.phone && !/^[0-9 +()-]{7,20}$/.test(this.form.phone)) { this.error = 'Telefon jest nieprawidłowy'; return; }
+    this.error = ''; Object.assign(this.user, this.form);
+    this.user.display_name = [this.user.first_name, this.user.last_name].filter(Boolean).join(' ') || this.user.email;
+    save(); toast('Profil zaktualizowany.');
+  },
+}));
+</script>
+</body>
+</html>

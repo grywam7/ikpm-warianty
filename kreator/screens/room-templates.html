@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Szablony pokoi — IKPM</title>
+  <link rel="stylesheet" href="../assets/bootstrap/bootstrap.min.css">
+  <link rel="stylesheet" href="../assets/bootstrap-icons/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="../assets/app.css">
+</head>
+<body data-section="data">
+  <main id="main"><div id="app" class="container-xxl" x-data="page" x-cloak>
+    <nav aria-label="Dane"><ul class="subnav">
+      <template x-for="n in DATA_NAV" :key="n.key"><li><a class="btn" :class="n.key === 'templates' ? 'btn-primary' : 'btn-outline-primary'" :href="link(n.href)" :aria-current="n.key === 'templates' ? 'page' : null" x-text="n.label"></a></li></template>
+    </ul></nav>
+    <h1 class="page-title mt-0">Szablony pokoi</h1>
+    <button type="button" class="btn btn-primary btn-main mb-3" @click="formOpen = !formOpen" :aria-expanded="formOpen" aria-controls="new-template"><i class="bi bi-plus-lg" aria-hidden="true"></i> Nowy szablon</button>
+    <div class="list-card mb-3" id="new-template" x-show="formOpen">
+      <div class="row g-2 align-items-end">
+        <div class="col-md-6"><label class="form-label" for="t-name">Nazwa szablonu</label><input class="form-control" id="t-name" placeholder="np. Łazienka standardowa" maxlength="100"></div>
+        <div class="col-6 col-md-2"><label class="form-label" for="t-order">Kolejność</label><input class="form-control" id="t-order" type="number" inputmode="decimal" min="0" max="10000" step="1"></div>
+        <div class="col-12"><label class="form-label" for="t-desc">Opis (opcjonalnie)</label><input class="form-control" id="t-desc"></div>
+        <p class="col-12 mb-0">Typowe wymiary (opcjonalnie) — wybór szablonu w oknie pokoju wpisze je w puste pola.</p>
+        <template x-for="[f, l] in Object.entries(kit.labels.dimension)" :key="f">
+          <div class="col-6 col-md-3"><label class="form-label" :for="'t-' + f" x-text="l"></label><input class="form-control" :id="'t-' + f" type="number" inputmode="decimal" step="0.01" min="0" max="1000000"></div>
+        </template>
+        <div class="col-md-3"><button type="button" class="btn btn-primary w-100" @click="add()">Dodaj szablon</button></div>
+      </div>
+    </div>
+    <template x-for="t in list" :key="t.name">
+      <details class="list-card">
+        <summary><span class="flex-grow-1"><strong x-text="t.name"></strong> <span class="small" x-text="t.description ? '· ' + t.description : ''"></span></span>
+          <span class="badge text-bg-light border" title="Liczba prac" x-text="jobsText(t.jobs.length)"></span></summary>
+        <p class="small mt-2 mb-2" x-text="'Typowe wymiary: ' + (dims(t) || '—')"></p>
+        <ul class="list-unstyled mb-2">
+          <template x-for="j in t.jobs" :key="j.name">
+            <li class="border-top py-2 d-flex flex-wrap gap-2 justify-content-between align-items-center">
+              <span class="min-w-0"><span class="badge text-bg-light border" x-text="stageOf(j)"></span> <span x-text="j.name"></span> <span class="small" x-text="'(' + j.unit + ')'"></span></span>
+              <span class="small" x-text="j.area_type === 'manual' ? 'Ilość: ' + dec(j.quantity ?? 1) : j.area_type_label"></span>
+            </li>
+          </template>
+          <li x-show="!t.jobs.length">Brak prac w szablonie. Dodaj prace poniżej.</li>
+        </ul>
+        <button type="button" class="btn btn-outline-danger" @click="askDelete(t)"><i class="bi bi-trash" aria-hidden="true"></i> Usuń szablon</button>
+      </details>
+    </template>
+    <p x-show="!list.length">Brak szablonów. Dodaj pierwszy szablon klikając przycisk powyżej.</p>
+  </div></main>
+  <script type="module">
+    import { start, templates, jobByName, roomSize, DATA_NAV, kit } from '../assets/app.js';
+    start(() => ({
+      DATA_NAV, kit, formOpen: false, list: templates(),
+      dims: (t) => roomSize(t), stageOf: (j) => jobByName(j.name)?.stage ?? '',
+      add() { const _n = document.getElementById('t-name').value.trim(); if (!_n) { this.$store.alert.msg = 'Nazwa nie może być pusta'; return; }
+        if (this.list.some((t) => t.name.toLowerCase() === _n.toLowerCase())) { this.$store.alert.msg = 'Szablon o tej nazwie już istnieje — zmień nazwę'; return; }
+        this.formOpen = false; this.$store.toast.show(`Szablon '${_n}' został utworzony.`); },
+      askDelete(t) { this.$store.confirm.ask({ title: `Usunąć szablon '${t.name}'?`, lines: ['Pokoje już utworzone z szablonu zostają bez zmian.'], ok: 'Usuń', variant: 'danger', run: () => { this.list = this.list.filter((x) => x !== t); this.$store.toast.show(`Szablon '${t.name}' został usunięty.`); } }); },
+    }));
+  </script>
+</body>
+</html>

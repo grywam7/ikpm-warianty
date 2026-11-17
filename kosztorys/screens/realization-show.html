@@ -1,0 +1,429 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Realizacja — IKPM</title>
+<link rel="stylesheet" href="../assets/bootstrap/bootstrap.min.css">
+<link rel="stylesheet" href="../assets/bootstrap-icons/bootstrap-icons.min.css">
+<link rel="stylesheet" href="../assets/app.css">
+<style>
+  .job-line { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 31rem) 10rem 8.5rem; gap: .5rem 1rem; align-items: center; }
+  @media (max-width: 1199.98px) { .job-line { grid-template-columns: minmax(0, 1fr) 9.5rem 8rem; } .job-line .status-seg { grid-column: 1 / -1; } }
+  .file-hidden { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; }
+  label.btn:focus-within { outline: 2px solid var(--bs-primary); outline-offset: 2px; }
+  /* Telefon: przyklejony nagłówek pokoju w dwóch wierszach — nazwa, pod nią dwa przyciski obok siebie. */
+  @media (max-width: 767.98px) {
+    .doc-room-head h2 { flex: 1 1 calc(100% - 4rem); }
+    .doc-room-head .room-act { flex: 1 1 0; min-width: 0; align-self: stretch; white-space: normal; line-height: 1.2; }
+  }
+</style>
+</head>
+<body data-nav="realizations">
+<div id="nav"></div>
+<main x-data="page" x-cloak class="container-xxl px-3 mw-doc pb-5">
+<template x-if="r">
+<div>
+  <div id="alerts"></div>
+  <!-- Metryczka realizacji -->
+  <section class="card my-3" aria-labelledby="doc-title">
+    <div class="card-body">
+      <div class="d-flex flex-wrap align-items-center gap-2">
+        <h1 id="doc-title" class="h3 mb-0 me-auto">Realizacja #<span x-text="r.id"></span> <span class="fs-6 align-middle" x-html="ik.realBadge(r.status)"></span></h1>
+        <div id="realization-actions" class="d-flex flex-wrap align-items-center gap-2">
+          <template x-if="r.status === 'planned'"><button type="button" class="btn btn-primary btn-main" @click="start()"><i class="bi bi-play-fill" aria-hidden="true"></i> Rozpocznij</button></template>
+          <template x-if="r.status === 'in_progress' && unfinished === 0"><button type="button" class="btn btn-success btn-main" @click="finish()"><i class="bi bi-flag-fill" aria-hidden="true"></i> Zakończ</button></template>
+          <template x-if="r.status === 'in_progress' && unfinished > 0">
+            <span class="d-inline-flex flex-wrap align-items-center gap-2"><button type="button" class="btn btn-success btn-main" disabled aria-describedby="finish-hint"><i class="bi bi-flag-fill" aria-hidden="true"></i> Zakończ</button><small id="finish-hint" class="text-body-secondary" x-text="ik.unfinished(unfinished)"></small></span>
+          </template>
+          <template x-if="ik.realActive(r)"><button type="button" class="btn btn-outline-danger btn-main" @click="cancel()"><i class="bi bi-x-octagon" aria-hidden="true"></i> Anuluj</button></template>
+          <template x-if="!ik.realActive(r)"><span class="text-body-secondary small">(status terminalny)</span></template>
+          <button type="button" class="btn btn-outline-primary btn-main" @click="sendLink()"><i class="bi bi-envelope" aria-hidden="true"></i> Wyślij link</button>
+          <template x-if="r.status !== 'done'"><button type="button" class="btn btn-outline-danger btn-main" @click="destroy()"><i class="bi bi-trash" aria-hidden="true"></i> Usuń</button></template>
+        </div>
+      </div>
+      <div class="row g-3 mt-1">
+        <div class="col-12 col-md-6">
+          <dl class="row mb-0">
+            <dt class="col-5 col-lg-4 fw-normal text-body-secondary">Klient</dt><dd class="col-7 col-lg-8 mb-1"><a class="tap" :href="clientHref" x-text="r.client.name"></a></dd>
+            <template x-if="r.quote_id"><dt class="col-5 col-lg-4 fw-normal text-body-secondary">z wyceny</dt></template>
+            <template x-if="r.quote_id"><dd class="col-7 col-lg-8 mb-1"><a class="tap" :href="ik.href('screens/quote-show.html?id=' + r.quote_id)" x-text="'#' + r.quote_id"></a></dd></template>
+            <dt class="col-5 col-lg-4 fw-normal text-body-secondary">Publiczny link dla klienta:</dt>
+            <dd class="col-7 col-lg-8 mb-1"><a class="tap text-break" :href="ik.href('screens/public-realization.html?id=' + r.id)" target="_blank" rel="noopener" x-text="'/r/ — postęp prac #' + r.id"></a> <small x-show="r.link_valid_until" x-text="r.link_valid_until < ik.todayISO() ? '(wygasł ' + ik.date(r.link_valid_until) + ' — „Wyślij link” odnowi go na 30 dni)' : '(ważny do ' + ik.date(r.link_valid_until) + ')'"></small></dd>
+          </dl>
+          <template x-if="ik.realActive(r)">
+            <div class="d-flex flex-wrap align-items-center gap-2 mt-2">
+              <label for="settlement" class="fw-semibold">Rozliczenie:</label>
+              <select id="settlement" class="form-select w-auto" @change="r.settlement = $event.target.value; save(); toast('Realizacja zaktualizowana.')">
+                <template x-for="[k, label] in Object.entries(ik.labels().settlement)" :key="k"><option :value="k" :selected="r.settlement === k" x-text="label"></option></template>
+              </select>
+            </div>
+          </template>
+          <p class="mb-0 mt-2" x-show="!ik.realActive(r)"><span class="fw-semibold">Rozliczenie:</span> <span x-text="ik.labels().settlement[r.settlement]"></span></p>
+        </div>
+        <div class="col-12 col-md-6">
+          <div class="d-flex justify-content-between"><span class="fw-semibold">Postęp prac</span><span class="num" x-text="ik.progress(r) + '% (' + ik.doneCount(r) + ' / ' + ik.realJobs(r).length + ')'"></span></div>
+          <div class="progress mt-1" role="progressbar" aria-label="Postęp prac" :aria-valuenow="ik.progress(r)" aria-valuemin="0" aria-valuemax="100"><div class="progress-bar bg-success" :style="'width:' + ik.progress(r) + '%'"></div></div>
+        </div>
+      </div>
+      <dl class="row mt-3 mb-0 small">
+        <dt class="col-6 col-md-3 fw-normal text-body-secondary">Adres inwestycji</dt><dd class="col-6 col-md-3" x-text="r.site_address || '—'"></dd>
+        <dt class="col-6 col-md-3 fw-normal text-body-secondary">Planowany start</dt><dd class="col-6 col-md-3" x-text="ik.date(r.planned_start_on)"></dd>
+        <dt class="col-6 col-md-3 fw-normal text-body-secondary">Termin obiecany</dt><dd class="col-6 col-md-3" x-text="ik.date(r.promised_end_on)"></dd>
+        <template x-if="r.status === 'done'"><dt class="col-6 col-md-3 fw-normal text-body-secondary">Data zakończenia</dt></template>
+        <template x-if="r.status === 'done'"><dd class="col-6 col-md-3" x-text="ik.date(ik.endOn(r))"></dd></template>
+        <template x-if="r.status !== 'done'"><dt class="col-6 col-md-3 fw-normal text-body-secondary"><label for="expected">Aktualnie przewidywany</label></dt></template>
+        <template x-if="r.status !== 'done'"><dd class="col-6 col-md-3">
+          <template x-if="ik.realActive(r)"><form class="d-flex flex-wrap gap-2" @submit.prevent="saveExpected()"><input id="expected" type="date" class="form-control w-auto" min="2000-01-01" max="2099-12-31" x-model="expected"><button class="btn btn-outline-primary">Zapisz</button></form></template>
+          <template x-if="!ik.realActive(r)"><span x-text="ik.date(ik.currentEnd(r))"></span></template>
+        </dd></template>
+      </dl>
+      <div id="realization-costs" class="row g-2 mt-2 text-center">
+        <div class="col-12 col-sm-4"><div class="border rounded p-2"><div class="small text-body-secondary">Wartość netto (z wyceny)</div><strong class="num" x-text="ik.pln(r.total_price)"></strong></div></div>
+        <div class="col-6 col-sm-4"><div class="border rounded p-2"><div class="small text-body-secondary">Koszt (faktyczny)</div><strong class="num" x-text="ik.pln(ik.realCost(r))"></strong></div></div>
+        <div class="col-6 col-sm-4"><div class="border rounded p-2"><div class="small text-body-secondary">Koszt z wyceny</div><strong class="num" x-text="ik.pln(r.estimated_cost)"></strong></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Hurtem: etap -->
+  <template x-if="ik.realActive(r)">
+    <details class="card mb-3">
+    <summary class="card-header bg-body tap fw-semibold">Ustaw status wszystkim pracom etapu</summary>
+    <form @submit.prevent="bulkStage()" aria-label="Ustaw status wszystkim pracom etapu">
+      <div class="card-body row g-2 align-items-end">
+        <div class="col-12 col-md-5"><label class="form-label small mb-1" for="bulk-stage">Etap</label>
+          <select id="bulk-stage" class="form-select" x-model="bulk.stage" required><option value="">Wybierz etap</option><template x-for="s in stages" :key="s"><option :value="s" x-text="s"></option></template></select></div>
+        <div class="col-12 col-md-4"><label class="form-label small mb-1" for="bulk-status">Status</label>
+          <select id="bulk-status" class="form-select" x-model="bulk.status" required><option value="">Wybierz status</option><template x-for="[k, label] in Object.entries(ik.labels().realization_job_status)" :key="k"><option :value="k" x-text="label"></option></template></select></div>
+        <div class="col-12 col-md-3"><button class="btn btn-outline-primary btn-main w-100">Zastosuj</button></div>
+      </div>
+    </form>
+    </details>
+  </template>
+
+  <!-- Filtr listy kontrolnej -->
+  <div class="chip-row mb-3" role="group" aria-label="Pokaż prace">
+    <template x-for="f in filters" :key="f.key">
+      <button type="button" class="btn rounded-pill" :class="filter === f.key ? 'btn-dark' : 'btn-outline-dark'" :aria-pressed="(filter === f.key).toString()" @click="filter = f.key">
+        <i class="bi" :class="f.icon" aria-hidden="true"></i> <span x-text="f.label"></span> <span class="badge rounded-pill" :class="filter === f.key ? 'text-bg-light' : 'text-bg-secondary'" x-text="f.count"></span>
+      </button>
+    </template>
+  </div>
+
+  <nav class="chip-row mb-3" aria-label="Pokoje realizacji">
+    <template x-for="room in r.rooms" :key="room.id">
+      <a class="btn btn-outline-secondary" :href="'#room-' + room.id"><i class="bi bi-door-open" aria-hidden="true"></i> <span x-text="room.name"></span> <small class="num" x-text="room.jobs.filter(j => j.status === 'done').length + '/' + room.jobs.length"></small></a>
+    </template>
+  </nav>
+  <!-- Pokoje: lista kontrolna -->
+  <template x-for="room in r.rooms" :key="room.id">
+    <section class="doc-room card mb-3" :id="'room-' + room.id" :aria-labelledby="'rt-' + room.id" x-show="filter === 'all' || visible(room).length">
+      <div class="doc-room-head card-header bg-body d-flex flex-wrap align-items-center gap-2 py-2">
+        <button type="button" class="btn btn-outline-secondary" :aria-expanded="(!closed[room.id]).toString()" :aria-controls="'rb-' + room.id" @click="closed[room.id] = !closed[room.id]" :aria-label="(closed[room.id] ? 'Rozwiń pokój ' : 'Zwiń pokój ') + room.name"><i class="bi" :class="closed[room.id] ? 'bi-chevron-right' : 'bi-chevron-down'" aria-hidden="true"></i></button>
+        <h2 class="h5 mb-0 me-auto min-w-0"><span :id="'rt-' + room.id" x-text="room.name"></span>
+          <small class="d-block fw-normal text-body-secondary"><span x-text="'Zrobione: ' + room.jobs.filter(j => j.status === 'done').length + ' / ' + room.jobs.length"></span><span x-show="room.jobs.some(j => j.status === 'remake')" x-text="' · Do poprawy: ' + room.jobs.filter(j => j.status === 'remake').length"></span></small></h2>
+        <template x-if="ik.realActive(r)">
+          <form class="d-none d-md-flex gap-2" @submit.prevent="bulkRoom(room, $event.target.elements.status.value)">
+            <select name="status" class="form-select w-auto" required :aria-label="'Status wszystkich prac: ' + room.name"><option value="">Status wszystkich prac</option><template x-for="[k, label] in Object.entries(ik.labels().realization_job_status)" :key="k"><option :value="k" x-text="label"></option></template></select>
+            <button class="btn btn-outline-primary btn-main">Zastosuj</button>
+          </form>
+        </template>
+        <template x-if="ik.realActive(r)"><button type="button" class="btn btn-outline-primary btn-main room-act d-md-none" @click="openBulk(room)"><i class="bi bi-ui-checks" aria-hidden="true"></i> Status wszystkich prac</button></template>
+        <label class="btn btn-outline-secondary mb-0 position-relative room-act"><i class="bi bi-camera" aria-hidden="true"></i> Dodaj zdjęcia<input type="file" class="file-hidden" multiple accept="image/jpeg,image/png,image/webp" @change="addPhotos($event.target, room.name)"></label>
+      </div>
+      <div :id="'rb-' + room.id" x-show="!closed[room.id]">
+        <p class="px-3 pt-2 mb-0 small" x-show="room.notes"><strong>Notatka:</strong> <span x-text="room.notes"></span></p>
+        <p class="px-3 py-2 mb-0 text-body-secondary" x-show="!room.jobs.length">(brak prac w tym pomieszczeniu)</p>
+        <ul class="list-group list-group-flush">
+          <template x-for="j in visible(room)" :key="j.id">
+            <li class="list-group-item" :id="'job-' + j.id">
+              <!-- telefon: wiersz otwiera okno dolne -->
+              <button type="button" class="btn w-100 text-start d-md-none p-0 border-0 d-flex gap-2 align-items-start" @click="openJob(j, room)">
+                <span class="flex-grow-1 min-w-0">
+                  <span class="d-block fw-semibold" x-text="j.name"></span>
+                  <small class="d-block text-body-secondary" x-text="ik.dec(j.quantity) + ' ' + j.unit + ' · ' + (j.contractor || '—')"></small>
+                  <span x-html="ik.jobBadge(j.status)"></span>
+                  <small class="d-block mt-1" x-show="j.notes"><i class="bi bi-eye" aria-hidden="true"></i> <span x-text="j.notes"></span></small>
+                  <small class="d-block text-body-secondary" x-show="j.internal_notes"><i class="bi bi-lock" aria-hidden="true"></i> <span x-text="j.internal_notes"></span></small>
+                </span>
+                <i class="bi bi-chevron-right mt-1" aria-hidden="true"></i>
+              </button>
+              <!-- od 768 px: wiersz edytowany w miejscu -->
+              <div class="d-none d-md-block">
+                <div class="job-line">
+                  <div class="min-w-0"><span class="fw-semibold" x-text="j.name"></span>
+                    <small class="d-block text-body-secondary" x-text="j.unit + ' · ' + j.stage + ' · ' + ik.dec(j.quantity) + ' ' + j.unit + ' · ' + (j.contractor || '—')"></small></div>
+                  <div class="status-seg" role="group" :aria-label="'Status: ' + j.name">
+                    <template x-for="[k, label] in statusList" :key="k">
+                      <button type="button" class="btn" :class="j.status === k ? 'btn-' + ik.jobStatus[k][0] : 'btn-outline-secondary'" :aria-pressed="(j.status === k).toString()" :disabled="!ik.realActive(r)" @click="setStatus(j, k)"><i class="bi" :class="'bi-' + ik.jobStatus[k][1] + (j.status === k ? '' : ' text-' + ik.jobStatus[k][0])" aria-hidden="true"></i><span x-text="label"></span></button>
+                    </template>
+                  </div>
+                  <div>
+                    <template x-if="ik.realActive(r)"><div><label class="small text-body-secondary d-block" :for="'rate-' + j.id">Stawka faktyczna /j.</label><div class="input-group"><input type="number" inputmode="decimal" step="any" min="0" class="form-control text-end" :id="'rate-' + j.id" :placeholder="ik.measure(ik.laborUnitCost(j))" :value="j.actual_contractor_price === null ? '' : Number(j.actual_contractor_price)" @change="setRate(j, $event.target)"><span class="input-group-text">zł</span></div></div></template>
+                    <template x-if="!ik.realActive(r)"><div class="small"><span class="text-body-secondary d-block">Stawka faktyczna /j.</span><span class="num" x-text="ik.pln(j.actual_contractor_price ?? ik.laborUnitCost(j))"></span></div></template>
+                  </div>
+                  <div class="text-end num"><span class="small text-body-secondary d-block">Wartość</span><strong x-text="ik.pln(j.total_price)"></strong></div>
+                </div>
+                <div class="row g-2 mt-1">
+                  <div class="col-md-6"><label class="small fw-semibold" :for="'c-' + j.id"><i class="bi bi-eye" aria-hidden="true"></i> Komentarz (widzi klient)</label><input type="text" class="form-control" :id="'c-' + j.id" :value="j.notes || ''" :aria-label="'Komentarz (widzi klient): ' + j.name" @change="setText(j, 'notes', $event.target.value)"></div>
+                  <div class="col-md-6"><label class="small fw-semibold" :for="'n-' + j.id"><i class="bi bi-lock" aria-hidden="true"></i> Notatka wewnętrzna (tylko firma)</label><input type="text" class="form-control" :id="'n-' + j.id" :value="j.internal_notes || ''" :aria-label="'Notatka wewnętrzna (tylko firma): ' + j.name" @change="setText(j, 'internal_notes', $event.target.value)"></div>
+                </div>
+              </div>
+            </li>
+          </template>
+        </ul>
+        <!-- zdjęcia pokoju -->
+        <div class="px-3 py-3 border-top" x-show="photosIn(room.name).length">
+          <h3 class="h6">Zdjęcia: <span x-text="room.name"></span></h3>
+          <div class="row g-2"><template x-for="p in photosIn(room.name)" :key="p.id"><div class="col-6 col-md-4 col-xl-3" x-init="$el.replaceChildren(photoCard(p))"></div></template></div>
+        </div>
+      </div>
+    </section>
+  </template>
+
+  <!-- Zdjęcia: formularz i zdjęcia ogólne -->
+  <section id="zdjecia" class="card mb-3" aria-labelledby="photos-title">
+    <div class="card-body">
+      <h2 id="photos-title" class="h5">Zdjęcia</h2>
+      <form class="row g-2 align-items-end" @submit.prevent="addPhotos($event.target.querySelector('input[type=file]'), photoRoom)">
+        <div class="col-12 col-md-5"><label class="form-label small mb-1" for="photo-files">Zdjęcia (JPG, PNG, WebP; najwyżej 20 naraz)</label><input id="photo-files" type="file" class="form-control" multiple accept="image/jpeg,image/png,image/webp"></div>
+        <div class="col-12 col-md-4"><label class="form-label small mb-1" for="photo-room">Pokój</label><select id="photo-room" class="form-select" x-model="photoRoom"><option value="">Ogólne (bez pokoju)</option><template x-for="room in r.rooms" :key="room.id"><option :value="room.name" x-text="room.name"></option></template></select></div>
+        <div class="col-12 col-md-3"><button class="btn btn-primary w-100" :disabled="adding" x-text="adding ? 'Dodawanie…' : 'Dodaj zdjęcia'"></button></div>
+      </form>
+      <h3 class="h6 mt-4">Ogólne</h3>
+      <p class="text-body-secondary" x-show="!photosIn(null).length">Brak zdjęć.</p>
+      <div class="row g-2"><template x-for="p in photosIn(null)" :key="p.id"><div class="col-6 col-md-4 col-xl-3" x-init="$el.replaceChildren(photoCard(p))"></div></template></div>
+    </div>
+  </section>
+</div>
+</template>
+
+<!-- Okno dolne: praca -->
+<dialog class="sheet" id="job-sheet" aria-labelledby="js-title" @close="closeSheet()">
+  <template x-if="sheet">
+    <div>
+      <div class="sheet-head px-3 pb-2"><div class="sheet-grip"></div>
+        <div class="d-flex align-items-center gap-2 pt-2"><h2 id="js-title" class="h5 mb-0 me-auto" x-text="sheet.j.name"></h2><button type="button" class="btn btn-primary btn-main" @click="document.getElementById('job-sheet').close()">Gotowe</button></div>
+        <p class="small text-body-secondary mb-0" x-text="sheet.room.name + ' · ' + sheet.j.stage + ' · ' + ik.dec(sheet.j.quantity) + ' ' + sheet.j.unit + ' · ' + (sheet.j.contractor || '—')"></p>
+      </div>
+      <div class="p-3">
+        <p class="fw-semibold mb-1" id="js-status">Status</p>
+        <div class="status-seg mb-3" role="group" aria-labelledby="js-status">
+          <template x-for="[k, label] in statusList" :key="k">
+            <button type="button" class="btn btn-main" :class="sheet.j.status === k ? 'btn-' + ik.jobStatus[k][0] : 'btn-outline-secondary'" :aria-pressed="(sheet.j.status === k).toString()" :disabled="!ik.realActive(r)" @click="setStatus(sheet.j, k)"><i class="bi" :class="'bi-' + ik.jobStatus[k][1] + (sheet.j.status === k ? '' : ' text-' + ik.jobStatus[k][0])" aria-hidden="true"></i><span x-text="label"></span></button>
+          </template>
+        </div>
+        <p class="small text-body-secondary" x-show="!ik.realActive(r)">Status nie może się zmienić po zakończeniu lub anulowaniu realizacji</p>
+        <label class="form-label fw-semibold" for="js-comment"><i class="bi bi-eye" aria-hidden="true"></i> Komentarz (widzi klient)</label>
+        <textarea id="js-comment" class="form-control mb-3" rows="2" :value="sheet.j.notes || ''" @change="setText(sheet.j, 'notes', $event.target.value)"></textarea>
+        <label class="form-label fw-semibold" for="js-note"><i class="bi bi-lock" aria-hidden="true"></i> Notatka wewnętrzna (tylko firma)</label>
+        <textarea id="js-note" class="form-control mb-3" rows="2" :value="sheet.j.internal_notes || ''" @change="setText(sheet.j, 'internal_notes', $event.target.value)"></textarea>
+        <template x-if="ik.realActive(r)"><div><label class="form-label fw-semibold" for="js-rate">Stawka faktyczna /j.</label><div class="input-group"><input id="js-rate" type="number" inputmode="decimal" step="any" min="0" class="form-control text-end" :placeholder="ik.measure(ik.laborUnitCost(sheet.j))" :value="sheet.j.actual_contractor_price === null ? '' : Number(sheet.j.actual_contractor_price)" @change="setRate(sheet.j, $event.target)"><span class="input-group-text">zł</span></div></div></template>
+        <template x-if="!ik.realActive(r)"><p class="mb-0">Stawka faktyczna /j.: <span x-text="ik.pln(sheet.j.actual_contractor_price ?? ik.laborUnitCost(sheet.j))"></span></p></template>
+        <p class="mt-3 mb-0 d-flex justify-content-between"><span>Wartość</span><strong class="num" x-text="ik.pln(sheet.j.total_price)"></strong></p>
+      </div>
+    </div>
+  </template>
+</dialog>
+
+<!-- Okno dolne: status wszystkich prac pokoju -->
+<dialog class="sheet" id="bulk-sheet" aria-labelledby="bs-title" @close="bulkTarget = null">
+  <template x-if="bulkTarget">
+    <div>
+      <div class="sheet-head px-3 pb-2"><div class="sheet-grip"></div><div class="d-flex align-items-center gap-2 pt-2"><h2 id="bs-title" class="h5 mb-0 me-auto">Status wszystkich prac: <span x-text="bulkTarget.name"></span></h2><button type="button" class="btn btn-outline-secondary" @click="document.getElementById('bulk-sheet').close()">Wróć</button></div></div>
+      <div class="p-3">
+        <p class="small text-body-secondary">„Zrobione” pomija prace „Do poprawy” — sprawdza się je pojedynczo.</p>
+        <div class="status-seg">
+          <template x-for="[k, label] in statusList" :key="k">
+            <button type="button" class="btn btn-main btn-outline-secondary" @click="const room = bulkTarget; document.getElementById('bulk-sheet').close(); bulkRoom(room, k)"><i class="bi" :class="'bi-' + ik.jobStatus[k][1] + ' text-' + ik.jobStatus[k][0]" aria-hidden="true"></i><span x-text="label"></span></button>
+          </template>
+        </div>
+      </div>
+    </div>
+  </template>
+</dialog>
+
+<dialog class="sheet" id="photo-view" aria-label="Zdjęcie" @click="document.getElementById('photo-view').close()">
+  <div class="p-2 text-end"><button type="button" class="btn btn-outline-secondary">Zamknij</button></div>
+  <img x-show="bigPhoto" :src="bigPhoto ? bigPhoto.src : ''" :alt="bigPhoto ? 'Zdjęcie: ' + bigPhoto.filename : ''" class="w-100">
+</dialog>
+</main>
+<script type="module">
+import { boot, db, save, nextId, go, toast, alertError, ask, idParam } from '../assets/app.js';
+
+const TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+// Zmniejszenie zdjęcia przed zapisem (aplikacja: do 2000 px; prototyp: 1000 px, żeby zmieścić się w pamięci przeglądarki).
+const shrink = (file) => createImageBitmap(file).then((bmp) => {
+  const scale = Math.min(1, 1000 / Math.max(bmp.width, bmp.height));
+  const c = document.createElement('canvas'); c.width = Math.round(bmp.width * scale); c.height = Math.round(bmp.height * scale);
+  c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+  return c.toDataURL('image/jpeg', 0.8);
+});
+const priceRound = (x) => Math.max(1, Math.floor(x + 0.5 + 1e-9));
+
+boot(() => ({
+  r: null, filter: 'all', closed: {}, sheet: null, bulkTarget: null, bulk: { stage: '', status: '' }, expected: '', photoRoom: '', adding: false, bigPhoto: null,
+  init() {
+    const r = db.realizations.find((x) => x.id === idParam(1));
+    if (!r) { location.replace(ik.href('screens/error-404.html')); return; }
+    this.r = r; this.expected = ik.currentEnd(r) || '';
+  },
+  get statusList() { return Object.entries(ik.labels().realization_job_status); },
+  get unfinished() { return ik.realJobs(this.r).filter((j) => j.status !== 'done').length; },
+  get stages() { return [...new Set(ik.sortJobs(ik.realJobs(this.r)).map((j) => j.stage))]; },
+  get clientHref() { const c = ik.clientByName(this.r.client.name); return ik.href(`screens/client-show.html?id=${c ? c.id : ''}`); },
+  get filters() {
+    const jobs = ik.realJobs(this.r);
+    return [
+      { key: 'all', label: 'Wszystkie', icon: 'bi-list-check', count: jobs.length },
+      { key: 'open', label: 'Tylko niezrobione', icon: 'bi-circle', count: jobs.filter((j) => j.status !== 'done').length },
+      { key: 'remake', label: 'Do poprawy', icon: 'bi-exclamation-triangle', count: jobs.filter((j) => j.status === 'remake').length },
+    ];
+  },
+  visible(room) {
+    const jobs = ik.sortJobs(room.jobs);
+    if (this.filter === 'open') return jobs.filter((j) => j.status !== 'done');
+    if (this.filter === 'remake') return jobs.filter((j) => j.status === 'remake');
+    return jobs;
+  },
+  photosIn(roomName) { return this.r.photos.filter((p) => (p.room || null) === roomName); },
+
+  // Prace
+  openJob(j, room) { this.sheet = { j, room }; this.$nextTick(() => { if (!document.getElementById('job-sheet').open) document.getElementById('job-sheet').showModal(); }); },
+  setStatus(j, status) {
+    if (!ik.realActive(this.r) || j.status === status) return;
+    const before = j.status;
+    ik.setJobStatus(j, status); save();
+    toast(`Zapisano pracę „${j.name}”: ${ik.labels().realization_job_status[status]}.`, () => { ik.setJobStatus(j, before); save(); toast(`Przywrócono status „${ik.labels().realization_job_status[before]}”: ${j.name}.`); });
+  },
+  setText(j, field, value) { j[field] = value.trim() || null; save(); toast(`Zapisano pracę „${j.name}”.`); },
+  // Zamknięcie okna (Gotowe, Esc, tło): niezapisany tekst i stawka zapisują się — WebKit nie wysyła change pola usuwanego
+  // razem z oknem. Wartości czytane przed zamknięciem, zapis po usunięciu treści okna.
+  closeSheet() {
+    const j = this.sheet?.j;
+    const val = (id) => document.getElementById(id)?.value;
+    const rate = document.getElementById('js-rate');
+    const typed = { notes: val('js-comment'), internal_notes: val('js-note'), rate: rate && !rate.validity.badInput ? rate.value : undefined };
+    this.sheet = null;
+    if (!j) return;
+    this.$nextTick(() => {
+      ['notes', 'internal_notes'].forEach((field) => { if (typed[field] !== undefined && (typed[field].trim() || null) !== (j[field] ?? null)) this.setText(j, field, typed[field]); });
+      if (typed.rate !== undefined && typed.rate !== (j.actual_contractor_price === null ? '' : String(Number(j.actual_contractor_price)))) this.setRate(j, { value: typed.rate });
+    });
+  },
+  setRate(j, el) {
+    if (el.value === '') { j.actual_contractor_price = null; save(); toast(`Zapisano pracę „${j.name}”.`); return; }
+    const v = ik.parseNumber(el.value);
+    if (Number.isNaN(v) || v <= 0 || v > 1000000) { el.value = j.actual_contractor_price === null ? '' : Number(j.actual_contractor_price); alertError('Stawka faktyczna musi być większa od 0'); return; }
+    j.actual_contractor_price = String(ik.roundHalfUp(v)); save(); toast(`Zapisano pracę „${j.name}”.`);
+  },
+  bulkApply(jobs, status) {
+    let updated = 0; let skipped = 0;
+    jobs.forEach((j) => { if (status === 'done' && j.status === 'remake') { skipped += 1; return; } ik.setJobStatus(j, status); updated += 1; });
+    save();
+    toast(`Zaktualizowano ${ik.jobsAccusative(updated)}${skipped ? `, pominięto ${ik.jobsAccusative(skipped)} „Do poprawy” — sprawdź pojedynczo` : ''}.`);
+  },
+  openBulk(room) { this.bulkTarget = room; this.$nextTick(() => document.getElementById('bulk-sheet').showModal()); },
+  bulkRoom(room, status) { if (status) this.bulkApply(room.jobs, status); },
+  bulkStage() { this.bulkApply(ik.realJobs(this.r).filter((j) => j.stage === this.bulk.stage), this.bulk.status); this.bulk = { stage: '', status: '' }; },
+
+  // Zdjęcia
+  async addPhotos(input, roomName) {
+    const files = [...(input.files || [])];
+    if (!files.length) { alertError('Wybierz co najmniej jedno zdjęcie.'); return; }
+    if (files.length > 20) { alertError('Wybierz najwyżej 20 zdjęć naraz.'); return; }
+    const bad = files.find((f) => !TYPES.includes(f.type));
+    if (bad) { alertError(`Nie dodano zdjęć — ${bad.name.slice(0, 100)}: Zdjęcie ma nieobsługiwany format (dozwolone: JPG, PNG, WebP).`); return; }
+    const big = files.find((f) => f.size > 20 * 1024 * 1024);
+    if (big) { alertError(`Nie dodano zdjęć — ${big.name.slice(0, 100)}: Zdjęcie jest za duże (maks. 20 MB).`); return; }
+    this.adding = true;
+    const added = [];
+    for (const f of files) {
+      try { added.push({ id: nextId('photo'), room: roomName || null, client_visible: false, filename: f.name, content_type: f.type, src: await shrink(f) }); } catch (e) {
+        this.adding = false; alertError(`Nie dodano zdjęć — ${f.name.slice(0, 100)}: nie da się odczytać pliku jako zdjęcia.`); return;
+      }
+    }
+    this.r.photos.push(...added); save(); this.adding = false; input.value = '';
+    toast(`Dodano zdjęcia: ${added.length}.`);
+    this.$nextTick(() => document.getElementById(`photo-${added[0].id}`)?.scrollIntoView({ block: 'center' }));
+  },
+  // Karta zdjęcia budowana w DOM (ten sam wzór w pokoju i w „Ogólne”).
+  photoCard(p) {
+    const el = document.createElement('div');
+    el.className = 'card h-100'; el.id = `photo-${p.id}`;
+    el.innerHTML = `${p.src ? '<button type="button" class="btn p-0 border-0 photo-open"><img class="photo-thumb card-img-top" alt=""></button>' : '<div class="photo-thumb card-img-top" role="img"><i class="bi bi-image" aria-hidden="true"></i></div>'}
+      <div class="card-body p-2"><p class="small text-truncate mb-1 fname"></p>
+      <div class="form-check form-switch mb-1"><input class="form-check-input" type="checkbox" role="switch" id="vis-${p.id}"><label class="form-check-label small" for="vis-${p.id}">Widoczne dla klienta</label></div>
+      <label class="small text-body-secondary" for="room-${p.id}">Pokój</label><select class="form-select mb-1" id="room-${p.id}"></select>
+      <button type="button" class="btn btn-sm btn-outline-danger w-100"><i class="bi bi-trash" aria-hidden="true"></i> Usuń</button></div>`;
+    el.querySelector('.fname').textContent = p.filename;
+    const img = el.querySelector('img'); if (img) { img.src = p.src; img.alt = `Zdjęcie: ${p.filename}`; el.querySelector('.photo-open').addEventListener('click', () => { this.bigPhoto = p; document.getElementById('photo-view').showModal(); }); }
+    const ph = el.querySelector('div.photo-thumb'); if (ph) ph.setAttribute('aria-label', `Zdjęcie: ${p.filename}`);
+    const vis = el.querySelector('input'); vis.checked = p.client_visible;
+    vis.addEventListener('change', () => { p.client_visible = vis.checked; save(); toast('Zapisano zdjęcie.'); });
+    const sel = el.querySelector('select');
+    [['', 'Ogólne (bez pokoju)'], ...this.r.rooms.map((x) => [x.name, x.name])].forEach(([v, t]) => { const o = new Option(t, v, false, (p.room || '') === v); sel.append(o); });
+    sel.addEventListener('change', () => { p.room = sel.value || null; save(); toast('Zapisano zdjęcie.'); });
+    el.querySelector('.btn-outline-danger').setAttribute('aria-label', `Usuń zdjęcie ${p.filename}`);
+    el.querySelector('.btn-outline-danger').addEventListener('click', async () => {
+      if (!(await ask({ title: 'Usuń zdjęcie', text: 'Usunąć zdjęcie?', points: [`„${p.filename}” zniknie z realizacji${p.client_visible ? ' i ze strony postępu prac klienta' : ''}.`, 'Tego nie da się cofnąć.'], ok: 'Usuń zdjęcie', okClass: 'danger' }))) return;
+      this.r.photos.splice(this.r.photos.indexOf(p), 1); save(); toast('Zdjęcie usunięte.');
+    });
+    return el;
+  },
+
+  // Statusy realizacji
+  async start() {
+    if (!(await ask({ title: 'Rozpocznij', text: 'Rozpocząć realizację?', points: ['Status zmieni się na „W trakcie” — klient zobaczy go na stronie postępu prac (/r).'], ok: 'Rozpocznij' }))) return;
+    this.r.status = 'in_progress'; save(); toast('Status realizacji zaktualizowany.');
+  },
+  async finish() {
+    if (this.unfinished) { alertError(`Nie można zakończyć realizacji. ${ik.unfinished(this.unfinished)} — wszystkie prace muszą mieć status „Zrobione”.`); return; }
+    if (!(await ask({ title: 'Zakończ', text: 'Zakończyć realizację?', points: ['Wszystkie prace mają status „Zrobione”.', 'Cennik nauczy się ze stawek faktycznych ekip z tej realizacji.', 'Statusy prac, stawki faktyczne, rozliczenie i przewidywany termin zostaną zablokowane (komentarz i notatka wewnętrzna — dalej do edycji).', 'Przychód trafi do raportów Finanse; zakończonej realizacji nie da się usunąć.'], ok: 'Zakończ', okClass: 'success' }))) return;
+    const changed = this.learn();
+    Object.assign(this.r, { status: 'done', completed_on: ik.todayISO() }); save();
+    toast(`Status realizacji zaktualizowany.${changed.length ? ` Zaktualizowano cennik: ${ik.jobNames(changed)}.` : ''}`);
+  },
+  // Nauka cennika: nowa cena = (cena teraz + stawka faktyczna ważona ilością) / 2, pełne złote, najmniej 1 zł.
+  learn() {
+    const changed = [];
+    const rated = ik.sortJobs(ik.realJobs(this.r)).filter((j) => j.actual_contractor_price !== null && j.actual_contractor_price !== undefined);
+    const byJob = new Map(); rated.forEach((j) => { if (!byJob.has(j.job_id)) byJob.set(j.job_id, []); byJob.get(j.job_id).push(j); });
+    const weighted = (list) => list.reduce((s, j) => s + Number(j.actual_contractor_price) * Number(j.quantity), 0) / list.reduce((s, j) => s + Number(j.quantity), 0);
+    byJob.forEach((list, jobId) => {
+      const cat = ik.catJobs().byId.get(jobId); if (!cat) return;
+      const avgBefore = ik.num(cat.job.average_price); let touched = false;
+      const avgNext = avgBefore === null ? priceRound(weighted(list)) : priceRound((avgBefore + weighted(list)) / 2);
+      const crews = new Map(); list.forEach((j) => { if (j.contractor) { if (!crews.has(j.contractor)) crews.set(j.contractor, []); crews.get(j.contractor).push(j); } });
+      crews.forEach((cl, name) => {
+        const crew = cat.job.crews.find((c) => c.contractor === name); if (!crew) return;
+        const own = ik.num(crew.price); const now = own ?? avgBefore; const next = now === null ? priceRound(weighted(cl)) : priceRound((now + weighted(cl)) / 2);
+        // Ekipa bez własnej ceny zostaje przy średniej, gdy nauczona cena równa się nowej średniej (jak w aplikacji).
+        if (next !== now && !(own === null && next === avgNext)) { crew.price = String(next); touched = true; }
+      });
+      if (avgNext !== avgBefore) { cat.job.average_price = String(avgNext); touched = true; }
+      if (touched) changed.push(cat.job.name);
+    });
+    return changed;
+  },
+  async cancel() {
+    if (!(await ask({ title: 'Anuluj', text: 'Anulować realizację?', points: ['Statusy prac i stawki faktyczne zostaną zablokowane.', 'Realizacja zniknie z raportów Finanse.', 'Strona oferty (/q) przestanie linkować do postępu prac (/r).'], ok: 'Anuluj realizację', okClass: 'danger' }))) return;
+    this.r.status = 'cancelled'; save(); toast('Status realizacji zaktualizowany.');
+  },
+  async sendLink() {
+    if (!this.r.client.email) { alertError('Klient nie ma adresu email — dodaj go w danych klienta.'); return; }
+    const until = ik.addDays(ik.todayISO(), 30);
+    if (!(await ask({ title: 'Wyślij link', text: 'Wysłać klientowi link z postępem?', points: [`Klient dostanie e-mail (${this.r.client.email}) z linkiem do strony postępu prac.`, `Link będzie ważny jeszcze 30 dni — do ${ik.date(until)}.`], ok: 'Wyślij link' }))) return;
+    this.r.link_valid_until = until; save(); toast('Link z postępem wysłany klientowi.');
+  },
+  async destroy() {
+    if (!(await ask({ title: 'Usuń', text: 'Usunąć realizację wraz z pokojami, pracami i zdjęciami?', points: ['Klient straci stronę postępu prac.', 'Tego nie da się cofnąć.'], ok: 'Usuń realizację', okClass: 'danger' }))) return;
+    db.realizations.splice(db.realizations.indexOf(this.r), 1); save();
+    go('screens/realizations-index.html', 'Realizacja usunięta.');
+  },
+  saveExpected() { this.r.expected_end_on = this.expected || null; save(); toast('Realizacja zaktualizowana.'); },
+}));
+</script>
+</body>
+</html>

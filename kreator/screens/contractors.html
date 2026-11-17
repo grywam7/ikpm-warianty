@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Wykonawcy — IKPM</title>
+  <link rel="stylesheet" href="../assets/bootstrap/bootstrap.min.css">
+  <link rel="stylesheet" href="../assets/bootstrap-icons/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="../assets/app.css">
+</head>
+<body data-section="data">
+  <main id="main"><div id="app" class="container-xxl" x-data="page" x-cloak>
+    <nav aria-label="Dane"><ul class="subnav">
+      <template x-for="n in DATA_NAV" :key="n.key"><li><a class="btn" :class="n.key === 'contractors' ? 'btn-primary' : 'btn-outline-primary'" :href="link(n.href)" :aria-current="n.key === 'contractors' ? 'page' : null" x-text="n.label"></a></li></template>
+    </ul></nav>
+    <h1 class="page-title mt-0">Wykonawcy</h1>
+    <button type="button" class="btn btn-primary btn-main mb-3" @click="formOpen = !formOpen" :aria-expanded="formOpen" aria-controls="new-crew"><i class="bi bi-plus-lg" aria-hidden="true"></i> Dodaj wykonawcę</button>
+    <div class="list-card mb-3" id="new-crew" x-show="formOpen">
+      <div class="row g-2 align-items-end">
+        <div class="col-md-4"><label class="form-label" for="w-name">Nazwa / Imię i nazwisko</label><input class="form-control" id="w-name" placeholder="np. Jan Kowalski" maxlength="100"></div>
+        <div class="col-md-4"><label class="form-label" for="w-email">Email</label><input class="form-control" id="w-email" type="email"></div>
+        <div class="col-md-4"><label class="form-label" for="w-phone">Telefon</label><input class="form-control" id="w-phone" type="tel" placeholder="+48 123 456 789"></div>
+        <div class="col-md-4"><label class="form-label" for="w-parallel">Prace naraz</label><input class="form-control" id="w-parallel" type="number" inputmode="decimal" min="1" max="20" step="1" value="1" aria-describedby="w-parallel-hint">
+          <span class="form-text" id="w-parallel-hint">ile prac ekipa prowadzi naraz, każdą w tempie z cennika</span></div>
+        <div class="col-md-6"><label class="form-label" for="w-notes">Notatki</label><textarea class="form-control" id="w-notes" placeholder="Opcjonalne notatki..."></textarea></div>
+        <div class="col-md-2"><button type="button" class="btn btn-primary w-100" @click="add()">Dodaj</button></div>
+      </div>
+    </div>
+    <template x-for="c in active" :key="c.name">
+      <details class="list-card">
+        <summary><span class="flex-grow-1"><strong x-text="c.name"></strong> <span class="small" x-text="'· Prace naraz: ' + c.max_parallel_jobs + ' · ' + jobsText(c.jobs.length)"></span></span></summary>
+        <div class="row g-2 align-items-end mt-1">
+          <div class="col-6 col-md-3"><label class="form-label small" :for="'par-' + slug(c)">Prace naraz</label><input class="form-control" :id="'par-' + slug(c)" type="number" inputmode="decimal" min="1" max="20" step="1" :value="c.max_parallel_jobs" :aria-label="'Prace naraz: ' + c.name"></div>
+          <div class="col-6 col-md-2"><button type="button" class="btn btn-outline-primary w-100" @click="$store.toast.show(`Wykonawca '${c.name}' został zaktualizowany.`)">Zapisz</button></div>
+          <div class="col-md-7 d-flex gap-2 align-items-end">
+            <div><label class="form-label small" :for="'cp-' + slug(c)">Zmień ceny o %</label><input class="form-control qty" :id="'cp-' + slug(c)" type="number" inputmode="decimal" step="0.1" min="-90" max="200"></div>
+            <button type="button" class="btn btn-outline-secondary" @click="preview(c)">Podgląd</button>
+          </div>
+          <div class="col-md-10"><label class="form-label small" :for="'cn-' + slug(c)">Notatki</label><textarea class="form-control" :id="'cn-' + slug(c)" placeholder="Notatki o wykonawcy..."></textarea></div>
+          <div class="col-md-2"><button type="button" class="btn btn-outline-primary w-100" @click="$store.toast.show(`Wykonawca '${c.name}' został zaktualizowany.`)">Zapisz notatki</button></div>
+        </div>
+        <h3 class="h6 mt-3">Prace wykonywane przez tego wykonawcę</h3>
+        <ul class="list-unstyled small mb-2">
+          <template x-for="j in c.jobs" :key="j.job_id">
+            <li class="border-top py-2"><strong x-text="`${j.job} (${j.unit})`"></strong>
+              <span class="d-block" x-text="`Cena: ${j.price ? pln(j.price) : 'średnia'} · Tempo: ${tempoText(j)} · Jakość: ${j.quality ? kit.labels.quality[j.quality] : 'brak oceny'}`"></span></li>
+          </template>
+        </ul>
+        <button type="button" class="btn btn-outline-secondary" @click="askArchive(c)"><i class="bi bi-archive" aria-hidden="true"></i> Archiwizuj</button>
+      </details>
+    </template>
+    <p x-show="!active.length">Brak aktywnych wykonawców. Dodaj wykonawcę powyżej.</p>
+    <details class="list-card mt-4">
+      <summary><strong>Archiwum</strong>&nbsp;<span class="small" x-text="'(' + archived.length + ')'"></span></summary>
+      <p class="small mt-2">Wykonawcy z archiwum nie biorą udziału w doborze i nie ma ich w cenniku prac. Zostają przy pracach wycen i realizacji.</p>
+      <template x-for="c in archived" :key="c.name">
+        <div class="d-flex flex-wrap gap-2 align-items-center justify-content-between border-top py-2">
+          <div><strong x-text="c.name"></strong><span class="d-block small">w archiwum</span></div>
+          <div class="d-flex gap-2">
+            <button type="button" class="btn btn-outline-primary" @click="restore(c)">Przywróć</button>
+            <button type="button" class="btn btn-outline-danger btn-icon" :aria-label="'Usuń wykonawcę: ' + c.name" @click="askDelete(c)"><i class="bi bi-trash" aria-hidden="true"></i></button>
+          </div>
+        </div>
+      </template>
+    </details>
+  </div></main>
+  <script type="module">
+    import { start, contractors, DATA_NAV, link, kit } from '../assets/app.js';
+    const _all = contractors();
+    start(() => ({
+      DATA_NAV, kit, formOpen: false,
+      active: _all.filter((c) => !c.archived), archived: _all.filter((c) => c.archived),
+      slug: (c) => c.name.replace(/[^\p{L}\d]+/gu, '-'),
+      add() { const _n = document.getElementById('w-name').value.trim(); if (!_n) { this.$store.alert.msg = 'Nazwa nie może być pusta'; return; } this.formOpen = false; this.$store.toast.show(`Wykonawca '${_n}' został dodany.`); },
+      askArchive(c) {
+        this.$store.confirm.ask({ title: `Przenieść wykonawcę '${c.name}' do archiwum?`, lines: ['Zniknie z doboru i z cennika prac. Szkice wycen, w których ma prace, przed wysyłką wymagają ponownego doboru.'], ok: 'Archiwizuj',
+          run: () => { this.active = this.active.filter((x) => x !== c); this.archived = [...this.archived, c]; this.$store.toast.show(`Wykonawca '${c.name}' trafił do archiwum.`); } });
+      },
+      restore(c) { this.archived = this.archived.filter((x) => x !== c); this.active = [...this.active, c]; this.$store.toast.show(`Wykonawca '${c.name}' wrócił z archiwum.`); },
+      askDelete(c) {
+        this.$store.confirm.ask({ title: `Usunąć wykonawcę '${c.name}' na stałe?`, lines: ['Wykonawcy z pracami w wycenach lub realizacjach nie da się usunąć.'], ok: 'Usuń', variant: 'danger',
+          run: () => { this.$store.alert.msg = 'Nie można usunąć, gdyż istnieją zależne od niego prace w wycenach i realizacjach'; } });
+      },
+      preview(c) { location.href = link(`screens/price-change.html?scope=contractor&id=${encodeURIComponent(c.name)}&percent=${encodeURIComponent(document.getElementById('cp-' + this.slug(c)).value)}`); },
+    }));
+  </script>
+</body>
+</html>

@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Klient — formularz — IKPM</title>
+<link rel="stylesheet" href="../assets/bootstrap/bootstrap.min.css">
+<link rel="stylesheet" href="../assets/bootstrap-icons/bootstrap-icons.min.css">
+<link rel="stylesheet" href="../assets/app.css">
+</head>
+<body data-screen="client-form" data-nav="clients" data-tab="wyceny">
+<main x-data="page" x-cloak>
+<div class="panes" data-level="2">
+  <section class="pane pane-list" aria-label="Klienci" data-partial="client-list"></section>
+  <section class="pane pane-folder" aria-label="Formularz klienta">
+    <div class="pane-inner">
+      <div class="pane-head"><a class="back-link" :href="c ? link('client-show', {id: c.id}) : link('clients')"><i class="bi bi-chevron-left" aria-hidden="true"></i><span x-text="c ? c.name : 'Klienci'"></span></a>
+        <h1 class="pane-title" x-text="c ? 'Edycja klienta ' + c.name : 'Nowy klient'"></h1></div>
+      <form class="card-plain" @submit.prevent="submit()" novalidate>
+        <div class="alert alert-danger" role="alert" x-show="errors.length"><ul class="mb-0 ps-3"><template x-for="e in errors"><li x-text="e"></li></template></ul></div>
+        <label class="form-label" for="cf-name">Nazwa *</label><input id="cf-name" class="form-control mb-2" maxlength="100" required x-model="form.name">
+        <label class="form-label" for="cf-email">Email</label><input id="cf-email" class="form-control mb-2" type="email" maxlength="254" x-model="form.email">
+        <label class="form-label" for="cf-phone">Telefon</label><input id="cf-phone" class="form-control mb-2" type="tel" placeholder="+48 600 000 000" title="Numer telefonu: cyfry, spacje oraz + ( ) -" x-model="form.phone">
+        <label class="form-label" for="cf-notes">Notatki</label><textarea id="cf-notes" class="form-control mb-3" rows="3" x-model="form.notes"></textarea>
+        <div class="d-flex gap-2"><button class="btn btn-primary btn-main px-4" type="submit">Zapisz</button>
+          <a class="btn btn-outline-secondary btn-main px-4" :href="c ? link('client-show', {id: c.id}) : link('clients')">Anuluj</a></div>
+      </form>
+    </div>
+  </section>
+</div>
+</main>
+<script type="module">
+import { boot, db, save, intParam, go, flashNext } from '../assets/app.js';
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/; const PHONE = /^[0-9 +()-]{7,20}$/;
+boot(() => ({
+  c: null, form: { name: '', email: '', phone: '', notes: '' }, errors: [],
+  init() {
+    this.c = db.clients.find((x) => x.id === intParam('id')) ?? null;
+    if (this.c) { this.currentClientId = this.c.id; this.form = { name: this.c.name, email: this.c.email, phone: this.c.phone, notes: this.c.notes }; }
+    document.title = `${this.c ? `Edycja klienta ${this.c.name}` : 'Nowy klient'} — IKPM`;
+  },
+  submit() {
+    const _f = this.form; const _e = [];
+    if (!_f.name.trim()) _e.push('Nazwa nie może być pusta');
+    if (_f.email && !EMAIL.test(_f.email)) _e.push('Email jest nieprawidłowy');
+    if (_f.phone && !PHONE.test(_f.phone)) _e.push('Telefon jest nieprawidłowy');
+    this.errors = _e; if (_e.length) return;
+    if (this.c) { Object.assign(this.c, { name: _f.name.trim(), email: _f.email.trim(), phone: _f.phone.trim(), notes: _f.notes }); save('clients'); flashNext('notice', 'Klient zaktualizowany.'); go('client-show', { id: this.c.id }); return; }
+    const _n = { id: Math.max(0, ...db.clients.map((x) => x.id)) + 1, name: _f.name.trim(), email: _f.email.trim(), phone: _f.phone.trim(), notes: _f.notes };
+    db.clients.push(_n); save('clients'); flashNext('notice', 'Klient utworzony.'); go('client-show', { id: _n.id });
+  },
+}));
+</script>
+</body>
+</html>

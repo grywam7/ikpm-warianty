@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Materiały — IKPM</title>
+<link rel="stylesheet" href="../assets/bootstrap/bootstrap.min.css">
+<link rel="stylesheet" href="../assets/bootstrap-icons/bootstrap-icons.min.css">
+<link rel="stylesheet" href="../assets/app.css">
+</head>
+<body data-nav="data">
+<div id="nav"></div>
+<main x-data="page" x-cloak class="container-xxl px-3 mw-doc pb-5">
+  <div id="alerts"></div>
+  <h1 class="h3 mt-3 mb-0">Materiały</h1>
+  <div id="data-tabs" data-active="materials"></div>
+
+  <div class="row g-3 mb-3">
+    <form class="col-12 col-xl-7" @submit.prevent="add()" aria-labelledby="add-title">
+      <div class="card h-100"><div class="card-body row g-2 align-items-end">
+        <h2 id="add-title" class="h6 col-12 mb-0">Dodaj materiał</h2>
+        <div class="col-12 col-md-6"><label class="form-label small mb-1" for="m-name">Nazwa materiału</label><input id="m-name" class="form-control" maxlength="100" placeholder="np. Farba lateksowa biała" x-model="draft.name" required></div>
+        <div class="col-6 col-md-3"><label class="form-label small mb-1" for="m-price">Cena (zł)</label><input id="m-price" type="number" inputmode="decimal" step="any" min="0" class="form-control text-end" x-model="draft.price"></div>
+        <div class="col-6 col-md-3"><label class="form-label small mb-1" for="m-qty">Ilość</label><input id="m-qty" type="number" inputmode="decimal" step="any" min="0" class="form-control text-end" x-model="draft.quantity"></div>
+        <div class="col-6 col-md-3"><label class="form-label small mb-1" for="m-unit">Jedn.</label><select id="m-unit" class="form-select" x-model="draft.unit"><template x-for="u in UNITS" :key="u"><option :value="u" :selected="draft.unit === u" x-text="u"></option></template></select></div>
+        <div class="col-6 col-md-6"><label class="form-label small mb-1" for="m-link">Link do sklepu</label><input id="m-link" type="url" class="form-control" placeholder="https://..." x-model="draft.link"></div>
+        <div class="col-12 col-md-3"><button class="btn btn-success w-100">Dodaj</button></div>
+      </div></div>
+    </form>
+    <form id="materials-price-change" class="col-12 col-xl-5" @submit.prevent="preview()" aria-labelledby="pc-title">
+      <div class="card h-100"><div class="card-body">
+        <h2 id="pc-title" class="h6">Zmiana cen</h2>
+        <fieldset class="mb-2"><legend class="form-label small mb-1">Zakres</legend>
+          <div class="form-check"><input class="form-check-input" type="radio" name="scope" id="sc-all" value="all" x-model="scope" required><label class="form-check-label" for="sc-all">Wszystkie materiały</label></div>
+          <div class="form-check"><input class="form-check-input" type="radio" name="scope" id="sc-sel" value="selected" x-model="scope"><label class="form-check-label" for="sc-sel">Zaznaczone na liście <span class="text-body-secondary" x-text="'(' + selected.length + ')'"></span></label></div>
+        </fieldset>
+        <div class="d-flex gap-2 align-items-end">
+          <div class="flex-grow-1"><label class="form-label small mb-1" for="pc-percent">Zmień ceny o % <span class="text-body-secondary">(od -90 do +200)</span></label><input id="pc-percent" type="number" inputmode="decimal" step="0.1" min="-90" max="200" class="form-control" x-model="percent" required></div>
+          <button class="btn btn-outline-primary">Podgląd</button>
+        </div>
+      </div></div>
+    </form>
+  </div>
+
+  <section class="card" aria-labelledby="list-title">
+    <div class="card-header bg-body"><h2 id="list-title" class="h6 mb-0">Lista materiałów <span class="badge text-bg-secondary" x-text="db.materials.length"></span></h2></div>
+    <p class="card-body mb-0 text-body-secondary" x-show="!db.materials.length">Brak materiałów. Dodaj pierwszy materiał powyżej.</p>
+    <table class="table doc-table reflow-lg mb-0">
+      <caption class="visually-hidden">Lista materiałów — ceny opakowań</caption>
+      <thead class="table-light"><tr><th scope="col"><span class="visually-hidden">Zaznacz</span></th><th scope="col">Nazwa</th><th scope="col">Cena</th><th scope="col">Ilość</th><th scope="col">Jedn.</th><th scope="col">Link do sklepu</th><th scope="col"><span class="visually-hidden">Akcje</span></th></tr></thead>
+      <tbody>
+        <template x-for="m in materials" :key="m.id">
+          <tr>
+            <td><label class="form-check check-cell"><input class="form-check-input" type="checkbox" :id="'sel-' + m.id" :value="m.id" x-model.number="selected" :aria-label="'Zaznacz: ' + m.name + ' (' + m.package + ')'"></label></td>
+            <td data-label="Nazwa"><input class="form-control" maxlength="100" :value="m.name" :aria-label="'Nazwa: ' + m.name" @change="setField(m, 'name', $event.target)"></td>
+            <td data-label="Cena"><div class="input-group"><input type="number" inputmode="decimal" step="any" min="0" class="form-control text-end" :value="Number(m.price)" :aria-label="'Cena: ' + m.name" @change="setField(m, 'price', $event.target)"><span class="input-group-text">zł</span></div></td>
+            <td data-label="Ilość"><input type="number" inputmode="decimal" step="any" min="0" class="form-control text-end" style="min-width: 5rem" :value="Number(m.quantity)" :aria-label="'Ilość: ' + m.name" @change="setField(m, 'quantity', $event.target)"></td>
+            <td data-label="Jedn."><select class="form-select" style="min-width: 5.5rem" :aria-label="'Jedn.: ' + m.name" @change="setField(m, 'unit', $event.target)"><template x-for="u in UNITS" :key="u"><option :value="u" :selected="m.unit === u" x-text="u"></option></template></select></td>
+            <td data-label="Link do sklepu"><input type="url" class="form-control" placeholder="https://..." :value="m.link" :aria-label="'Link do sklepu: ' + m.name" @change="setField(m, 'link', $event.target)"></td>
+            <td class="text-end text-nowrap">
+              <a class="btn btn-sm btn-outline-secondary" x-show="/^https?:\/\//.test(m.link)" :href="m.link" target="_blank" rel="noopener" :aria-label="'Otwórz w sklepie: ' + m.name"><i class="bi bi-box-arrow-up-right" aria-hidden="true"></i></a>
+              <button type="button" class="btn btn-sm btn-outline-danger" :aria-label="'Usuń materiał ' + m.name" @click="remove(m)"><i class="bi bi-trash" aria-hidden="true"></i></button>
+            </td>
+          </tr>
+        </template>
+      </tbody>
+    </table>
+  </section>
+</main>
+<script type="module">
+import { boot, db, save, nextId, toast, alertError, ask, go } from '../assets/app.js';
+
+boot(() => ({
+  UNITS: ['szt', 'm²', 'kg', 'l', 'mb', 'h'], selected: [], scope: '', percent: '',
+  draft: { name: '', price: '0', quantity: '1', unit: 'szt', link: '' },
+  get materials() { return [...db.materials].sort((a, b) => a.name.localeCompare(b.name, 'pl') || a.id - b.id); },
+  used(m) { return db.catalogue.some((s) => s.jobs.some((j) => j.materials.some((x) => x.name === m.name && x.package === m.package))); },
+  setField(m, field, el) {
+    const oldName = m.name; const oldPackage = m.package;
+    if (field === 'name') { const v = el.value.trim(); if (!v) { el.value = m.name; alertError('Nazwa nie może być pusta'); return; } m.name = v; }
+    if (field === 'price' || field === 'quantity') {
+      const v = ik.parseNumber(el.value);
+      if (Number.isNaN(v) || v < 0 || (field === 'quantity' && v <= 0) || v > 1000000) { el.value = Number(m[field]); alertError(field === 'price' ? 'Cena musi być większa lub równa 0' : 'Ilość musi być większa od 0'); return; }
+      m[field] = String(ik.roundHalfUp(v));
+    }
+    if (field === 'unit') m.unit = el.value;
+    if (field === 'link') m.link = el.value.trim();
+    m.package = ik.packageOf(m.quantity, m.unit);
+    m.unit_price = String(Number(m.price) / Number(m.quantity));
+    ik.syncMaterial(m, oldName, oldPackage); save(); toast(`Materiał '${m.name}' został zaktualizowany.`);
+  },
+  add() {
+    const d = this.draft; const name = d.name.trim();
+    const price = ik.parseNumber(d.price); const qty = ik.parseNumber(d.quantity);
+    if (!name) { alertError('Nazwa nie może być pusta'); return; }
+    if (Number.isNaN(price) || price < 0) { alertError('Cena musi być większa lub równa 0'); return; }
+    if (Number.isNaN(qty) || qty <= 0) { alertError('Ilość musi być większa od 0'); return; }
+    db.materials.push({ id: nextId('material'), name, price: String(price), quantity: qty, unit: d.unit, package: ik.packageOf(qty, d.unit), unit_price: String(price / qty), link: d.link.trim() });
+    save(); this.draft = { name: '', price: '0', quantity: '1', unit: 'szt', link: '' }; toast(`Materiał '${name}' został dodany.`);
+  },
+  async remove(m) {
+    if (!(await ask({ title: 'Usuń materiał', text: `Usunąć materiał '${m.name}'?`, points: ['Materiał zniknie z listy materiałów.'], ok: 'Usuń materiał', okClass: 'danger' }))) return;
+    if (this.used(m)) { alertError('Nie można usunąć, gdyż istnieją zależne od niego prace'); return; }
+    db.materials.splice(db.materials.indexOf(m), 1); this.selected = this.selected.filter((id) => id !== m.id); save(); toast(`Materiał '${m.name}' został usunięty.`);
+  },
+  preview() {
+    if (this.scope === 'selected' && !this.selected.length) { alertError('Zaznacz materiały, których ceny chcesz zmienić, albo wybierz „Wszystkie”.'); return; }
+    go(`screens/price-change.html?materials=${this.scope}${this.scope === 'selected' ? `&ids=${this.selected.join(',')}` : ''}&percent=${encodeURIComponent(this.percent)}`);
+  },
+}));
+</script>
+</body>
+</html>

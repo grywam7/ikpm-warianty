@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dobieranie wykonawców — IKPM</title>
+<link rel="stylesheet" href="../assets/bootstrap/bootstrap.min.css">
+<link rel="stylesheet" href="../assets/bootstrap-icons/bootstrap-icons.min.css">
+<link rel="stylesheet" href="../assets/app.css">
+<style>
+  .plan-table th[scope=row] { width: 13rem; }
+  .plan-table td, .plan-table th { min-width: 11rem; }
+</style>
+</head>
+<body data-nav="quotes">
+<div id="nav"></div>
+<main x-data="page" x-cloak class="container-xxl px-3 mw-doc pb-5">
+<template x-if="q">
+<div>
+  <div id="alerts"></div>
+  <div class="d-flex flex-wrap align-items-center gap-2 my-3">
+    <h1 class="h3 mb-0 me-auto"><i class="bi bi-people-fill" aria-hidden="true"></i> Dobieranie wykonawców — Wycena #<span x-text="q.id"></span></h1>
+    <a class="btn btn-outline-secondary" :href="ik.href('screens/builder.html?id=' + q.id)"><i class="bi bi-arrow-left" aria-hidden="true"></i> Wróć do edytora</a>
+  </div>
+  <p class="text-body-secondary small" x-text="(q.client ? q.client.name : '(brak klienta)') + ' · ' + ik.jobsCount(ik.jobsOf(q).length) + ' · Razem netto ' + ik.pln(ik.quoteTotals(q).net)"></p>
+
+  <template x-if="!ik.jobsOf(q).length">
+    <div class="alert alert-warning"><i class="bi bi-exclamation-triangle" aria-hidden="true"></i> Wycena nie ma jeszcze żadnych prac. Dodaj prace w edytorze.</div>
+  </template>
+  <template x-if="ik.jobsOf(q).length && !src && !ik.hasKitPlans(q)">
+    <div class="alert alert-secondary">Prototyp: plany doboru są policzone przez aplikację tylko dla wycen z danych demo. Dla wyceny utworzonej w prototypie karta planów zostaje pusta.</div>
+  </template>
+  <template x-if="ik.jobsOf(q).length && !src && ik.hasKitPlans(q)">
+    <div class="alert alert-secondary">Prototyp: plany doboru są policzone przez aplikację dla jednej wersji tej wyceny (te same prace i ilości). Ta wersja ma inne prace albo ilości, więc prototyp nie ma dla niej planu.</div>
+  </template>
+
+  <template x-if="ik.jobsOf(q).length && src">
+    <div>
+      <p class="text-body-secondary small">Plany pomijają ekipy o nietypowej dla danej pracy cenie, tempie lub jakości. Poza „Najszybszym” żaden etap nie trwa ponad 2 × tyle, co przy najszybszym podziale prac na najwyżej 3 ekipy naraz (o ile ekipy na to pozwalają) — dlatego „Najtańszy” nie zawsze bierze najtańsze ekipy, a „Minimum ekip” dobiera kolejną ekipę, gdy jedna robiłaby etap za długo. Plan najlepszy w kilku miarach widać na kilku kartach.</p>
+
+      <!-- Arkusz porównania: plany w kolumnach (od 1200 px) -->
+      <div class="card d-none d-xl-block mb-4">
+        <div tabindex="0" class="box-scroll">
+          <table class="table plan-table doc-table mb-0">
+            <caption class="visually-hidden">Porównanie planów doboru wykonawców</caption>
+            <thead class="table-light">
+              <tr>
+                <th scope="col">Plan</th>
+                <template x-for="p in plans" :key="p.key">
+                  <th scope="col" :class="{ 'table-success': p.applied }">
+                    <i class="bi" :class="p.icon" aria-hidden="true"></i> <span x-text="p.plan.label"></span>
+                    <span class="badge text-bg-success ms-1" x-show="p.applied"><i class="bi bi-check-lg" aria-hidden="true"></i> Zastosowany</span>
+                  </th>
+                </template>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><th scope="row">Koszt ekip:</th><template x-for="p in plans" :key="p.key"><td class="num fw-bold" x-text="ik.pln(p.plan.summary.total_cost)"></td></template></tr>
+              <tr><th scope="row">Liczba ekip:</th><template x-for="p in plans" :key="p.key"><td class="num fw-bold" x-text="p.plan.summary.contractor_count"></td></template></tr>
+              <tr><th scope="row"><i class="bi bi-clock" aria-hidden="true"></i> Czas realizacji:</th><template x-for="p in plans" :key="p.key"><td><strong class="num" x-text="ik.hours(p.plan.summary.makespan_hours)"></strong><small class="d-block text-body-secondary" x-text="ik.workDays(p.plan.work_days) + ' z odbiorami etapów'"></small></td></template></tr>
+              <tr><th scope="row">Łącznie roboczogodzin:</th><template x-for="p in plans" :key="p.key"><td class="num" x-text="ik.hours(p.plan.summary.total_work_hours)"></td></template></tr>
+              <tr><th scope="row">Śr. jakość:</th><template x-for="p in plans" :key="p.key"><td><strong class="num" x-text="ik.oneDec(p.plan.summary.avg_quality)"></strong> <small class="text-body-secondary">/10</small></td></template></tr>
+              <tr><th scope="row">Pokrycie:</th><template x-for="p in plans" :key="p.key"><td><div class="progress" role="progressbar" aria-label="Pokrycie" :aria-valuenow="p.plan.summary.coverage_pct" aria-valuemin="0" aria-valuemax="100"><div class="progress-bar" :class="p.plan.summary.coverage_pct === 100 ? 'bg-success' : 'bg-warning text-dark'" :style="'width:' + p.plan.summary.coverage_pct + '%'" x-text="p.plan.summary.coverage_pct + '%'"></div></div></td></template></tr>
+              <tr><th scope="row"><i class="bi bi-calendar3" aria-hidden="true"></i> Harmonogram etapów:</th>
+                <template x-for="p in plans" :key="p.key"><td><ul class="list-unstyled small mb-0"><template x-for="s in p.schedule" :key="s.stage"><li class="d-flex gap-2"><span class="text-truncate me-auto" x-text="s.stage"></span><span class="num text-nowrap" x-text="ik.hours(s.hours) + ' → ' + ik.hours(s.cumulative)"></span></li></template></ul></td></template></tr>
+              <tr><th scope="row">Wykonawcy:</th><template x-for="p in plans" :key="p.key"><td><template x-for="c in p.plan.summary.contractors_used" :key="c"><span class="badge text-bg-light border me-1 mb-1"><i class="bi bi-person" aria-hidden="true"></i> <span x-text="c"></span></span></template>
+                <div class="alert alert-warning py-1 px-2 small mb-0 mt-1" x-show="p.plan.summary.unassigned_job_names.length"><strong>Bez wykonawcy (brak w cenniku ekipy z ceną):</strong> <span x-text="p.plan.summary.unassigned_job_names.join(', ')"></span></div></td></template></tr>
+              <tr><th scope="row"><span class="visually-hidden">Akcja</span></th><template x-for="p in plans" :key="p.key"><td><button type="button" class="btn w-100 btn-main" :class="p.applied ? 'btn-outline-success' : 'btn-primary'" :aria-label="(p.applied ? 'Zastosuj ponownie: ' : 'Zastosuj ten plan: ') + p.plan.label" @click="apply(p)"><i class="bi" :class="p.applied ? 'bi-arrow-clockwise' : 'bi-check-lg'" aria-hidden="true"></i> <span x-text="p.applied ? 'Zastosuj ponownie' : 'Zastosuj ten plan'"></span></button></td></template></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Telefon: plany jeden pod drugim; tablet (768–1199 px): karty 2 × 2 -->
+      <div class="d-xl-none row row-cols-1 row-cols-md-2 g-3 mb-3">
+        <template x-for="p in plans" :key="p.key">
+          <div class="col"><section class="card h-100" :class="{ 'border-success': p.applied }" :aria-labelledby="'plan-' + p.key">
+            <div class="card-header d-flex flex-wrap align-items-center gap-2" :class="{ 'bg-success-subtle': p.applied }">
+              <h2 class="h5 mb-0 me-auto" :id="'plan-' + p.key"><i class="bi" :class="p.icon" aria-hidden="true"></i> <span x-text="p.plan.label"></span></h2>
+              <span class="badge text-bg-success" x-show="p.applied"><i class="bi bi-check-lg" aria-hidden="true"></i> Zastosowany</span>
+            </div>
+            <div class="card-body d-flex flex-column">
+              <dl class="row mb-2">
+                <dt class="col-7 fw-normal text-body-secondary">Koszt ekip:</dt><dd class="col-5 text-end fw-bold num" x-text="ik.pln(p.plan.summary.total_cost)"></dd>
+                <dt class="col-7 fw-normal text-body-secondary">Liczba ekip:</dt><dd class="col-5 text-end fw-bold" x-text="p.plan.summary.contractor_count"></dd>
+                <dt class="col-7 fw-normal text-body-secondary">Czas realizacji:</dt><dd class="col-5 text-end"><strong class="num" x-text="ik.hours(p.plan.summary.makespan_hours)"></strong><small class="d-block text-body-secondary" x-text="ik.workDays(p.plan.work_days) + ' z odbiorami etapów'"></small></dd>
+                <dt class="col-7 fw-normal text-body-secondary">Łącznie roboczogodzin:</dt><dd class="col-5 text-end num" x-text="ik.hours(p.plan.summary.total_work_hours)"></dd>
+                <dt class="col-7 fw-normal text-body-secondary">Śr. jakość:</dt><dd class="col-5 text-end"><strong x-text="ik.oneDec(p.plan.summary.avg_quality)"></strong> <small>/10</small></dd>
+                <dt class="col-7 fw-normal text-body-secondary">Pokrycie:</dt><dd class="col-5 text-end" x-text="p.plan.summary.coverage_pct + '%'"></dd>
+              </dl>
+              <p class="small fw-semibold mb-1">Wykonawcy:</p>
+              <p class="mb-2"><template x-for="c in p.plan.summary.contractors_used" :key="c"><span class="badge text-bg-light border me-1 mb-1" x-text="c"></span></template></p>
+              <div class="alert alert-warning py-1 px-2 small" x-show="p.plan.summary.unassigned_job_names.length"><strong>Bez wykonawcy (brak w cenniku ekipy z ceną):</strong> <span x-text="p.plan.summary.unassigned_job_names.join(', ')"></span></div>
+              <button type="button" class="btn w-100 btn-main mt-auto" :class="p.applied ? 'btn-outline-success' : 'btn-primary'" :aria-label="(p.applied ? 'Zastosuj ponownie: ' : 'Zastosuj ten plan: ') + p.plan.label" @click="apply(p)"><span x-text="p.applied ? 'Zastosuj ponownie' : 'Zastosuj ten plan'"></span></button>
+            </div>
+          </section></div>
+        </template>
+      </div>
+
+      <details class="card mb-3">
+        <summary class="card-header tap fw-semibold">Porównanie — kto robi co w każdym planie</summary>
+        <div tabindex="0" class="box-scroll">
+          <table class="table table-sm doc-table mb-0">
+            <caption class="visually-hidden">Wykonawca każdej pracy w każdym planie</caption>
+            <thead class="table-light"><tr><th scope="col">Pokój</th><th scope="col">Praca</th><th scope="col" class="text-end">Ilość</th><template x-for="p in plans" :key="p.key"><th scope="col" x-text="p.plan.label"></th></template></tr></thead>
+            <tbody>
+              <template x-for="row in rows" :key="row.j.id">
+                <tr><td x-text="row.room"></td><td x-text="row.j.name"></td><td class="num" x-text="ik.dec(row.j.quantity) + ' ' + row.j.unit"></td>
+                  <template x-for="p in plans" :key="p.key"><td class="small"><template x-if="p.byJob[row.j.id]"><span><span x-text="p.byJob[row.j.id].contractor"></span><br><span class="text-body-secondary num" x-text="ik.pln(p.byJob[row.j.id].price) + ' · ' + ik.hours(p.byJob[row.j.id].job_hours)"></span></span></template><template x-if="!p.byJob[row.j.id]"><span class="text-body-secondary">brak</span></template></td></template></tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+      </details>
+    </div>
+  </template>
+</div>
+</template>
+</main>
+<script type="module">
+import { boot, db, go, ask, idParam } from '../assets/app.js';
+
+const ICONS = { cheapest: 'bi-cash-coin', best_quality: 'bi-award', fastest: 'bi-lightning', fewest_crews: 'bi-people' };
+boot(() => ({
+  q: null, src: null,
+  init() {
+    const id = idParam(11);
+    const q = db.quotes.find((x) => x.id === id);
+    if (!q) { location.replace(ik.href('screens/error-404.html')); return; }
+    if (q.status !== 'draft') { go(`screens/quote-show.html?id=${id}`, 'Wycena jest u klienta — przywróć ją do edycji, aby ją zmienić.', 'error', true); return; }
+    this.src = ik.plansFor(q);
+    this.q = q;
+  },
+  get plans() {
+    return Object.entries(this.src.plans).map(([key, plan]) => {
+      let sum = 0;
+      return {
+        key, plan, icon: ICONS[key], applied: this.q.applied_profile_name === key,
+        schedule: plan.stage_schedule.map((s) => { sum += s.duration_hours; return { stage: s.stage, hours: s.duration_hours, cumulative: sum }; }),
+        byJob: Object.fromEntries(plan.assignments.map((a) => [a.quote_job_id, a])),
+      };
+    });
+  },
+  get rows() { return this.q.rooms.flatMap((room) => ik.sortJobs(room.jobs).map((j) => ({ room: room.name, j }))); },
+  async apply(p) {
+    const verb = p.applied ? 'Zastosować ponownie' : 'Zastosować';
+    const ok = await ask({
+      title: p.applied ? 'Zastosuj ponownie' : 'Zastosuj ten plan',
+      text: `${verb} plan '${p.plan.label}'? Przypisze wykonawców do ${ik.jobsGenitive(p.plan.assignments.length)}; cennik zastąpi ręcznie wpisane ceny ekipy.`,
+      points: [
+        'Ceny ekip i koszt materiałów zostaną zamrożone w wycenie — późniejsze zmiany cennika ich nie zmienią.',
+        `Sugerowany termin zakończenia: ${ik.workDays(p.plan.work_days)} od planowanego startu (do wpisania przyciskiem „Użyj”).`,
+      ],
+      ok: p.applied ? 'Zastosuj ponownie' : 'Zastosuj ten plan',
+    });
+    if (!ok) return;
+    ik.applyPlan(this.q, p.key);
+    const missing = p.plan.summary.unassigned_job_names;
+    go(`screens/builder.html?id=${this.q.id}`, `Zastosowano plan '${p.plan.label}'.${missing.length ? ` Bez wykonawcy (brak w cenniku ekipy z ceną): ${ik.jobNames(missing)}.` : ''}`, undefined, true);
+  },
+}));
+</script>
+</body>
+</html>

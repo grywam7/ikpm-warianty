@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Użytkownicy — IKPM</title>
+<link rel="stylesheet" href="../assets/bootstrap/bootstrap.min.css">
+<link rel="stylesheet" href="../assets/bootstrap-icons/bootstrap-icons.min.css">
+<link rel="stylesheet" href="../assets/app.css">
+</head>
+<body data-nav="users">
+<div id="nav"></div>
+<main x-data="page" x-cloak class="container-xxl px-3 mw-doc pb-5">
+  <div class="d-grid d-sm-flex flex-wrap align-items-center gap-2 my-3">
+    <h1 class="h3 mb-0 me-sm-auto">Użytkownicy</h1>
+    <a class="btn btn-success btn-main" :href="ik.href('screens/user-form.html')"><i class="bi bi-person-plus" aria-hidden="true"></i> Dodaj użytkownika</a>
+  </div>
+  <div class="card">
+    <table class="table doc-table reflow mb-0">
+      <caption class="visually-hidden">Konta użytkowników</caption>
+      <thead class="table-light"><tr><th scope="col">Email</th><th scope="col">Imię i nazwisko</th><th scope="col">Telefon</th><th scope="col">Role</th><th scope="col"><span class="visually-hidden">Akcje</span></th></tr></thead>
+      <tbody>
+        <template x-for="u in db.users" :key="u.id">
+          <tr>
+            <td data-label="Email" class="reflow-full"><span class="text-break" x-text="u.email"></span> <span class="badge text-bg-danger" x-show="!u.active"><i class="bi bi-slash-circle" aria-hidden="true"></i> Nieaktywne</span></td>
+            <td data-label="Imię i nazwisko" x-text="[u.first_name, u.last_name].filter(Boolean).join(' ') || '—'"></td>
+            <td data-label="Telefon" x-text="u.phone || '—'"></td>
+            <td data-label="Role"><template x-for="r in u.roles" :key="r"><span class="badge text-bg-secondary me-1" x-text="ik.labels().role[r]"></span></template><span x-show="!u.roles.length">brak</span></td>
+            <td class="text-end"><a class="btn btn-outline-secondary" :href="ik.href('screens/user-form.html?id=' + u.id)" :aria-label="'Edytuj ' + u.email"><i class="bi bi-pencil" aria-hidden="true"></i> Edytuj</a></td>
+          </tr>
+        </template>
+      </tbody>
+    </table>
+  </div>
+</main>
+<script type="module">
+import { boot } from '../assets/app.js';
+boot(() => ({}));
+</script>
+</body>
+</html>

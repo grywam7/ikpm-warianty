@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Postęp prac — IKPM</title>
+<link rel="stylesheet" href="../assets/bootstrap/bootstrap.min.css">
+<link rel="stylesheet" href="../assets/bootstrap-icons/bootstrap-icons.min.css">
+<link rel="stylesheet" href="../assets/app.css">
+</head>
+<body>
+<header class="bg-dark text-white py-3"><div class="container px-3" style="max-width: 980px"><span class="fw-bold">IKPM</span></div></header>
+<main x-data="page" x-cloak class="container px-3 py-3" style="max-width: 980px">
+<template x-if="r">
+<div>
+  <section class="card mb-3" aria-labelledby="p-title">
+    <div class="card-body">
+      <div class="d-flex flex-wrap justify-content-between gap-2">
+        <div><h1 id="p-title" class="h3 mb-0">Postęp prac</h1><p class="mb-0" x-text="'dla ' + r.client.name"></p></div>
+        <div class="text-md-end small"><strong x-text="sender.display_name"></strong><span class="d-block" x-show="sender.first_name" x-text="sender.email"></span></div>
+      </div>
+      <dl class="row mt-3 mb-0">
+        <dt class="col-sm-4 col-md-3">Status realizacji</dt><dd class="col-sm-8 col-md-9" x-html="ik.realBadge(r.status)"></dd>
+        <template x-if="r.site_address"><dt class="col-sm-4 col-md-3">Adres inwestycji</dt></template><template x-if="r.site_address"><dd class="col-sm-8 col-md-9" x-text="r.site_address"></dd></template>
+        <template x-if="endText"><dt class="col-sm-4 col-md-3">Termin zakończenia</dt></template><template x-if="endText"><dd class="col-sm-8 col-md-9" x-text="endText"></dd></template>
+      </dl>
+      <div class="d-flex justify-content-between mt-2"><span class="fw-semibold">Postęp prac</span><span class="num" x-text="ik.progress(r) + '% (' + ik.doneCount(r) + ' / ' + ik.realJobs(r).length + ')'"></span></div>
+      <div class="progress mt-1" role="progressbar" aria-label="Postęp prac" :aria-valuenow="ik.progress(r)" aria-valuemin="0" aria-valuemax="100"><div class="progress-bar bg-success" :style="'width:' + ik.progress(r) + '%'"></div></div>
+    </div>
+  </section>
+
+  <template x-for="room in r.rooms" :key="room.id">
+    <section class="doc-room card mb-3" :aria-labelledby="'rr-' + room.id">
+      <div class="doc-room-head card-header bg-body"><h2 class="h5 mb-0" :id="'rr-' + room.id" x-text="room.name"></h2></div>
+      <p class="card-body mb-0 text-body-secondary" x-show="!room.jobs.length">(brak prac w tym pomieszczeniu)</p>
+      <table class="table doc-table reflow mb-0" x-show="room.jobs.length">
+        <caption class="visually-hidden" x-text="'Prace: ' + room.name"></caption>
+        <thead class="table-light"><tr><th scope="col">Praca</th><th scope="col">Etap</th><th scope="col">Status</th><th scope="col">Komentarz</th></tr></thead>
+        <tbody><template x-for="j in ik.sortJobs(room.jobs)" :key="j.id"><tr>
+          <td data-label="Praca" class="reflow-full fw-semibold" x-text="j.name"></td><td data-label="Etap" x-text="j.stage"></td>
+          <td data-label="Status" x-html="ik.jobBadge(j.status)"></td><td data-label="Komentarz" x-text="j.notes || '—'"></td></tr></template></tbody>
+      </table>
+      <div class="card-body border-top" x-show="photos(room.name).length">
+        <h3 class="h6">Zdjęcia</h3>
+        <div class="row g-2"><template x-for="p in photos(room.name)" :key="p.id"><div class="col-6 col-md-3"><template x-if="p.src"><img class="photo-thumb rounded" :src="p.src" :alt="'Zdjęcie: ' + room.name"></template><template x-if="!p.src"><div class="photo-thumb rounded" role="img" :aria-label="'Zdjęcie: ' + p.filename"><i class="bi bi-image" aria-hidden="true"></i><small x-text="p.filename"></small></div></template></div></template></div>
+      </div>
+    </section>
+  </template>
+  <section class="card mb-3" aria-labelledby="ph-title" x-show="photos(null).length">
+    <div class="card-body">
+      <h2 id="ph-title" class="h5">Zdjęcia — Ogólne</h2>
+      <div class="row g-2"><template x-for="p in photos(null)" :key="p.id"><div class="col-6 col-md-3"><template x-if="p.src"><img class="photo-thumb rounded" :src="p.src" alt="Zdjęcie ogólne"></template><template x-if="!p.src"><div class="photo-thumb rounded" role="img" :aria-label="'Zdjęcie: ' + p.filename"><i class="bi bi-image" aria-hidden="true"></i><small x-text="p.filename"></small></div></template></div></template></div>
+    </div>
+  </section>
+</div>
+</template>
+</main>
+<footer class="text-center small text-body-secondary py-3">Wygenerowane przez system IKPM.</footer>
+<script type="module">
+import { boot, db, idParam } from '../assets/app.js';
+
+boot(() => ({
+  r: null,
+  init() {
+    this.r = db.realizations.find((x) => x.id === idParam(1));
+    if (!this.r || (this.r.link_valid_until && this.r.link_valid_until < ik.todayISO())) location.replace(ik.href('screens/error-404.html'));
+  },
+  get sender() { const q = db.quotes.find((x) => x.id === this.r.quote_id); return q ? ik.quoteUser(q) : db.users[0]; },
+  // Tylko zdjęcia z „Widoczne dla klienta”.
+  photos(roomName) { return this.r.photos.filter((p) => p.client_visible && (p.room || null) === roomName); },
+  get endText() {
+    const r = this.r;
+    if (r.status === 'cancelled') return null;
+    if (r.status === 'done') return `Zakończono ${ik.date(ik.endOn(r))}`;
+    const cur = ik.currentEnd(r);
+    if (r.promised_end_on && cur && cur !== r.promised_end_on) return `Pierwotnie obiecany ${ik.date(r.promised_end_on)}, aktualnie przewidywany ${ik.date(cur)}`;
+    return cur ? ik.date(cur) : null;
+  },
+}));
+</script>
+</body>
+</html>

@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wykonawcy — IKPM</title>
+<link rel="stylesheet" href="../assets/bootstrap/bootstrap.min.css">
+<link rel="stylesheet" href="../assets/bootstrap-icons/bootstrap-icons.min.css">
+<link rel="stylesheet" href="../assets/app.css">
+<style>tr.detail-row > td { box-shadow: inset 4px 0 0 var(--bs-primary-border-subtle); }</style>
+</head>
+<body data-nav="data">
+<div id="nav"></div>
+<main x-data="page" x-cloak class="container-xxl px-3 mw-doc pb-5">
+  <div id="alerts"></div>
+  <h1 class="h3 mt-3 mb-0">Wykonawcy</h1>
+  <div id="data-tabs" data-active="contractors"></div>
+
+  <form class="card mb-3" @submit.prevent="add()" aria-labelledby="add-title">
+    <div class="card-body row g-2 align-items-end">
+      <h2 id="add-title" class="h6 col-12 mb-0">Dodaj wykonawcę</h2>
+      <div class="col-12 col-md-4"><label class="form-label small mb-1" for="c-name">Nazwa / Imię i nazwisko</label><input id="c-name" class="form-control" maxlength="100" placeholder="np. Jan Kowalski" x-model="draft.name" required></div>
+      <div class="col-12 col-md-3"><label class="form-label small mb-1" for="c-email">Email</label><input id="c-email" type="email" class="form-control" x-model="draft.email"></div>
+      <div class="col-7 col-md-3"><label class="form-label small mb-1" for="c-phone">Telefon</label><input id="c-phone" type="tel" class="form-control" placeholder="+48 123 456 789" title="Numer telefonu: cyfry, spacje oraz + ( ) -" x-model="draft.phone"></div>
+      <div class="col-5 col-md-2"><label class="form-label small mb-1" for="c-par">Prace naraz</label><input id="c-par" type="number" inputmode="decimal" min="1" max="20" class="form-control" x-model="draft.max_parallel_jobs" aria-describedby="par-hint"></div>
+      <p id="par-hint" class="col-12 small text-body-secondary mb-0">Prace naraz: ile prac ekipa prowadzi naraz, każdą w tempie z cennika</p>
+      <div class="col-12 col-md-9"><label class="form-label small mb-1" for="c-notes">Notatki</label><input id="c-notes" class="form-control" placeholder="Opcjonalne notatki..." x-model="draft.notes"></div>
+      <div class="col-12 col-md-3"><button class="btn btn-success w-100">Dodaj</button></div>
+    </div>
+  </form>
+
+  <section class="card mb-3" aria-labelledby="list-title">
+    <div class="card-header bg-body"><h2 id="list-title" class="h6 mb-0">Aktywni wykonawcy <span class="badge text-bg-secondary" x-text="active.length"></span></h2></div>
+    <p class="card-body mb-0 text-body-secondary" x-show="!active.length">Brak aktywnych wykonawców. Dodaj wykonawcę powyżej.</p>
+    <table class="table doc-table reflow mb-0">
+      <caption class="visually-hidden">Aktywni wykonawcy</caption>
+      <thead class="table-light"><tr><th scope="col"><span class="visually-hidden">Szczegóły</span></th><th scope="col">Nazwa</th><th scope="col">Email</th><th scope="col">Telefon</th><th scope="col">Prace naraz</th><th scope="col">Cennik</th><th scope="col"><span class="visually-hidden">Archiwizuj</span></th></tr></thead>
+      <template x-for="c in active" :key="c.id">
+        <tbody>
+          <tr>
+            <td><button type="button" class="btn btn-outline-secondary" :aria-expanded="(!!open[c.id]).toString()" :aria-controls="open[c.id] ? 'cd-' + c.id : null" :aria-label="(open[c.id] ? 'Zwiń: ' : 'Rozwiń: ') + c.name" @click="open[c.id] = !open[c.id]"><i class="bi" :class="open[c.id] ? 'bi-chevron-down' : 'bi-chevron-right'" aria-hidden="true"></i></button></td>
+            <td data-label="Nazwa"><input class="form-control" maxlength="100" :value="c.name" :aria-label="'Nazwa: ' + c.name" @change="rename(c, $event.target)"></td>
+            <td data-label="Email"><input type="email" class="form-control" :value="c.email" :aria-label="'Email: ' + c.name" @change="c.email = $event.target.value.trim(); saved(c)"></td>
+            <td data-label="Telefon"><input type="tel" class="form-control" :value="c.phone" :aria-label="'Telefon: ' + c.name" @change="c.phone = $event.target.value.trim(); saved(c)"></td>
+            <td data-label="Prace naraz"><input type="number" inputmode="decimal" min="1" max="20" class="form-control text-end" style="max-width: 6rem" :value="c.max_parallel_jobs" :aria-label="'Prace naraz: ' + c.name" @change="setParallel(c, $event.target)"></td>
+            <td data-label="Cennik" class="small" x-text="ik.jobsCount(pricesOf(c).length)"></td>
+            <td class="text-end"><button type="button" class="btn btn-outline-secondary" :aria-label="'Archiwizuj ' + c.name" title="Archiwizuj" @click="archive(c)"><i class="bi bi-archive" aria-hidden="true"></i></button></td>
+          </tr>
+          <template x-if="open[c.id]">
+          <tr class="detail-row" :id="'cd-' + c.id">
+            <td colspan="7" class="reflow-full">
+              <div class="row g-2 mb-3 align-items-end">
+                <div class="col-12 col-md-6"><label class="form-label small mb-1" :for="'cn-' + c.id">Notatki</label><textarea class="form-control" rows="1" :id="'cn-' + c.id" placeholder="Notatki o wykonawcy..." :value="c.notes" @change="c.notes = $event.target.value; saved(c)"></textarea></div>
+                <form class="col-12 col-md-6 d-flex gap-2 align-items-end" @submit.prevent="go('screens/price-change.html?contractor=' + c.id + '&percent=' + encodeURIComponent($event.target.elements.percent.value))">
+                  <div class="flex-grow-1"><label class="form-label small mb-1" :for="'pc-' + c.id">Zmień ceny o % <span class="visually-hidden" x-text="'ekipy „' + c.name + '”'"></span><span class="text-body-secondary">(od -90 do +200)</span></label><input type="number" inputmode="decimal" step="0.1" min="-90" max="200" name="percent" class="form-control" :id="'pc-' + c.id" required></div>
+                  <button class="btn btn-outline-primary">Podgląd</button>
+                </form>
+              </div>
+              <h3 class="h6">Prace wykonywane przez tego wykonawcę</h3>
+              <table class="table table-sm bg-body reflow mb-2">
+                <caption class="visually-hidden" x-text="'Cennik: ' + c.name"></caption>
+                <thead><tr><th scope="col">Praca</th><th scope="col">Cena:</th><th scope="col">Tempo:</th><th scope="col">Jakość:</th><th scope="col"><span class="visually-hidden">Usuń</span></th></tr></thead>
+                <tbody>
+                  <template x-for="row in pricesOf(c)" :key="row.job.id">
+                    <tr><td data-label="Praca" class="small" x-text="row.job.name + ' (' + row.job.unit + ')'"></td>
+                      <td data-label="Cena:"><div class="input-group"><input type="number" inputmode="decimal" step="any" min="0" class="form-control text-end" placeholder="średnia" :value="row.crew.price === null ? '' : Number(row.crew.price)" :aria-label="'Cena: ' + row.job.name" @change="setPrice(row, $event.target)"><span class="input-group-text">zł</span></div></td>
+                      <td data-label="Tempo:"><div class="d-flex gap-1 align-items-center"><input type="number" inputmode="decimal" step="any" min="0" class="form-control text-end" style="min-width: 4.5rem" :value="row.crew.speed_min === null ? '' : Number(row.crew.speed_min)" :aria-label="'Tempo min: ' + row.job.name" @change="setSpeed(row, 'speed_min', $event.target)"><span aria-hidden="true">–</span><input type="number" inputmode="decimal" step="any" min="0" class="form-control text-end" style="min-width: 4.5rem" :value="row.crew.speed_max === null ? '' : Number(row.crew.speed_max)" :aria-label="'Tempo max: ' + row.job.name" @change="setSpeed(row, 'speed_max', $event.target)"></div></td>
+                      <td data-label="Jakość:"><select class="form-select" :aria-label="'Jakość: ' + row.job.name" @change="row.crew.quality = $event.target.value ? Number($event.target.value) : null; crewSaved()"><option value="">brak oceny</option><template x-for="[k, label] in qualities" :key="k"><option :value="k" :selected="Number(row.crew.quality) === Number(k)" x-text="label"></option></template></select></td>
+                      <td class="text-end"><button type="button" class="btn btn-sm btn-outline-danger" :aria-label="'Usuń pracę ' + row.job.name" @click="removePrice(row)"><i class="bi bi-trash" aria-hidden="true"></i></button></td></tr>
+                  </template>
+                </tbody>
+              </table>
+              <form class="row g-2 align-items-end" @submit.prevent="addPrice(c, $event.target)">
+                <div class="col-12 col-md-7"><label class="form-label small mb-1" :for="'aj-' + c.id">Praca</label><select class="form-select" name="job" :id="'aj-' + c.id" required><option value="">-- Wybierz pracę --</option><template x-for="s in db.catalogue" :key="s.id"><optgroup :label="s.name"><template x-for="j in s.jobs.filter(j => !j.crews.some(x => x.contractor === c.name))" :key="j.id"><option :value="j.id" x-text="j.name + ' (' + j.unit + ')'"></option></template></optgroup></template></select></div>
+                <div class="col-7 col-md-3"><label class="form-label small mb-1" :for="'ap-' + c.id">Cena:</label><input type="number" inputmode="decimal" step="any" min="0" class="form-control text-end" name="price" placeholder="średnia" :id="'ap-' + c.id"></div>
+                <div class="col-5 col-md-2"><button class="btn btn-success w-100">Dodaj</button></div>
+              </form>
+            </td>
+          </tr>
+          </template>
+        </tbody>
+      </template>
+    </table>
+  </section>
+
+  <details class="card" aria-labelledby="arch-title">
+    <summary class="card-header tap fw-semibold" id="arch-title"><i class="bi bi-archive" aria-hidden="true"></i> Archiwum <span class="badge text-bg-secondary" x-text="archived.length"></span></summary>
+    <div class="card-body">
+      <p class="small text-body-secondary">Wykonawcy z archiwum nie biorą udziału w doborze i nie ma ich w cenniku prac. Zostają przy pracach wycen i realizacji — szkic wyceny z takim wykonawcą przed wysyłką wymaga ponownego doboru. Usunąć na stałe można tylko wykonawcę bez prac w wycenach i realizacjach.</p>
+      <ul class="list-group">
+        <template x-for="c in archived" :key="c.id">
+          <li class="list-group-item d-flex flex-wrap align-items-center gap-2">
+            <span class="me-auto"><strong x-text="c.name"></strong><small class="d-block text-body-secondary" x-text="[c.email, c.phone, 'w archiwum'].filter(Boolean).join(' · ')"></small></span>
+            <button type="button" class="btn btn-outline-primary" @click="restore(c)"><i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i> Przywróć</button>
+            <button type="button" class="btn btn-outline-danger" :aria-label="'Usuń wykonawcę ' + c.name" @click="destroy(c)"><i class="bi bi-trash" aria-hidden="true"></i></button>
+          </li>
+        </template>
+      </ul>
+    </div>
+  </details>
+</main>
+<script type="module">
+import { boot, db, save, nextId, toast, alertError, ask, go, resetCatIndex } from '../assets/app.js';
+
+boot(() => ({
+  open: {}, draft: { name: '', email: '', phone: '', max_parallel_jobs: 1, notes: '' }, go,
+  get active() { return db.contractors.filter((c) => !c.archived).sort((a, b) => a.name.localeCompare(b.name, 'pl') || a.id - b.id); },
+  get archived() { return db.contractors.filter((c) => c.archived).sort((a, b) => a.name.localeCompare(b.name, 'pl')); },
+  pricesOf(c) { return db.catalogue.flatMap((s) => s.jobs.flatMap((job) => job.crews.filter((x) => x.contractor === c.name).map((crew) => ({ job, crew })))); },
+  saved(c) { save(); toast(`Wykonawca '${c.name}' został zaktualizowany.`); },
+  get qualities() { return Object.entries(ik.labels().quality).sort((a, b) => Number(a[0]) - Number(b[0])); },
+  crewSaved() { resetCatIndex(); save(); toast('Dane wykonawcy zostały zaktualizowane.'); },
+  setSpeed(row, field, el) {
+    const v = el.value === '' ? null : ik.parseNumber(el.value);
+    if (v !== null && (Number.isNaN(v) || v < 0 || v > 1000000)) { el.value = row.crew[field] === null ? '' : Number(row.crew[field]); alertError('Tempo musi być większe lub równe 0'); return; }
+    row.crew[field] = v === null ? null : String(v); this.crewSaved();
+  },
+  rename(c, el) {
+    const v = el.value.trim(); if (!v) { el.value = c.name; alertError('Nazwa nie może być pusta'); return; }
+    this.pricesOf(c).forEach((row) => { row.crew.contractor = v; });
+    c.name = v; resetCatIndex(); this.saved(c);
+  },
+  setParallel(c, el) { const v = ik.parseNumber(el.value); if (!Number.isInteger(v) || v < 1 || v > 20) { el.value = c.max_parallel_jobs; alertError('Liczba prac naraz musi być większa lub równa 1 i mniejsza lub równa 20'); return; } c.max_parallel_jobs = v; this.saved(c); },
+  setPrice(row, el) {
+    if (el.value === '') { row.crew.price = null; row.crew.effective_price = row.job.average_price; save(); toast('Dane wykonawcy zostały zaktualizowane.'); return; }
+    const v = ik.parseNumber(el.value); if (Number.isNaN(v) || v <= 0 || v > 1000000) { el.value = row.crew.price === null ? '' : Number(row.crew.price); alertError('Cena musi być większa od 0'); return; }
+    row.crew.price = String(v); row.crew.effective_price = String(v); save(); toast('Dane wykonawcy zostały zaktualizowane.');
+  },
+  addPrice(c, form) {
+    const job = db.catalogue.flatMap((s) => s.jobs).find((j) => j.id === Number(form.elements.job.value)); if (!job) return;
+    const price = form.elements.price.value === '' ? null : ik.parseNumber(form.elements.price.value);
+    if (price !== null && (Number.isNaN(price) || price <= 0)) { alertError('Cena musi być większa od 0'); return; }
+    job.crews.push({ contractor: c.name, archived: false, max_parallel_jobs: c.max_parallel_jobs, price: price === null ? null : String(price), effective_price: price === null ? job.average_price : String(price), speed_min: null, speed_max: null, quality: null });
+    resetCatIndex(); save(); form.reset(); toast('Wykonawca został przypisany do pracy.');
+  },
+  async removePrice(row) {
+    if (!(await ask({ title: 'Usuń pracę', text: 'Usunąć tę pracę?', points: [`„${row.job.name}” zniknie z cennika tego wykonawcy.`], ok: 'Usuń pracę', okClass: 'danger' }))) return;
+    row.job.crews.splice(row.job.crews.indexOf(row.crew), 1); resetCatIndex(); save(); toast('Wykonawca został usunięty z pracy.');
+  },
+  add() {
+    const d = this.draft; const name = d.name.trim(); if (!name) { alertError('Nazwa nie może być pusta'); return; }
+    const par = Number(d.max_parallel_jobs); if (!Number.isInteger(par) || par < 1 || par > 20) { alertError('Liczba prac naraz musi być większa lub równa 1 i mniejsza lub równa 20'); return; }
+    db.contractors.push({ id: nextId('contractor'), name, email: d.email.trim(), phone: d.phone.trim(), max_parallel_jobs: par, notes: d.notes.trim(), archived: false });
+    save(); this.draft = { name: '', email: '', phone: '', max_parallel_jobs: 1, notes: '' }; toast(`Wykonawca '${name}' został dodany.`);
+  },
+  setArchived(c, on) { c.archived = on; this.pricesOf(c).forEach((row) => { row.crew.archived = on; }); resetCatIndex(); save(); },
+  async archive(c) {
+    if (!(await ask({ title: 'Archiwizuj', text: `Przenieść wykonawcę '${c.name}' do archiwum? Zniknie z doboru i z cennika prac. Szkice wycen, w których ma prace, przed wysyłką wymagają ponownego doboru.`, ok: 'Archiwizuj', okClass: 'warning' }))) return;
+    this.setArchived(c, true); toast(`Wykonawca '${c.name}' trafił do archiwum.`);
+  },
+  restore(c) { this.setArchived(c, false); toast(`Wykonawca '${c.name}' wrócił z archiwum.`); },
+  async destroy(c) {
+    if (!(await ask({ title: 'Usuń wykonawcę', text: `Usunąć wykonawcę '${c.name}' na stałe? Wykonawcy z pracami w wycenach lub realizacjach nie da się usunąć.`, points: ['Tego nie da się cofnąć.'], ok: 'Usuń na stałe', okClass: 'danger' }))) return;
+    if ([...db.quotes, ...db.realizations].some((x) => x.rooms.some((r) => r.jobs.some((j) => j.contractor === c.name)))) { alertError('Nie można usunąć, gdyż istnieją zależne od niego prace w wycenach i realizacjach'); return; }
+    this.pricesOf(c).forEach((row) => row.job.crews.splice(row.job.crews.indexOf(row.crew), 1));
+    db.contractors.splice(db.contractors.indexOf(c), 1); resetCatIndex(); save(); toast(`Wykonawca '${c.name}' został usunięty.`);
+  },
+}));
+</script>
+</body>
+</html>

@@ -1,0 +1,383 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Obchód na budowie — IKPM</title>
+  <link rel="stylesheet" href="../assets/bootstrap/bootstrap.min.css">
+  <link rel="stylesheet" href="../assets/bootstrap-icons/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="../assets/app.css">
+</head>
+<body data-section="realizations">
+  <!-- Obchód: realizacja → pokój → prace po jednej → zdjęcia → podsumowanie (ekran realization-show, część „na budowie”). -->
+  <main id="main"><div id="app" class="container-xxl" x-data="page" x-cloak>
+    <div class="wz">
+      <nav class="wz-steps" aria-label="Kroki obchodu">
+        <div class="wz-compact d-md-none mb-2">
+          <div><span class="small text-body-secondary">Obchód · krok <span x-text="stepIndex + 1"></span> z 5</span><strong class="d-block" x-text="STEPS[stepIndex].label"></strong></div>
+          <button type="button" class="btn btn-outline-secondary" @click="showSteps = !showSteps" :aria-expanded="showSteps" aria-controls="ob-steps">Kroki</button>
+          <div class="progress w-100" role="progressbar" aria-label="Postęp obchodu" aria-valuemin="0" aria-valuemax="5" :aria-valuenow="stepIndex + 1" style="height: .5rem"><div class="progress-bar" :style="`width: ${(stepIndex + 1) * 20}%`"></div></div>
+        </div>
+        <ol class="wz-steplist" id="ob-steps" :class="showSteps ? '' : 'collapsed-sm'">
+          <template x-for="(s, i) in STEPS" :key="s.key">
+            <li><button type="button" class="wz-step" :class="{ current: step === s.key, done: i < stepIndex }" :aria-current="step === s.key ? 'step' : null" :disabled="(i > 0 && !r) || (i > 1 && !room)" @click="go(s.key)">
+              <span class="num" aria-hidden="true" x-text="i + 1"></span><span x-text="s.label"></span></button></li>
+          </template>
+        </ol>
+      </nav>
+
+      <section class="wz-main" aria-labelledby="wz-h1">
+        <p class="lead-line" x-show="r" x-text="r ? 'Realizacja #' + r.id + ' · ' + r.client.name : ''"></p>
+        <h1 id="wz-h1" class="wz-h1" tabindex="-1" x-text="question"></h1>
+
+        <template x-if="r && !active">
+          <div class="alert alert-secondary"><i class="bi bi-lock" aria-hidden="true"></i> Realizacja jest <span x-text="statusLabel('realization', r.status)"></span> — status i stawka faktyczna są zablokowane. Komentarz i notatka wewnętrzna zostają edytowalne.</div>
+        </template>
+
+        <!-- 1. realizacja -->
+        <template x-if="step === 'realizacja'">
+          <div class="d-grid gap-2">
+            <template x-for="x in list" :key="x.id">
+              <button type="button" class="choice" @click="pickRealization(x)">
+                <i class="bi bi-building" aria-hidden="true"></i>
+                <span class="min-w-0 flex-grow-1"><strong class="d-block" x-text="x.client.name"></strong>
+                  <span class="small d-block" x-text="x.site_address"></span>
+                  <span class="small d-block" x-text="progressLine(x)"></span></span>
+                <span x-html="badge('realization', x.status)"></span>
+              </button>
+            </template>
+            <p x-show="!list.length">Brak realizacji w trakcie.</p>
+          </div>
+        </template>
+
+        <!-- 2. pokój -->
+        <template x-if="step === 'pokoj' && r">
+          <div class="d-grid gap-2">
+            <template x-for="rm in r.rooms" :key="rm.id">
+              <button type="button" class="choice" @click="pickRoom(rm)">
+                <i class="bi bi-door-open" aria-hidden="true"></i>
+                <span class="min-w-0 flex-grow-1"><strong class="d-block" x-text="rm.name"></strong>
+                  <span class="small d-block" x-text="roomCounts(rm)"></span>
+                  <span class="progress mt-1" role="progressbar" :aria-label="'Postęp pokoju ' + rm.name" aria-valuemin="0" aria-valuemax="100" :aria-valuenow="prog(rm).pct" style="height:.5rem; display:flex"><span class="progress-bar bg-success" :style="`width: ${prog(rm).pct}%`"></span></span></span>
+                <i class="bi bi-chevron-right" aria-hidden="true"></i>
+              </button>
+            </template>
+            <a class="btn btn-outline-secondary mt-2" :href="link('screens/realization-show.html?id=' + r.id)">Realizacja #<span x-text="r.id"></span> — wszystkie dane</a>
+          </div>
+        </template>
+
+        <!-- 3. prace — jedna naraz -->
+        <template x-if="step === 'prace' && room">
+          <div>
+            <div class="d-flex flex-wrap gap-2 align-items-center justify-content-between mb-3">
+              <span class="small">Oznacz prace po kolei albo wszystkie naraz.</span>
+              <button type="button" class="btn btn-outline-success btn-main" x-show="active" @click="bulkDone()"><i class="bi bi-check2-all" aria-hidden="true"></i> Wszystkie prace pokoju: Zrobione</button>
+            </div>
+            <template x-for="job in [job]" :key="job.id">
+              <article class="job-card" aria-labelledby="job-name">
+                <h2 class="h4" id="job-name" x-text="job.name"></h2>
+                <p class="mb-1"><span x-text="job.stage"></span> · <span x-text="qtyText(job.quantity, job.unit)"></span></p>
+                <p class="mb-2">Wykonawca: <strong x-text="job.contractor || '—'"></strong></p>
+                <p class="mb-3">Status teraz: <span x-html="badge('job', job.status)"></span></p>
+                <div class="status-buttons" role="group" aria-label="Status pracy">
+                  <template x-for="s in ['done', 'remake', 'to_do', 'in_progress']" :key="s">
+                    <button type="button" class="btn" :class="[job.status === s ? 'btn-' + STATUS_COLOR('job', s) : 'btn-outline-secondary', ['to_do', 'in_progress'].includes(s) ? 'small-status' : '']"
+                      :aria-pressed="job.status === s ? 'true' : 'false'" :disabled="!active" @click="setStatus(job, s)">
+                      <i class="bi" :class="'bi-' + STATUS_ICON('job', s)" aria-hidden="true"></i><span x-text="statusLabel('job', s)"></span>
+                    </button>
+                  </template>
+                </div>
+                <p class="mt-2 mb-0 small" aria-live="polite" x-show="lastChange?.jobId === job.id">
+                  <i class="bi bi-check2" aria-hidden="true"></i> Zapisano: <span x-text="statusLabel('job', job.status)"></span>.
+                  <button type="button" class="btn btn-link px-2 py-0 align-baseline" x-show="lastChange?.prev !== job.status && active" @click="undo(job)">Cofnij</button>
+                  <span x-show="job.status === 'done' || lastChange?.prev === 'done'">Data wykonania zostaje przy pierwszym „Zrobione”.</span>
+                </p>
+
+                <div class="mt-3">
+                  <label class="form-label fw-semibold" for="internal-note"><i class="bi bi-lock" aria-hidden="true"></i> Notatka wewnętrzna (tylko firma)</label>
+                  <textarea class="form-control" id="internal-note" :class="job.status === 'remake' && !job.internal_notes ? 'border-warning border-2' : ''" aria-describedby="internal-hint" x-init="$el.value = job.internal_notes ?? ''" @input="setText(job, 'internal_notes', $el.value)"></textarea>
+                  <p class="form-text visibility-note" id="internal-hint"><span x-show="job.status === 'remake'" class="fw-semibold">Wpisz tu powód „Do poprawy”. </span>Klient jej nie widzi — nie ma jej na stronie postępu, w mailach ani w PDF.</p>
+                </div>
+                <div class="mt-2">
+                  <label class="form-label fw-semibold" for="client-comment"><i class="bi bi-eye" aria-hidden="true"></i> Komentarz (widzi klient)</label>
+                  <textarea class="form-control" id="client-comment" aria-describedby="comment-hint" x-init="$el.value = job.notes ?? ''" @input="setText(job, 'notes', $el.value)"></textarea>
+                  <p class="form-text visibility-note" id="comment-hint">Klient zobaczy go przy tej pracy na stronie postępu prac (/r).</p>
+                </div>
+                <details class="mt-1">
+                  <summary>Stawka faktyczna /j.</summary>
+                  <div class="d-flex align-items-end gap-2 pt-1">
+                    <div>
+                      <label class="form-label small" for="actual-rate">Stawka faktyczna /j. (zł)</label>
+                      <input class="form-control qty" id="actual-rate" type="number" inputmode="decimal" step="0.01" min="0.01" max="1000000" :placeholder="dec(job.contractor_price)" :disabled="!active" x-init="$el.value = job.actual_contractor_price ?? ''" @change="setRate(job, $el)">
+                    </div>
+                    <p class="small mb-2">Puste — stawka uzgodniona <span x-text="pln(job.contractor_price)"></span>. Zmienia tylko koszt.</p>
+                  </div>
+                </details>
+                <p class="small mb-0" x-show="savedAt" aria-live="polite"><i class="bi bi-check2" aria-hidden="true"></i> Zapisano <span x-text="savedAt"></span></p>
+              </article>
+            </template>
+            <details class="list-card mt-3">
+              <summary>Wszystkie prace pokoju (<span x-text="jobs.length"></span>)</summary>
+              <ol class="list-unstyled mb-0 mt-2">
+                <template x-for="(j, i) in jobs" :key="j.id">
+                  <li><button type="button" class="choice mb-1 py-2" :aria-current="i === idx ? 'true' : null" :class="i === idx ? 'selected' : ''" @click="openJob(i)">
+                    <span class="text-nowrap" x-html="badge('job', j.status)"></span><span class="min-w-0" x-text="(i + 1) + '. ' + j.name"></span></button></li>
+                </template>
+              </ol>
+            </details>
+          </div>
+        </template>
+
+        <!-- 4. zdjęcia -->
+        <template x-if="step === 'zdjecia' && r">
+          <div>
+            <p>Dodaj zdjęcia z galerii albo aparatu. Przy każdym zdjęciu zdecyduj, czy zobaczy je klient.</p>
+            <div class="row g-3 align-items-end">
+              <div class="col-md-7">
+                <input class="visually-hidden file-input" id="photo-files" type="file" accept="image/jpeg,image/png,image/webp" multiple @change="pickFiles($event)">
+                <label class="btn btn-outline-primary btn-main w-100" for="photo-files"><i class="bi bi-images" aria-hidden="true"></i> Zdjęcia (JPG, PNG, WebP; najwyżej 20 naraz)</label>
+              </div>
+              <div class="col-md-5">
+                <label class="form-label" for="photo-room">Pokój</label>
+                <select class="form-select" id="photo-room" x-model="photoRoom">
+                  <option value="">Ogólne (bez pokoju)</option>
+                  <template x-for="rm in r.rooms" :key="rm.id"><option :value="rm.name" :selected="rm.name === photoRoom" x-text="rm.name"></option></template>
+                </select>
+              </div>
+            </div>
+            <div class="alert alert-danger mt-3" role="alert" x-show="photoError" x-text="photoError"></div>
+            <template x-if="pending.length">
+              <div class="mt-3">
+                <h2 class="h6">Wybrane — jeszcze niedodane</h2>
+                <div class="photo-grid">
+                  <template x-for="(ph, i) in pending" :key="ph.key">
+                    <div class="photo-card">
+                      <img class="photo-thumb" :src="ph.src" :alt="'Wybrane zdjęcie ' + ph.filename">
+                      <div class="p-2">
+                        <div class="form-check form-switch check-row">
+                          <input class="form-check-input" type="checkbox" role="switch" :id="'pv-' + ph.key" x-model="ph.client_visible">
+                          <label class="form-check-label" :for="'pv-' + ph.key">Widoczne dla klienta</label>
+                        </div>
+                        <p class="small mb-0 text-break" x-text="ph.filename"></p>
+                      </div>
+                    </div>
+                  </template>
+                </div>
+                <button type="button" class="btn btn-primary btn-main mt-3" @click="addPhotos()"><i class="bi bi-upload" aria-hidden="true"></i> Dodaj zdjęcia</button>
+              </div>
+            </template>
+            <h2 class="h6 mt-4" x-text="photoRoom ? 'Zdjęcia: ' + photoRoom : 'Zdjęcia: Ogólne'"></h2>
+            <div class="photo-grid">
+              <template x-for="ph in roomPhotos" :key="ph.key">
+                <div class="photo-card">
+                  <template x-if="ph.src"><img class="photo-thumb" :src="ph.src" :alt="'Zdjęcie ' + ph.filename"></template>
+                  <template x-if="!ph.src"><div class="photo-thumb" role="img" :aria-label="'Zdjęcie ' + ph.filename"><i class="bi bi-image" aria-hidden="true"></i><span x-text="ph.filename"></span></div></template>
+                  <div class="p-2">
+                    <div class="form-check form-switch check-row">
+                      <input class="form-check-input" type="checkbox" role="switch" :id="'v-' + ph.key" :checked="ph.client_visible" @change="setVisible(ph, $el.checked)">
+                      <label class="form-check-label" :for="'v-' + ph.key">Widoczne dla klienta</label>
+                    </div>
+                  </div>
+                </div>
+              </template>
+            </div>
+            <p x-show="!roomPhotos.length">Brak zdjęć.</p>
+          </div>
+        </template>
+
+        <!-- 5. podsumowanie -->
+        <template x-if="step === 'podsumowanie' && r && room">
+          <div>
+            <p x-text="roomCounts(room)"></p>
+            <div class="row g-3">
+              <section class="col-md-6" aria-labelledby="h-client">
+                <div class="list-card h-100">
+                  <h2 class="h6" id="h-client"><i class="bi bi-eye" aria-hidden="true"></i> Klient zobaczy na stronie postępu (/r)</h2>
+                  <ul class="small mb-0">
+                    <li>Statusy prac pokoju „<span x-text="room.name"></span>”.</li>
+                    <template x-for="j in jobs.filter((x) => x.notes)" :key="j.id"><li><span x-text="j.name"></span>: „<span x-text="j.notes"></span>”</li></template>
+                    <li x-text="'Zdjęcia widoczne dla klienta: ' + photosOf(room).filter((p) => p.client_visible).length"></li>
+                  </ul>
+                </div>
+              </section>
+              <section class="col-md-6" aria-labelledby="h-company">
+                <div class="list-card h-100">
+                  <h2 class="h6" id="h-company"><i class="bi bi-lock" aria-hidden="true"></i> Tylko firma</h2>
+                  <ul class="small mb-0">
+                    <template x-for="j in jobs.filter((x) => x.internal_notes)" :key="j.id"><li><span x-text="j.name"></span>: <span x-text="j.internal_notes"></span></li></template>
+                    <li x-text="'Zdjęcia wewnętrzne: ' + photosOf(room).filter((p) => !p.client_visible).length"></li>
+                  </ul>
+                </div>
+              </section>
+            </div>
+            <div class="d-flex flex-wrap gap-2 mt-3">
+              <button type="button" class="btn btn-outline-primary btn-main" @click="go('pokoj')"><i class="bi bi-door-open" aria-hidden="true"></i> Inny pokój</button>
+              <a class="btn btn-primary btn-main" :href="link('screens/realization-show.html?id=' + r.id)"><i class="bi bi-arrow-return-left" aria-hidden="true"></i> Wróć do realizacji</a>
+            </div>
+          </div>
+        </template>
+
+        <div class="wz-actions" x-show="['prace', 'zdjecia'].includes(step)">
+          <button type="button" class="btn btn-outline-secondary btn-main" @click="prev()"><i class="bi bi-arrow-left" aria-hidden="true"></i> <span x-text="step === 'prace' && idx > 0 ? 'Poprzednia' : 'Wstecz'"></span></button>
+          <button type="button" class="btn btn-primary btn-main" @click="next()"><span x-text="nextLabel"></span> <i class="bi bi-arrow-right" aria-hidden="true"></i></button>
+        </div>
+      </section>
+
+      <aside class="wz-aside" aria-label="Podsumowanie obchodu" x-show="r">
+        <div class="sticky-md list-card" x-show="r">
+          <h2 class="h5 mb-1" x-text="r ? r.client.name : ''"></h2>
+          <p class="small mb-2" x-text="r?.site_address"></p>
+          <p class="mb-2" x-html="r ? badge('realization', r.status) : ''"></p>
+          <template x-if="r">
+            <div>
+              <div class="small mb-1">Postęp prac <span x-text="`${prog().pct}% (${prog().done} / ${prog().all})`"></span></div>
+              <div class="progress mb-3" role="progressbar" aria-label="Postęp prac realizacji" aria-valuemin="0" aria-valuemax="100" :aria-valuenow="prog().pct"><div class="progress-bar bg-success" :style="`width: ${prog().pct}%`"></div></div>
+            </div>
+          </template>
+          <template x-if="room">
+            <div>
+              <h3 class="h6" x-text="room.name"></h3>
+              <ol class="list-unstyled small mb-0">
+                <template x-for="(j, i) in jobs" :key="j.id">
+                  <li class="d-flex gap-2 py-1 border-bottom" :class="step === 'prace' && i === idx ? 'fw-semibold' : ''">
+                    <i class="bi" :class="'bi-' + STATUS_ICON('job', j.status) + ' text-' + STATUS_COLOR('job', j.status) + '-emphasis'" aria-hidden="true"></i>
+                    <span class="min-w-0 flex-grow-1" x-text="j.name"></span>
+                    <span class="text-nowrap" x-text="statusLabel('job', j.status)"></span>
+                  </li>
+                </template>
+              </ol>
+            </div>
+          </template>
+        </div>
+      </aside>
+    </div>
+  </div></main>
+  <script type="module">
+    import {
+      start, getRealization, saveRealization, realizations, progress, sortJobs, assignStatus, isActive, STATUS_COLOR, STATUS_ICON,
+      statusLabel, jobsAccusative, fieldNumber, link, readPhotos,
+    } from '../assets/app.js';
+
+    const STEPS = [
+      { key: 'realizacja', label: 'Realizacja', question: 'Na której budowie jesteś?' },
+      { key: 'pokoj', label: 'Pokój', question: 'W którym pokoju?' },
+      { key: 'prace', label: 'Prace', question: '' },
+      { key: 'zdjecia', label: 'Zdjęcia', question: '' },
+      { key: 'podsumowanie', label: 'Podsumowanie', question: '' },
+    ];
+    start(() => ({
+      STEPS, STATUS_COLOR, STATUS_ICON,
+      r: null, step: 'realizacja', roomId: null, idx: 0, showSteps: false, lastChange: null, savedAt: '',
+      pending: [], photoRoom: '', photoError: '',
+      init() {
+        this.fromUrl();
+        // Wstecz przeglądarki / gest systemu: o jeden krok obchodu wstecz (każda zmiana kroku to wpis w historii).
+        window.addEventListener('popstate', () => { this.fromUrl(); this.$nextTick(() => { window.scrollTo(0, 0); document.getElementById('wz-h1')?.focus(); }); });
+      },
+      fromUrl() {
+        const _p = new URLSearchParams(location.search);
+        this.r = _p.get('id') ? getRealization(_p.get('id')) : null;
+        this.roomId = Number(_p.get('pokoj')) || null;
+        this.idx = Number(_p.get('praca') || 0);
+        this.step = this.r ? (_p.get('krok') || (this.roomId ? 'prace' : 'pokoj')) : 'realizacja';
+        this.showSteps = false; this.lastChange = null; this.pending = [];
+        if (this.room) this.photoRoom = this.room.name;
+        this.sync();
+      },
+      get list() {
+        return realizations().filter((x) => ['in_progress', 'planned'].includes(x.status))
+          .sort((a, b) => (a.status === 'in_progress' ? 0 : 1) - (b.status === 'in_progress' ? 0 : 1) || b.id - a.id);
+      },
+      get stepIndex() { return STEPS.findIndex((s) => s.key === this.step); },
+      get active() { return this.r ? isActive(this.r) : true; },
+      get room() { return this.r?.rooms.find((x) => x.id === this.roomId) ?? null; },
+      get jobs() { return this.room ? sortJobs(this.room.jobs) : []; },
+      get job() { return this.jobs[this.idx]; },
+      get question() {
+        if (this.step === 'prace') return this.room ? `${this.room.name} — praca ${this.idx + 1} z ${this.jobs.length}` : '';
+        if (this.step === 'zdjecia') return this.room ? `Zdjęcia: ${this.room.name}` : 'Zdjęcia';
+        if (this.step === 'podsumowanie') return this.room ? `Podsumowanie: ${this.room.name}` : 'Podsumowanie';
+        return STEPS[this.stepIndex].question;
+      },
+      get nextLabel() {
+        if (this.step === 'prace') return this.idx < this.jobs.length - 1 ? 'Następna' : 'Dalej: Zdjęcia';
+        return 'Dalej: Podsumowanie';
+      },
+      prog(room) { return room ? progress(this.r, room) : progress(this.r); },
+      progressLine(x) { const _p = progress(x); return `Postęp prac: ${_p.pct}% (${_p.done} / ${_p.all})`; },
+      roomCounts(room) {
+        const _c = {};
+        for (const j of room.jobs) _c[j.status] = (_c[j.status] ?? 0) + 1;
+        return ['done', 'in_progress', 'remake', 'to_do'].filter((s) => _c[s]).map((s) => `${statusLabel('job', s)}: ${_c[s]}`).join(' · ');
+      },
+      sync(push = false) {
+        const _q = new URLSearchParams();
+        if (this.r) _q.set('id', this.r.id);
+        if (this.roomId) _q.set('pokoj', this.roomId);
+        _q.set('krok', this.step);
+        if (this.step === 'prace') _q.set('praca', this.idx);
+        if (push && `?${_q}` !== location.search) history.pushState(null, '', `?${_q}`); else history.replaceState(null, '', `?${_q}`);
+      },
+      go(key) {
+        this.step = key; this.showSteps = false; this.lastChange = null; this.sync(true);
+        this.$nextTick(() => { window.scrollTo(0, 0); document.getElementById('wz-h1')?.focus(); });
+      },
+      pickRealization(x) { this.r = getRealization(x.id); this.roomId = null; this.go('pokoj'); },
+      pickRoom(rm) {
+        this.roomId = rm.id; this.photoRoom = rm.name;
+        const _first = sortJobs(rm.jobs).findIndex((j) => j.status !== 'done');
+        this.idx = _first >= 0 ? _first : 0;
+        this.go('prace');
+      },
+      openJob(i) { this.idx = i; this.go('prace'); },
+      save() { saveRealization(this.r); this.savedAt = new Date().toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit', second: '2-digit' }); },
+      setStatus(job, s) {
+        if (!this.active || job.status === s) return;
+        this.lastChange = { jobId: job.id, prev: job.status };
+        assignStatus(job, s);
+        this.save();
+        if (s === 'remake') this.$nextTick(() => { const _note = document.getElementById('internal-note'); _note?.focus({ preventScroll: true }); _note?.scrollIntoView({ block: 'center' }); });
+      },
+      undo(job) { const _prev = this.lastChange.prev; assignStatus(job, _prev); this.lastChange = { jobId: job.id, prev: _prev }; this.save(); },
+      setText(job, field, value) { job[field] = value || null; this.save(); },
+      setRate(job, el) { const _v = fieldNumber(el); if (_v === undefined) return; job.actual_contractor_price = _v === null ? null : String(_v); this.save(); },
+      bulkDone() {
+        let _n = 0; let _skipped = 0;
+        for (const j of this.room.jobs) {
+          if (j.status === 'remake') { _skipped += 1; continue; }
+          if (j.status !== 'done') { assignStatus(j, 'done'); }
+          _n += 1;
+        }
+        this.save();
+        this.$store.toast.show(_skipped ? `Zaktualizowano ${jobsAccusative(_n)}, pominięto ${jobsAccusative(_skipped)} „Do poprawy” — sprawdź pojedynczo.` : `Zaktualizowano ${jobsAccusative(_n)}.`);
+      },
+      next() {
+        if (this.step === 'prace') { if (this.idx < this.jobs.length - 1) { this.idx += 1; this.lastChange = null; this.sync(); this.$nextTick(() => { window.scrollTo(0, 0); document.getElementById('wz-h1')?.focus(); }); } else this.go('zdjecia'); return; }
+        this.go('podsumowanie');
+      },
+      prev() {
+        if (this.step === 'prace') { if (this.idx > 0) { this.idx -= 1; this.lastChange = null; this.sync(); } else this.go('pokoj'); return; }
+        this.idx = this.jobs.length - 1; this.go('prace');
+      },
+      // zdjęcia
+      photosOf(room) { return (this.r.photos ?? []).filter((p) => (room ? p.room === room.name : !p.room)); },
+      get roomPhotos() { return (this.r.photos ?? []).map((p, i) => ({ ...p, key: i })).filter((p) => (this.photoRoom ? p.room === this.photoRoom : !p.room)); },
+      async pickFiles(e) {
+        this.photoError = ''; this.pending = [];
+        const _r = await readPhotos(e.target.files);
+        if (_r.error) this.photoError = _r.error; else this.pending = _r.photos;
+      },
+      addPhotos() {
+        this.r.photos = [...(this.r.photos ?? []), ...this.pending.map(({ key, ...p }) => ({ ...p, room: this.photoRoom || null }))];
+        const _n = this.pending.length;
+        this.pending = [];
+        const _input = document.getElementById('photo-files'); if (_input) _input.value = '';
+        this.save();
+        this.$store.toast.show(`Dodano zdjęcia: ${_n}.`);
+      },
+      setVisible(ph, on) { this.r.photos[ph.key].client_visible = on; this.save(); this.$store.toast.show('Zapisano zdjęcie.'); },
+      link,
+    }));
+  </script>
+</body>
+</html>

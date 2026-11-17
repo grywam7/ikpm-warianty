@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mail z ofertą — IKPM</title>
+  <link rel="stylesheet" href="../assets/bootstrap/bootstrap.min.css">
+  <link rel="stylesheet" href="../assets/bootstrap-icons/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="../assets/app.css">
+</head>
+<body data-section="mail">
+  <main id="main"><div id="app" class="container-xxl" x-data="page" x-cloak>
+    <template x-if="q">
+      <article class="mail" aria-label="Wiadomość e-mail z ofertą">
+        <div class="mail-head small">
+          <div><strong>Od:</strong> IKPM &lt;noreply@ikpm.local&gt;</div>
+          <div><strong>Do:</strong> <span x-text="q.client?.email"></span></div>
+          <div><strong>Temat:</strong> <span x-text="'Wycena #' + q.id"></span></div>
+          <div><strong>Załącznik:</strong> <a class="tap-link" :href="link('screens/quote-pdf.html?id=' + q.id)" x-text="'wycena-' + q.id + '.pdf'"></a></div>
+        </div>
+        <div class="mail-body">
+          <h1 class="visually-hidden" x-text="'Wycena #' + q.id"></h1>
+          <p x-text="'Dzień dobry ' + (q.client?.name ?? '') + ','"></p>
+          <p x-text="'Przesyłamy wycenę nr #' + q.id + ' do akceptacji.'"></p>
+          <p>PDF z wyceną znajdą Państwo w załączniku. Aby zostawić komentarze i odpowiedzieć (zaakceptować lub poprosić o zmianę), prosimy kliknąć poniższy link:</p>
+          <p><a class="tap-link text-break" :href="link('screens/public-quote.html?id=' + q.id)" x-text="location.origin + '/q/' + q.id"></a></p>
+          <p>Pozostajemy do dyspozycji w razie pytań.</p>
+          <p class="mb-0">Pozdrawiamy,<br><span x-text="from ? from.display_name : 'Zespół IKPM'"></span><template x-if="from"><span><br><span x-text="from.email"></span></span></template></p>
+        </div>
+      </article>
+    </template>
+  </div></main>
+  <script type="module">
+    import { start, getQuote, lastSentQuote, sender } from '../assets/app.js';
+    const _id = new URLSearchParams(location.search).get('id');
+    const _q = _id ? getQuote(_id) : (lastSentQuote() ?? getQuote(2));
+    start(() => ({ q: _q, from: _q && sender(_q), location }));
+  </script>
+</body>
+</html>

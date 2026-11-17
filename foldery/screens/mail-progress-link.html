@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mail z linkiem do postępu prac — IKPM</title>
+<link rel="stylesheet" href="../assets/bootstrap/bootstrap.min.css">
+<link rel="stylesheet" href="../assets/bootstrap-icons/bootstrap-icons.min.css">
+<link rel="stylesheet" href="../assets/app.css">
+</head>
+<body data-screen="mail-progress-link">
+<main x-data="page" x-cloak>
+
+<template x-if="r"><article class="mail">
+  <div class="mail-head"><div><b>Od:</b> IKPM &lt;noreply@ikpm.local&gt;</div><div><b>Do:</b> <span x-text="client(r.client_id)?.email"></span></div>
+    <div><b>Temat:</b> <span x-text="'Postęp prac — ' + clientName(r)"></span></div></div>
+  <div class="mail-body"><h1 class="visually-hidden" x-text="'Postęp prac — ' + clientName(r)"></h1>
+    <p>Witamy,</p><p>Zapraszamy do śledzenia postępu Państwa prac:</p>
+    <p class="overflow-anywhere"><a :href="link('public-realization', {id: r.id})" x-text="link('public-realization', {id: r.id})"></a></p>
+    <p class="mb-0">Zespół</p></div>
+</article></template>
+</main>
+<script type="module">
+import { boot, db, intParam, link } from '../assets/app.js';
+boot(() => ({
+  r: null,
+  init() { const _r = db.realizations.find((x) => x.id === intParam('id')) ?? null; if (!_r) { location.replace(link('error-404')); return; } this.r = _r; document.title = 'Postęp prac — mail — IKPM'; },
+}), { shell: false });
+</script>
+</body>
+</html>

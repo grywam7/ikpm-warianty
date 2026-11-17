@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>wycena.pdf — IKPM</title>
+<link rel="stylesheet" href="../assets/bootstrap/bootstrap.min.css">
+<link rel="stylesheet" href="../assets/bootstrap-icons/bootstrap-icons.min.css">
+<link rel="stylesheet" href="../assets/app.css">
+<style>
+  body { background: #6c757d; }
+  .a4 table { font-size: .85rem; }
+  .a4 th { background: #f1f3f5; }
+</style>
+</head>
+<body>
+<main x-data="page" x-cloak class="py-3 px-2">
+<template x-if="q">
+  <article class="a4" aria-labelledby="pdf-title">
+    <p class="small text-end mb-2" x-text="'wycena-' + q.id + '.pdf'"></p>
+    <div class="d-flex flex-wrap justify-content-between gap-3 border-bottom pb-3 mb-3">
+      <div><h1 id="pdf-title" class="h3 mb-1">Wycena #<span x-text="q.id"></span></h1><p class="mb-0 small" x-text="'Data wystawienia: ' + ik.date(q.sent_at || ik.todayISO())"></p></div>
+      <div class="small text-md-end" x-show="q.user"><strong x-text="sender.display_name"></strong><span class="d-block" x-show="sender.first_name" x-text="sender.email"></span><span class="d-block" x-show="sender.phone" x-text="'tel. ' + sender.phone"></span></div>
+    </div>
+    <h2 class="h6">Dane klienta</h2>
+    <p class="label-caps mb-0">Klient</p>
+    <p class="small" x-text="q.client ? [q.client.name, q.client.email, q.client.phone].filter(Boolean).join(' · ') : '(brak klienta)'"></p>
+    <template x-if="q.site_address || q.planned_start_on || q.planned_end_on">
+      <div><h2 class="h6">Inwestycja</h2>
+        <div class="row g-2 mb-3 small">
+          <template x-if="q.site_address"><div class="col"><p class="label-caps mb-0">Adres inwestycji</p><p class="mb-0" x-text="q.site_address"></p></div></template>
+          <template x-if="q.planned_start_on"><div class="col"><p class="label-caps mb-0">Planowany start</p><p class="mb-0" x-text="ik.date(q.planned_start_on)"></p></div></template>
+          <template x-if="q.planned_end_on"><div class="col"><p class="label-caps mb-0">Termin zakończenia</p><p class="mb-0" x-text="ik.date(q.planned_end_on)"></p></div></template>
+        </div></div>
+    </template>
+    <h2 class="h6">Zakres prac</h2>
+    <template x-for="room in q.rooms" :key="room.id">
+      <section class="mb-3">
+        <h3 class="h6 mb-0" x-text="'Pokój: ' + room.name"></h3>
+        <p class="small mb-1 text-secondary" x-text="pdfSize(room)"></p>
+        <p class="small" x-show="!room.jobs.length">(brak prac w tym pokoju)</p>
+        <div tabindex="0" class="box-scroll" x-show="room.jobs.length">
+          <table class="table table-sm table-bordered mb-0">
+            <caption class="visually-hidden" x-text="'Prace: ' + room.name"></caption>
+            <thead><tr><th scope="col" style="width: 26%">Praca</th><th scope="col" style="width: 17%">Etap</th><th scope="col" class="text-end" style="width: 16%">Ilość</th><th scope="col" class="text-end" style="width: 21%">Cena jedn. netto</th><th scope="col" class="text-end" style="width: 20%">Wartość netto</th></tr></thead>
+            <tbody><template x-for="j in ik.sortJobs(room.jobs)" :key="j.id"><tr><td x-text="j.name"></td><td x-text="j.stage"></td><td class="text-end text-nowrap" x-text="ik.dec(j.quantity) + ' ' + j.unit"></td><td class="text-end text-nowrap" x-text="ik.pln(ik.clientUnitPrice(j, q.markup_percent))"></td><td class="text-end text-nowrap" x-text="ik.pln(ik.lineTotal(j, q.markup_percent))"></td></tr></template></tbody>
+          </table>
+        </div>
+      </section>
+    </template>
+    <dl class="row border-top pt-2 mb-4" style="max-width: 360px; margin-left: auto">
+      <dt class="col-7">Razem netto</dt><dd class="col-5 text-end text-nowrap" x-text="ik.pln(totals.net)"></dd>
+      <dt class="col-7 fw-normal" x-text="'VAT ' + Number(q.vat_rate) + '%'"></dt><dd class="col-5 text-end text-nowrap" x-text="ik.pln(totals.vat)"></dd>
+      <dt class="col-7">Razem brutto</dt><dd class="col-5 text-end text-nowrap fw-bold" x-text="ik.pln(totals.gross)"></dd>
+    </dl>
+    <footer class="small text-secondary border-top pt-2">
+      <p class="mb-0">Dokument wygenerowany automatycznie przez system IKPM.</p>
+      <p class="mb-0" x-show="q.user" x-text="'Kontakt: ' + sender.email + (sender.phone ? ', tel. ' + sender.phone : '')"></p>
+    </footer>
+  </article>
+</template>
+</main>
+<script type="module">
+import { boot, db, idParam } from '../assets/app.js';
+
+boot(() => ({
+  q: null,
+  init() { this.q = db.quotes.find((x) => x.id === idParam(2)); if (!this.q) location.replace(ik.href('screens/error-404.html')); else document.title = `wycena-${this.q.id}.pdf — IKPM`; },
+  get sender() { return ik.quoteUser(this.q); },
+  get totals() { return ik.quoteTotals(this.q); },
+  pdfSize(room) {
+    const p = ik.roomSizeParts(room); const rest = [p.floor, p.walls].filter(Boolean).map((s) => s.charAt(0).toLowerCase() + s.slice(1));
+    if (p.dimensions) return `Wymiary: ${p.dimensions}${rest.length ? ` — ${rest.join(', ')}` : ''}`;
+    return [p.floor, rest[1]].filter(Boolean).join(', ');
+  },
+}));
+</script>
+</body>
+</html>

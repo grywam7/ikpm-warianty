@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Edytuj konto — IKPM</title>
+<link rel="stylesheet" href="../assets/bootstrap/bootstrap.min.css">
+<link rel="stylesheet" href="../assets/bootstrap-icons/bootstrap-icons.min.css">
+<link rel="stylesheet" href="../assets/app.css">
+</head>
+<body data-screen="account-edit" data-nav="profile" data-tab="wiecej">
+<main x-data="page" x-cloak>
+<div class="page"><div class="pane-inner">
+<div class="pane-head"><a class="back-link" :href="link('profile')"><i class="bi bi-chevron-left" aria-hidden="true"></i>Mój profil</a><h1 class="pane-title">Edytuj konto</h1></div>
+<form class="card-plain" style="max-width:560px" @submit.prevent="submit()" novalidate>
+  <div class="alert alert-danger" role="alert" x-show="errors.length"><ul class="mb-0 ps-3"><template x-for="e in errors"><li x-text="e"></li></template></ul></div>
+  <label class="form-label" for="a-email">Email</label><input id="a-email" class="form-control mb-2" type="email" autocomplete="email" x-model="form.email">
+  <label class="form-label" for="a-pass">Hasło (pozostaw puste, jeśli nie chcesz wprowadzać zmian)</label><input id="a-pass" class="form-control" type="password" autocomplete="new-password" aria-describedby="a-pass-hint" x-model="form.password">
+  <div class="small text-body-secondary mb-2" id="a-pass-hint">(minimum 6 znaków)</div>
+  <label class="form-label" for="a-pass2">Potwierdzenie hasła</label><input id="a-pass2" class="form-control mb-2" type="password" autocomplete="new-password" x-model="form.password2">
+  <label class="form-label" for="a-cur">Aktualne hasło (potrzebujemy Twojego bieżącego hasła, aby potwierdzić zmiany)</label><input id="a-cur" class="form-control mb-3" type="password" autocomplete="current-password" x-model="form.current">
+  <div class="d-flex gap-2"><button class="btn btn-primary btn-main px-4" type="submit">Aktualizuj</button><a class="btn btn-outline-secondary btn-main px-4" :href="link('profile')">Powrót</a></div>
+</form>
+</div></div>
+</main>
+<script type="module">
+import { boot, db, save, flashNext, go } from '../assets/app.js';
+boot(() => ({
+  form: { email: '', password: '', password2: '', current: '' }, errors: [],
+  init() { this.form.email = db.me.email; },
+  submit() {
+    const _e = [];
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(this.form.email)) _e.push('Email jest nieprawidłowy');
+    if (this.form.password && this.form.password.length < 6) _e.push('Hasło jest za krótkie (przynajmniej 6 znaków)');
+    if (this.form.password !== this.form.password2) _e.push('Potwierdzenie hasła musi być takie samo jak hasło');
+    if (!this.form.current) _e.push('Aktualne hasło nie może być puste');
+    this.errors = _e; if (_e.length) return;
+    db.me.email = this.form.email; save('users'); flashNext('notice', 'Konto zostało pomyślnie zaktualizowane.'); go('profile');
+  },
+}));
+</script>
+</body>
+</html>

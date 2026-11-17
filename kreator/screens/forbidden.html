@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Brak uprawnień — IKPM</title>
+  <link rel="stylesheet" href="../assets/bootstrap/bootstrap.min.css">
+  <link rel="stylesheet" href="../assets/bootstrap-icons/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="../assets/app.css">
+</head>
+<body data-section="forbidden">
+  <main id="main"><div id="app" class="container-xxl" x-data="page" x-cloak>
+    <div class="list-card mt-4" style="max-width: 36rem">
+      <h1 class="h3"><i class="bi bi-shield-lock" aria-hidden="true"></i> Brak uprawnień</h1>
+      <p>Twoje konto nie ma dostępu do tej sekcji. Poproś administratora o nadanie roli.</p>
+      <a class="btn btn-primary btn-main" :href="link('screens/profile.html')">Mój profil</a>
+    </div>
+  </div></main>
+  <script type="module">
+    import { start } from '../assets/app.js';
+    start();
+  </script>
+</body>
+</html>

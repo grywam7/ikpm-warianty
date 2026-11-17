@@ -1,0 +1,358 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Realizacja — IKPM</title>
+<link rel="stylesheet" href="../assets/bootstrap/bootstrap.min.css">
+<link rel="stylesheet" href="../assets/bootstrap-icons/bootstrap-icons.min.css">
+<link rel="stylesheet" href="../assets/app.css">
+</head>
+<body data-screen="realization-show" data-nav="realizations-index" data-tab="realizacje">
+<main x-data="page" x-cloak>
+<template x-if="r">
+<div class="panes" :data-level="level">
+  <section class="pane pane-list" aria-label="Lista realizacji" data-partial="realization-list"></section>
+  <section class="pane pane-folder" aria-label="Realizacja">
+    <div class="pane-inner">
+      <div class="pane-head">
+        <a class="back-link" :href="link('realizations-index')"><i class="bi bi-chevron-left" aria-hidden="true"></i>Realizacje</a>
+        <h1 class="pane-title">Realizacja #<span x-text="r.id"></span></h1>
+        <div class="d-flex flex-wrap gap-2 align-items-center"><span x-html="realBadge(r)"></span>
+          <a class="tap" :href="link('client-show', {id: r.client_id})" x-text="clientName(r)"></a></div>
+        <div class="small" x-show="r.quote_id"><a class="tap" :href="link('quote-show', {id: r.quote_id})" x-text="'z wyceny #' + r.quote_id"></a></div>
+      </div>
+      <div class="card-plain" id="realization-actions">
+        <div class="d-grid gap-2">
+          <template x-if="r.status === 'planned'"><button type="button" class="btn btn-primary btn-main" @click="doTransition('in_progress')"><i class="bi bi-play-circle" aria-hidden="true"></i> Rozpocznij</button></template>
+          <template x-if="r.status === 'in_progress' && unfinishedCount(r) === 0"><button type="button" class="btn btn-success btn-main" @click="doTransition('done')"><i class="bi bi-check-circle" aria-hidden="true"></i> Zakończ</button></template>
+          <template x-if="r.status === 'in_progress' && unfinishedCount(r) > 0">
+            <div><button type="button" class="btn btn-success btn-main w-100" disabled aria-describedby="unfinished-hint"><i class="bi bi-check-circle" aria-hidden="true"></i> Zakończ</button>
+              <div class="small mt-1 text-body-secondary" id="unfinished-hint" x-text="unfinishedText(unfinishedCount(r))"></div></div></template>
+          <template x-if="isActive(r)"><button type="button" class="btn btn-outline-danger" @click="doTransition('cancelled')"><i class="bi bi-x-circle" aria-hidden="true"></i> Anuluj</button></template>
+          <template x-if="!isActive(r)"><div class="small text-body-secondary">(status terminalny)</div></template>
+          <button type="button" class="btn btn-outline-primary" @click="doSendLink()"><i class="bi bi-envelope" aria-hidden="true"></i> Wyślij link</button>
+          <template x-if="r.status !== 'done'"><button type="button" class="btn btn-outline-danger" @click="doDelete()"><i class="bi bi-trash" aria-hidden="true"></i> Usuń</button></template>
+        </div>
+      </div>
+      <div class="card-plain mt-3">
+        <div class="d-flex justify-content-between"><span class="fw-semibold">Postęp prac</span><span x-text="progressOf(rJobs(r)).pct + '% (' + progressOf(rJobs(r)).done + ' / ' + progressOf(rJobs(r)).all + ')'"></span></div>
+        <div class="progress mt-1" style="height:12px" role="progressbar" aria-label="Postęp prac" aria-valuemin="0" aria-valuemax="100" :aria-valuenow="progressOf(rJobs(r)).pct"><div class="progress-bar bg-success" :style="'width:' + progressOf(rJobs(r)).pct + '%'"></div></div>
+        <template x-if="isActive(r)"><div class="mt-3"><label class="form-label" for="settlement">Rozliczenie:</label>
+          <select id="settlement" class="form-select" @change="r.settlement = $event.target.value; saveR('Realizacja zaktualizowana.')">
+            <template x-for="[k, l] in Object.entries(SETTLEMENTS)" :key="k"><option :value="k" :selected="r.settlement === k" x-text="l"></option></template></select></div></template>
+        <template x-if="!isActive(r)"><div class="mt-2" x-text="'Rozliczenie: ' + SETTLEMENTS[r.settlement]"></div></template>
+      </div>
+      <h2 class="group-title">Pokoje</h2>
+      <ul class="group">
+        <template x-for="fr in r.rooms" :key="fr.id">
+          <li><a class="row-link" :href="link('realization-show', {id: r.id, room: fr.id})" :aria-current="room && room.id === fr.id ? 'page' : null">
+            <span class="row-icon"><i class="bi bi-door-open" aria-hidden="true"></i></span>
+            <span class="row-main"><div class="fw-semibold" x-text="fr.name"></div>
+              <div class="d-flex flex-wrap gap-1 mt-1"><template x-for="[k, n] in statusCounts(fr.jobs)" :key="k"><span class="badge" :class="JOB_STATUS[k][1]"><i class="bi" :class="JOB_STATUS[k][2]" aria-hidden="true"></i><span x-text="JOB_STATUS[k][0] + ': ' + n"></span></span></template></div>
+              <div class="progress mini-progress mt-1" role="progressbar" :aria-label="'Postęp prac: ' + fr.name" aria-valuemin="0" aria-valuemax="100" :aria-valuenow="progressOf(fr.jobs).pct"><div class="progress-bar bg-success" :style="'width:' + progressOf(fr.jobs).pct + '%'"></div></div></span>
+            <span class="row-end small" x-text="progressOf(fr.jobs).done + ' / ' + progressOf(fr.jobs).all"></span><i class="bi bi-chevron-right chev" aria-hidden="true"></i></a></li>
+        </template>
+      </ul>
+      <h2 class="group-title">Realizacja</h2>
+      <ul class="group">
+        <li><a class="row-link" :href="link('realization-show', {id: r.id, view: 'photos'})" :aria-current="view === 'photos' ? 'page' : null"><span class="row-icon"><i class="bi bi-images" aria-hidden="true"></i></span>
+          <span class="row-main">Zdjęcia</span><span class="row-end small" x-text="r.photos.length"></span><i class="bi bi-chevron-right chev" aria-hidden="true"></i></a></li>
+        <li><a class="row-link" :href="link('realization-show', {id: r.id, view: 'term'})" :aria-current="view === 'term' ? 'page' : null"><span class="row-icon"><i class="bi bi-calendar-event" aria-hidden="true"></i></span>
+          <span class="row-main">Termin i adres<div class="small" :class="endDelayed(r) ? 'text-danger-emphasis fw-semibold' : 'text-body-secondary'" x-text="(r.status === 'done' ? 'Zakończono ' : 'Termin: ') + date(r.status === 'done' ? r.completed_on : (r.expected_end_on || r.promised_end_on)) + (endDelayed(r) ? ' (obiecany ' + date(r.promised_end_on) + ')' : '')"></div></span><i class="bi bi-chevron-right chev" aria-hidden="true"></i></a></li>
+        <li x-show="isActive(r)"><a class="row-link" :href="link('realization-show', {id: r.id, view: 'bulk'})" :aria-current="view === 'bulk' ? 'page' : null"><span class="row-icon"><i class="bi bi-ui-checks" aria-hidden="true"></i></span>
+          <span class="row-main">Ustaw status wszystkim pracom etapu</span><i class="bi bi-chevron-right chev" aria-hidden="true"></i></a></li>
+      </ul>
+      <h2 class="group-title">Koszty</h2>
+      <ul class="group" id="realization-costs">
+        <li class="row-item"><span class="row-main">Wartość netto (z wyceny)</span><span class="row-end fw-semibold" x-text="pln(r.total_price)"></span></li>
+        <li class="row-item"><span class="row-main">Koszt (faktyczny)</span><span class="row-end fw-semibold" x-text="pln(realCost(r))"></span></li>
+        <li class="row-item"><span class="row-main">Koszt z wyceny</span><span class="row-end" x-text="pln(r.estimated_cost)"></span></li>
+      </ul>
+      <h2 class="group-title">Publiczny link dla klienta:</h2>
+      <div class="card-plain small overflow-anywhere"><a class="tap" :href="link('public-realization', {id: r.id})" target="_blank" rel="noopener" x-text="link('public-realization', {id: r.id})"></a>
+        <div x-show="r.link_valid_until" x-text="r.link_valid_until >= todayISO() ? '(ważny do ' + date(r.link_valid_until) + ')' : '(wygasł ' + date(r.link_valid_until) + ' — „Wyślij link” odnowi go na 30 dni)'"></div></div>
+    </div>
+  </section>
+  <section class="pane pane-detail" aria-label="Szczegóły realizacji">
+    <template x-if="view === 'room' && room">
+      <div class="pane-inner">
+        <div class="pane-head">
+          <a class="back-link" :href="link('realization-show', {id: r.id})"><i class="bi bi-chevron-left" aria-hidden="true"></i><span x-text="'Realizacja #' + r.id"></span></a>
+          <h1 class="pane-title" x-text="room.name"></h1>
+          <div class="pane-sub" x-text="[clientName(r), sizeLine(room)].filter(Boolean).join(' · ')"></div>
+          <div class="small" x-show="room.notes"><i class="bi bi-lock" aria-hidden="true"></i> <b>Notatka:</b> <span x-text="room.notes"></span></div>
+        </div>
+        <div class="card-plain mb-3" x-show="isActive(r) && room.jobs.length">
+          <label class="form-label" for="room-bulk">Status wszystkich prac</label>
+          <div class="d-flex gap-2"><select id="room-bulk" class="form-select" x-model="bulkRoomStatus" :aria-label="'Status wszystkich prac: ' + room.name">
+            <option value="">Wybierz status</option><template x-for="k in JOB_STATUS_KEYS" :key="k"><option :value="k" x-text="JOB_STATUS[k][0]"></option></template></select>
+            <button type="button" class="btn btn-primary" @click="applyRoomBulk()">Zastosuj</button></div>
+        </div>
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+          <div class="form-check form-switch big"><input class="form-check-input" type="checkbox" role="switch" id="only-open" x-model="onlyOpen"><label class="form-check-label" for="only-open">Pokaż tylko niezrobione</label></div>
+          <span class="small" x-text="progressOf(room.jobs).done + ' / ' + progressOf(room.jobs).all + ' Zrobione'"></span>
+        </div>
+        <p class="text-body-secondary" x-show="!room.jobs.length">(brak prac w tym pomieszczeniu)</p>
+        <ul class="job-list">
+          <template x-for="j in sortJobs(room.jobs).filter(x => !onlyOpen || x.status !== 'done')" :key="j.id">
+                <li class="job-row" :id="'job-' + j.id">
+                  <div class="job-name" x-text="j.name"></div>
+                  <div class="small text-body-secondary" x-text="j.unit + ' · ' + j.stage"></div>
+                  <div class="small d-flex flex-wrap gap-x-3 column-gap-3"><span x-text="dec(j.quantity) + ' ' + j.unit"></span><span x-text="'Ekipa: ' + contractorName(j.contractor_id)"></span>
+                    <span x-text="'Wartość: ' + pln(realJobValue(j, r))"></span></div>
+                  <fieldset class="status-row" :aria-label="'Status: ' + j.name">
+                    <template x-for="k in JOB_STATUS_KEYS" :key="k">
+                      <span class="d-contents" style="display:contents">
+                        <input type="radio" class="btn-check" :name="'st-' + j.id" :id="'st-' + j.id + '-' + k" :value="k" :checked="j.status === k" :disabled="!isActive(r)" @change="setStatus(j, k)">
+                        <label class="btn" :class="'st-' + k" :for="'st-' + j.id + '-' + k"><i class="bi" :class="JOB_STATUS[k][2]" aria-hidden="true"></i><span x-text="JOB_STATUS[k][0]"></span></label>
+                      </span>
+                    </template>
+                  </fieldset>
+                  <div class="d-flex flex-wrap align-items-center gap-2 mt-2">
+                    <button type="button" class="btn btn-outline-secondary" :aria-expanded="!!open[j.id]" :aria-controls="'more-' + j.id" @click="open[j.id] = !open[j.id]">
+                      <i class="bi" :class="open[j.id] ? 'bi-chevron-up' : 'bi-chevron-down'" aria-hidden="true"></i> Komentarz, notatka i stawka
+                      <template x-if="j.notes"><span class="badge text-bg-light border ms-1"><i class="bi bi-eye" aria-hidden="true"></i>Komentarz</span></template>
+                      <template x-if="j.internal_notes"><span class="badge text-bg-light border ms-1"><i class="bi bi-lock" aria-hidden="true"></i>Notatka</span></template>
+                      <template x-if="j.actual_contractor_price"><span class="badge text-bg-light border ms-1"><i class="bi bi-cash-coin" aria-hidden="true"></i>Stawka</span></template>
+                    </button>
+                    <span class="saved" x-show="savedKey === j.id"><i class="bi bi-check2" aria-hidden="true"></i> Zapisano</span>
+                  </div>
+                  <div :id="'more-' + j.id" x-show="open[j.id]" class="row g-2 mt-1">
+                    <div class="col-12 col-md-6"><label class="form-label small mb-1" :for="'comment-' + j.id"><i class="bi bi-eye" aria-hidden="true"></i> Komentarz (widzi klient)</label>
+                      <textarea class="form-control" rows="2" :id="'comment-' + j.id" :aria-label="'Komentarz (widzi klient): ' + j.name" :value="j.notes" @change="setText(j, 'notes', $event.target)"></textarea></div>
+                    <div class="col-12 col-md-6"><label class="form-label small mb-1" :for="'note-' + j.id"><i class="bi bi-lock" aria-hidden="true"></i> Notatka wewnętrzna (tylko firma)</label>
+                      <textarea class="form-control" rows="2" :id="'note-' + j.id" :aria-label="'Notatka wewnętrzna (tylko firma): ' + j.name" :value="j.internal_notes" @change="setText(j, 'internal_notes', $event.target)"></textarea></div>
+                    <div class="col-12 col-md-6">
+                      <template x-if="isActive(r)"><div><label class="form-label small mb-1" :for="'rate-' + j.id">Stawka faktyczna /j. (zł)</label>
+                        <input class="form-control" type="number" inputmode="decimal" step="any" min="0" :id="'rate-' + j.id" :value="j.actual_contractor_price ?? ''" :placeholder="dec(jobLabor(j))" @change="setRate(j, $event.target)"></div></template>
+                      <template x-if="!isActive(r)"><div class="small">Stawka faktyczna /j.: <b x-text="pln(actualLabor(j))"></b></div></template>
+                    </div>
+                  </div>
+                </li>
+          </template>
+        </ul>
+        <h2 class="group-title mt-4">Zdjęcia — <span class="text-none" x-text="room.name"></span></h2>
+        <p class="small text-body-secondary" x-show="!r.photos.filter(p => p.room_id === room.id).length">Brak zdjęć.</p>
+        <div class="photo-grid"><template x-for="p in r.photos.filter(p => p.room_id === room.id)" :key="p.id">
+                <div class="photo-card">
+                  <div class="photo-thumb"><template x-if="p.src"><img :src="p.src" :alt="p.filename"></template>
+                    <template x-if="!p.src"><span><i class="bi bi-image fs-2" aria-hidden="true"></i><br><span x-text="p.filename"></span></span></template></div>
+                  <div class="p">
+                    <div class="form-check form-switch big"><input class="form-check-input" type="checkbox" role="switch" :id="'vis-' + p.id" :checked="p.client_visible" @change="p.client_visible = $event.target.checked; savePhoto()">
+                      <label class="form-check-label small" :for="'vis-' + p.id"><i class="bi bi-eye" aria-hidden="true"></i> Widoczne dla klienta</label></div>
+                    <label class="form-label small mb-1" :for="'proom-' + p.id">Pokój</label>
+                    <select class="form-select mb-2" :id="'proom-' + p.id" @change="p.room_id = $event.target.value ? Number($event.target.value) : null; savePhoto()">
+                      <option value="" :selected="!p.room_id">Ogólne (bez pokoju)</option>
+                      <template x-for="pr in r.rooms" :key="pr.id"><option :value="pr.id" :selected="p.room_id === pr.id" x-text="pr.name"></option></template></select>
+                    <button type="button" class="btn btn-outline-danger btn-icon" :aria-label="'Usuń zdjęcie ' + p.filename" @click="deletePhoto(p)"><i class="bi bi-trash" aria-hidden="true"></i></button>
+                  </div>
+                </div>
+        </template></div>
+            <div class="card-plain mt-3">
+              <label class="form-label" :for="'files-' + formKey">Zdjęcia (JPG, PNG, WebP; najwyżej 20 naraz)</label>
+              <input class="form-control mb-2" type="file" :id="'files-' + formKey" accept="image/jpeg,image/png,image/webp" multiple>
+              <label class="form-label" :for="'froom-' + formKey">Pokój</label>
+              <select class="form-select mb-3" :id="'froom-' + formKey" x-model="photoRoom">
+                <option value="" :selected="!photoRoom">Ogólne (bez pokoju)</option>
+                <template x-for="pr in r.rooms" :key="pr.id"><option :value="String(pr.id)" :selected="String(pr.id) === photoRoom" x-text="pr.name"></option></template></select>
+              <button type="button" class="btn btn-primary btn-main" :disabled="adding" @click="addPhotos()"><i class="bi bi-camera" aria-hidden="true"></i> <span x-text="adding ? 'Dodawanie…' : 'Dodaj zdjęcia'"></span></button>
+            </div>
+      </div>
+    </template>
+    <template x-if="view === 'photos'">
+      <div class="pane-inner">
+        <div class="pane-head"><a class="back-link" :href="link('realization-show', {id: r.id})"><i class="bi bi-chevron-left" aria-hidden="true"></i><span x-text="'Realizacja #' + r.id"></span></a>
+          <h1 class="pane-title">Zdjęcia</h1></div>
+        <p class="text-body-secondary" x-show="!r.photos.length">Brak zdjęć.</p>
+        <template x-for="grp in photoGroups()" :key="grp.key">
+          <section><h2 class="group-title" x-text="grp.name"></h2>
+            <div class="photo-grid"><template x-for="p in grp.photos" :key="p.id">
+                <div class="photo-card">
+                  <div class="photo-thumb"><template x-if="p.src"><img :src="p.src" :alt="p.filename"></template>
+                    <template x-if="!p.src"><span><i class="bi bi-image fs-2" aria-hidden="true"></i><br><span x-text="p.filename"></span></span></template></div>
+                  <div class="p">
+                    <div class="form-check form-switch big"><input class="form-check-input" type="checkbox" role="switch" :id="'vis-' + p.id" :checked="p.client_visible" @change="p.client_visible = $event.target.checked; savePhoto()">
+                      <label class="form-check-label small" :for="'vis-' + p.id"><i class="bi bi-eye" aria-hidden="true"></i> Widoczne dla klienta</label></div>
+                    <label class="form-label small mb-1" :for="'proom-' + p.id">Pokój</label>
+                    <select class="form-select mb-2" :id="'proom-' + p.id" @change="p.room_id = $event.target.value ? Number($event.target.value) : null; savePhoto()">
+                      <option value="" :selected="!p.room_id">Ogólne (bez pokoju)</option>
+                      <template x-for="pr in r.rooms" :key="pr.id"><option :value="pr.id" :selected="p.room_id === pr.id" x-text="pr.name"></option></template></select>
+                    <button type="button" class="btn btn-outline-danger btn-icon" :aria-label="'Usuń zdjęcie ' + p.filename" @click="deletePhoto(p)"><i class="bi bi-trash" aria-hidden="true"></i></button>
+                  </div>
+                </div>
+            </template></div></section>
+        </template>
+            <div class="card-plain mt-3">
+              <label class="form-label" :for="'files-' + formKey">Zdjęcia (JPG, PNG, WebP; najwyżej 20 naraz)</label>
+              <input class="form-control mb-2" type="file" :id="'files-' + formKey" accept="image/jpeg,image/png,image/webp" multiple>
+              <label class="form-label" :for="'froom-' + formKey">Pokój</label>
+              <select class="form-select mb-3" :id="'froom-' + formKey" x-model="photoRoom">
+                <option value="" :selected="!photoRoom">Ogólne (bez pokoju)</option>
+                <template x-for="pr in r.rooms" :key="pr.id"><option :value="String(pr.id)" :selected="String(pr.id) === photoRoom" x-text="pr.name"></option></template></select>
+              <button type="button" class="btn btn-primary btn-main" :disabled="adding" @click="addPhotos()"><i class="bi bi-camera" aria-hidden="true"></i> <span x-text="adding ? 'Dodawanie…' : 'Dodaj zdjęcia'"></span></button>
+            </div>
+      </div>
+    </template>
+    <template x-if="view === 'term'">
+      <div class="pane-inner">
+        <div class="pane-head"><a class="back-link" :href="link('realization-show', {id: r.id})"><i class="bi bi-chevron-left" aria-hidden="true"></i><span x-text="'Realizacja #' + r.id"></span></a>
+          <h1 class="pane-title">Termin i adres</h1></div>
+        <ul class="group">
+          <li class="row-item"><span class="row-main text-body-secondary">Adres inwestycji</span><span class="row-end" x-text="r.site_address || '—'"></span></li>
+          <li class="row-item"><span class="row-main text-body-secondary">Planowany start</span><span class="row-end" x-text="date(r.planned_start_on)"></span></li>
+          <li class="row-item"><span class="row-main text-body-secondary">Termin obiecany</span><span class="row-end" x-text="date(r.promised_end_on)"></span></li>
+          <li class="row-item" x-show="r.status === 'done'"><span class="row-main text-body-secondary">Data zakończenia</span><span class="row-end" x-text="date(r.completed_on)"></span></li>
+        </ul>
+        <template x-if="isActive(r)"><div class="card-plain mt-3">
+          <label class="form-label" for="expected-end">Aktualnie przewidywany</label>
+          <input id="expected-end" class="form-control mb-2" type="date" min="2000-01-01" max="2099-12-31" x-model="expectedEnd">
+          <button type="button" class="btn btn-primary btn-main px-4" @click="saveExpected()">Zapisz</button></div></template>
+        <template x-if="!isActive(r)"><div class="card-plain mt-3">Aktualnie przewidywany: <b x-text="date(r.expected_end_on)"></b></div></template>
+      </div>
+    </template>
+    <template x-if="view === 'bulk'">
+      <div class="pane-inner">
+        <div class="pane-head"><a class="back-link" :href="link('realization-show', {id: r.id})"><i class="bi bi-chevron-left" aria-hidden="true"></i><span x-text="'Realizacja #' + r.id"></span></a>
+          <h1 class="pane-title">Ustaw status wszystkim pracom etapu</h1></div>
+        <div class="card-plain">
+          <label class="form-label" for="bulk-stage">Etap</label>
+          <select id="bulk-stage" class="form-select mb-3" x-model="bulkStage" required><option value="">Wybierz etap</option>
+            <template x-for="s in stagesSorted()" :key="s.id"><option :value="s.name" x-text="s.name"></option></template></select>
+          <label class="form-label" for="bulk-status">Status</label>
+          <select id="bulk-status" class="form-select mb-3" x-model="bulkStageStatus" required><option value="">Wybierz status</option>
+            <template x-for="k in JOB_STATUS_KEYS" :key="k"><option :value="k" x-text="JOB_STATUS[k][0]"></option></template></select>
+          <button type="button" class="btn btn-primary btn-main px-4" @click="applyStageBulk()">Zastosuj</button>
+        </div>
+      </div>
+    </template>
+  </section>
+</div>
+</template>
+</main>
+<script type="module">
+import { boot, db, intParam, param, link, go, save, flashNext, toast, alertBox, confirmBox, setJobStatus, bulkStatus, transition,
+  rJobs, isActive, JOB_STATUS, client, roundHalfUp, addDays, todayISO, nextId, unfinishedCount } from '../assets/app.js';
+
+async function thumbnail(file) {
+  const _bmp = await createImageBitmap(file);
+  const _scale = Math.min(1, 480 / Math.max(_bmp.width, _bmp.height));
+  const _c = document.createElement('canvas'); _c.width = Math.round(_bmp.width * _scale); _c.height = Math.round(_bmp.height * _scale);
+  _c.getContext('2d').drawImage(_bmp, 0, 0, _c.width, _c.height);
+  return _c.toDataURL('image/jpeg', 0.75);
+}
+
+boot(() => ({
+  r: null, room: null, view: null, level: 2, open: {}, onlyOpen: false, savedKey: null,
+  bulkRoomStatus: '', bulkStage: '', bulkStageStatus: '', expectedEnd: '', photoRoom: '', adding: false, formKey: 'all',
+  init() {
+    const _r = db.realizations.find((x) => x.id === intParam('id')) ?? null;
+    if (!_r) { location.replace(link('error-404')); return; }
+    this.currentRealizationId = _r.id;
+    this.room = _r.rooms.find((x) => x.id === intParam('room')) ?? null;
+    const _v = param('view');
+    this.view = ['photos', 'term', 'bulk'].includes(_v) ? _v : (this.room ? 'room' : null);
+    if (_v === 'bulk' && !isActive(_r)) this.view = null;
+    this.level = this.view ? 3 : 2;
+    this.expectedEnd = _r.expected_end_on ?? '';
+    this.photoRoom = this.room ? String(this.room.id) : '';
+    this.formKey = this.room ? `room-${this.room.id}` : 'all';
+    for (const j of rJobs(_r)) if (j.notes || j.internal_notes) this.open[j.id] = false;
+    this.r = _r;
+    document.title = `${this.room ? `${this.room.name} — ` : ''}Realizacja #${_r.id} — IKPM`;
+  },
+  saveR(message) { save('realizations'); if (message) toast(message); },
+  markSaved(key) { this.savedKey = key; this.announce('Zapisano'); clearTimeout(this.savedTimer); this.savedTimer = setTimeout(() => { this.savedKey = null; }, 2500); },
+  setStatus(j, status) {
+    const _prev = j.status;
+    const _err = setJobStatus(this.r, j, status);
+    if (_err) { alertBox(_err); return; }
+    this.markSaved(j.id);
+    if (status === 'remake') { this.open[j.id] = true; this.$nextTick(() => setTimeout(() => document.getElementById(`note-${j.id}`)?.focus(), 30)); }
+    toast(`Zapisano pracę „${j.name}”.`, { undo: () => { setJobStatus(this.r, j, _prev); } });
+  },
+  setText(j, field, el) { j[field] = el.value; this.saveR(); this.markSaved(j.id); },
+  setRate(j, el) {
+    const _v = this.readNumber(el);
+    if (_v !== null && (Number.isNaN(_v) || _v <= 0 || _v > 1e6)) { alertBox('Stawka faktyczna musi być większa od 0'); el.value = j.actual_contractor_price ?? ''; return; }
+    if (!isActive(this.r)) { alertBox('Status nie może się zmienić po zakończeniu lub anulowaniu realizacji'); return; }
+    j.actual_contractor_price = _v === null ? null : roundHalfUp(_v); this.saveR(); this.markSaved(j.id);
+  },
+  applyRoomBulk() {
+    if (!this.bulkRoomStatus) { alertBox('Wybierz status'); return; }
+    const _res = bulkStatus(this.r, this.room.jobs, this.bulkRoomStatus);
+    if (!_res.ok) { alertBox(_res.error); return; }
+    toast(_res.notice); this.bulkRoomStatus = '';
+  },
+  applyStageBulk() {
+    if (!this.bulkStage || !this.bulkStageStatus) { alertBox(!this.bulkStage ? 'Wybierz etap' : 'Wybierz status'); return; }
+    const _res = bulkStatus(this.r, rJobs(this.r).filter((j) => j.stage === this.bulkStage), this.bulkStageStatus);
+    if (!_res.ok) { alertBox(_res.error); return; }
+    toast(_res.notice);
+  },
+  async doTransition(to) {
+    const _texts = {
+      in_progress: ['Rozpocząć realizację?', ['Status realizacji zmieni się na „W trakcie” — klient zobaczy go na stronie postępu prac (/r).'], 'Rozpocznij', 'btn-primary'],
+      done: ['Zakończyć realizację?', ['Wszystkie prace mają status „Zrobione”.', 'Cennik nauczy się ze stawek faktycznych ekip tej realizacji.',
+        'Statusy prac, stawki faktyczne, rozliczenie i przewidywany termin zostaną zablokowane — komentarz i notatka wewnętrzna zostają do edycji.',
+        'Przychód trafi do raportów Finanse; zakończonej realizacji nie da się usunąć.'], 'Zakończ', 'btn-success'],
+      cancelled: ['Anulować realizację?', ['Statusy prac i stawki faktyczne zostaną zablokowane.', 'Realizacja wypadnie z raportów Finanse.',
+        'Strona oferty (/q) przestanie prowadzić do postępu prac (/r).'], 'Anuluj realizację', 'btn-danger'],
+    }[to];
+    const _ok = await confirmBox({ title: _texts[0], consequences: _texts[1], ok: _texts[2], okClass: _texts[3], cancel: 'Wróć' });
+    if (!_ok) return;
+    const _res = transition(this.r, to);
+    if (!_res.ok) { alertBox(_res.error); return; }
+    toast(_res.notice); this.expectedEnd = this.r.expected_end_on ?? '';
+  },
+  async doSendLink() {
+    const _c = client(this.r.client_id);
+    if (!_c?.email) { alertBox('Klient nie ma adresu email — dodaj go w danych klienta.'); return; }
+    const _ok = await confirmBox({ title: 'Wysłać klientowi link z postępem?', consequences: [`Klient dostanie e-mail na adres ${_c.email} z linkiem do strony postępu prac.`, 'Link będzie ważny jeszcze 30 dni od dziś.'], ok: 'Wyślij link' });
+    if (!_ok) return;
+    this.r.link_valid_until = addDays(todayISO(), 30); this.saveR('Link z postępem wysłany klientowi.');
+  },
+  async doDelete() {
+    if (this.r.status === 'done') { alertBox('Zakończonej realizacji nie można usunąć — jej prace są w raportach Finanse.'); return; }
+    const _ok = await confirmBox({ title: 'Usunąć realizację wraz z pokojami, pracami i zdjęciami?', consequences: ['Realizacja zniknie razem z pokojami, pracami i zdjęciami — tego nie da się cofnąć.', 'Link klienta do postępu prac przestanie działać.'], ok: 'Usuń', okClass: 'btn-danger' });
+    if (!_ok) return;
+    db.realizations.splice(db.realizations.indexOf(this.r), 1); save('realizations');
+    flashNext('notice', 'Realizacja usunięta.'); go('realizations-index');
+  },
+  saveExpected() {
+    if (this.expectedEnd && (this.expectedEnd < '2000-01-01' || this.expectedEnd > '2099-12-31')) { alertBox('Aktualnie przewidywany musi przypadać w latach 2000–2099'); return; }
+    this.r.expected_end_on = this.expectedEnd || null; this.saveR('Realizacja zaktualizowana.');
+  },
+  photoGroups() {
+    const _g = [{ key: 'none', name: 'Ogólne', photos: this.r.photos.filter((p) => !p.room_id) }];
+    for (const pr of this.r.rooms) _g.push({ key: pr.id, name: pr.name, photos: this.r.photos.filter((p) => p.room_id === pr.id) });
+    return _g.filter((g) => g.photos.length);
+  },
+  savePhoto() { this.saveR('Zapisano zdjęcie.'); },
+  async deletePhoto(p) {
+    const _ok = await confirmBox({ title: 'Usunąć zdjęcie?', consequences: [p.client_visible ? 'Zdjęcie zniknie też ze strony postępu prac klienta.' : 'Zdjęcie zniknie z realizacji.'], ok: 'Usuń', okClass: 'btn-danger' });
+    if (!_ok) return;
+    this.r.photos.splice(this.r.photos.indexOf(p), 1); this.saveR('Zdjęcie usunięte.');
+  },
+  async addPhotos() {
+    const _input = document.getElementById(`files-${this.formKey}`);
+    const _files = [..._input.files];
+    if (!_files.length) { alertBox('Wybierz co najmniej jedno zdjęcie.'); return; }
+    if (_files.length > 20) { alertBox('Wybierz najwyżej 20 zdjęć naraz.'); return; }
+    for (const f of _files) {
+      if (!['image/jpeg', 'image/png', 'image/webp'].includes(f.type)) { alertBox(`Nie dodano zdjęć — ${f.name}: Zdjęcie ma nieobsługiwany format (dozwolone: JPG, PNG, WebP).`); return; }
+      if (f.size > 20 * 1024 * 1024) { alertBox(`Nie dodano zdjęć — ${f.name}: Zdjęcie jest za duże (maks. 20 MB)`); return; }
+    }
+    this.adding = true;
+    const _added = [];
+    for (const f of _files) {
+      try { _added.push({ id: nextId(), room_id: this.photoRoom ? Number(this.photoRoom) : null, client_visible: false, filename: f.name, src: await thumbnail(f) }); }
+      catch { this.adding = false; alertBox(`Nie dodano zdjęć — ${f.name}: nie da się odczytać pliku jako zdjęcia.`); return; }
+    }
+    this.r.photos.push(..._added); this.adding = false; _input.value = '';
+    this.saveR(`Dodano zdjęcia: ${_added.length}.`);
+  },
+}));
+</script>
+</body>
+</html>

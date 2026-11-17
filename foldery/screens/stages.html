@@ -1,0 +1,327 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prace i Etapy — IKPM</title>
+<link rel="stylesheet" href="../assets/bootstrap/bootstrap.min.css">
+<link rel="stylesheet" href="../assets/bootstrap-icons/bootstrap-icons.min.css">
+<link rel="stylesheet" href="../assets/app.css">
+</head>
+<body data-screen="stages" data-nav="stages" data-tab="dane">
+<main x-data="page" x-cloak>
+<div class="panes" :data-level="level">
+  <!-- Poziom 1: etapy -->
+  <section class="pane pane-list" aria-label="Etapy">
+    <div class="pane-inner">
+      <div class="pane-head"><a class="back-link back-only-phone" :href="link('data')"><i class="bi bi-chevron-left" aria-hidden="true"></i>Dane</a>
+        <h1 class="pane-title">Prace i Etapy</h1></div>
+      <label class="form-label" for="cat-search">Szukaj pracy</label>
+      <input id="cat-search" class="form-control" type="search" x-model="search" autocomplete="off">
+      <template x-if="search.trim()">
+        <div><h2 class="group-title" x-text="'Wyniki (' + searchResults().length + ')'"></h2>
+          <ul class="group"><template x-for="cj in searchResults()" :key="cj.id">
+            <li><a class="row-link" :href="link('stages', {stage: stageOfJob(cj.id).id, job: cj.id})"><span class="row-main"><div class="fw-semibold" x-text="cj.name"></div>
+              <div class="small text-body-secondary" x-text="stageOfJob(cj.id).name + ' · ' + cj.unit"></div></span><i class="bi bi-chevron-right chev" aria-hidden="true"></i></a></li>
+          </template></ul></div>
+      </template>
+      <template x-if="!search.trim()">
+        <div>
+          <h2 class="group-title">Etapy</h2>
+          <p class="text-body-secondary" x-show="!db.stages.length">Brak etapów. Dodaj pierwszy etap powyżej.</p>
+          <ul class="group">
+            <template x-for="s in stagesSorted()" :key="s.id">
+              <li><a class="row-link" :href="link('stages', {stage: s.id})" :aria-current="stage && stage.id === s.id ? 'page' : null">
+                <span class="row-main"><div class="fw-semibold" x-text="s.name"></div><div class="small text-body-secondary" x-text="'Kolejność: ' + s.order"></div></span>
+                <span class="badge text-bg-light border" title="Liczba prac" x-text="jobsNom(s.jobs.length)"></span><i class="bi bi-chevron-right chev" aria-hidden="true"></i></a></li>
+            </template>
+            <li><button type="button" class="row-link row-add" @click="stageFormOpen = !stageFormOpen" :aria-expanded="stageFormOpen"><span class="row-icon"><i class="bi bi-plus-lg" aria-hidden="true"></i></span>Dodaj etap</button></li>
+          </ul>
+          <form class="card-plain mt-2" x-show="stageFormOpen" @submit.prevent="addStage()">
+            <label class="form-label" for="ns-name">Nazwa etapu</label><input id="ns-name" class="form-control mb-2" maxlength="100" placeholder="np. Przygotowanie podłoża" x-model="newStage.name">
+            <label class="form-label" for="ns-order">Kolejność</label><input id="ns-order" class="form-control mb-3" type="number" inputmode="decimal" min="0" max="10000" x-model="newStage.order">
+            <button class="btn btn-primary" type="submit">Dodaj etap</button></form>
+        </div>
+      </template>
+    </div>
+  </section>
+
+  <!-- Poziom 2: etap -->
+  <section class="pane pane-folder" aria-label="Etap">
+    <template x-if="stage">
+      <div class="pane-inner">
+        <div class="pane-head"><a class="back-link" :href="link('stages')"><i class="bi bi-chevron-left" aria-hidden="true"></i>Prace i Etapy</a>
+          <h1 class="pane-title" x-text="stage.name"></h1><div class="pane-sub" x-text="jobsNom(stage.jobs.length)"></div></div>
+        <h2 class="group-title">Prace</h2>
+        <ul class="group">
+          <li><a class="row-link row-add" :href="link('stages', {stage: stage.id, job: 'new'})" :aria-current="jobId === 'new' ? 'page' : null"><span class="row-icon"><i class="bi bi-plus-lg" aria-hidden="true"></i></span>Dodaj pracę do tego etapu<i class="bi bi-chevron-right chev" aria-hidden="true"></i></a></li>
+          <template x-for="cj in jobsOf(stage)" :key="cj.id">
+            <li><a class="row-link" :href="link('stages', {stage: stage.id, job: cj.id})" :aria-current="job && job.id === cj.id ? 'page' : null">
+              <span class="row-main"><div class="fw-semibold" x-text="cj.name"></div>
+                <div class="small d-flex flex-wrap gap-1 mt-1"><span class="badge text-bg-light border" x-text="cj.unit"></span><span class="badge text-bg-light border" x-text="AREA_LABELS[cj.area_type]"></span>
+                  <span class="text-body-secondary" x-text="'Śr. cena: ' + (cj.average_price ? pln(cj.average_price) : '-')"></span></div></span>
+              <i class="bi bi-chevron-right chev" aria-hidden="true"></i></a></li>
+          </template>
+        </ul>
+        <p class="small text-body-secondary mt-2" x-show="!stage.jobs.length">Brak prac w tym etapie. Dodaj pierwszą pracę powyżej.</p>
+        <h2 class="group-title">Zmień ceny o %</h2>
+        <form class="card-plain" @submit.prevent="go('price-change', {scope: 'stage', id: stage.id, percent: stagePercent})">
+          <label class="form-label" for="stage-pct">Zmień ceny o % <span class="visually-hidden" x-text="'etapu „' + stage.name + '”'"></span> (od -90 do 200)</label>
+          <div class="d-flex gap-2"><input id="stage-pct" class="form-control" type="number" inputmode="decimal" step="0.1" min="-90" max="200" required x-model="stagePercent">
+            <button type="submit" class="btn btn-outline-primary">Podgląd</button></div></form>
+        <h2 class="group-title">Etap</h2>
+        <form class="card-plain" @submit.prevent="saveStage()">
+          <label class="form-label" for="st-name">Nazwa etapu</label><input id="st-name" class="form-control mb-2" maxlength="100" x-model="stageEdit.name">
+          <label class="form-label" for="st-order">Kolejność</label><input id="st-order" class="form-control mb-3" type="number" inputmode="decimal" min="0" max="10000" x-model="stageEdit.order">
+          <div class="d-flex gap-2"><button type="submit" class="btn btn-primary">Zapisz etap</button>
+            <button type="button" class="btn btn-outline-danger" @click="deleteStage()"><i class="bi bi-trash" aria-hidden="true"></i> Usuń etap</button></div></form>
+      </div>
+    </template>
+  </section>
+
+  <!-- Poziom 3: praca -->
+  <section class="pane pane-detail" aria-label="Praca">
+    <template x-if="stage && jobId === 'new'">
+      <div class="pane-inner">
+        <div class="pane-head"><a class="back-link" :href="link('stages', {stage: stage.id})"><i class="bi bi-chevron-left" aria-hidden="true"></i><span x-text="stage.name"></span></a>
+          <h1 class="pane-title">Dodaj pracę do tego etapu</h1><div class="pane-sub" x-text="'Etap: ' + stage.name"></div></div>
+        <form class="card-plain" @submit.prevent="addJob()">
+          <div role="alert" x-show="jobErrors.length"><ul class="text-danger"><template x-for="e in jobErrors"><li x-text="e"></li></template></ul></div>
+          <label class="form-label" for="nj-name">Nazwa pracy</label><input id="nj-name" class="form-control mb-3" maxlength="100" placeholder="np. Malowanie ścian" x-model="newJob.name">
+          <div class="row g-2">
+            <div class="col-6"><label class="form-label" for="nj-unit">Jednostka</label>
+              <select id="nj-unit" class="form-select" x-model="newJob.unit" @change="if (!areaOptions(newJob.unit).includes(newJob.area_type)) newJob.area_type = 'manual'">
+                <template x-for="u in UNITS" :key="u"><option :value="u" x-text="u" :selected="u === newJob.unit"></option></template></select></div>
+            <div class="col-6"><label class="form-label" for="nj-area">Wymiar (auto-ilość)</label>
+              <select id="nj-area" class="form-select" x-model="newJob.area_type">
+                <template x-for="a in areaOptions(newJob.unit)" :key="a"><option :value="a" x-text="AREA_LABELS[a]" :selected="a === newJob.area_type"></option></template></select></div>
+            <div class="col-6"><label class="form-label" for="nj-price">Śr. cena (zł)</label><input id="nj-price" class="form-control" type="number" inputmode="decimal" step="any" min="0" placeholder="np. 35" x-model="newJob.price"></div>
+            <div class="col-6"><label class="form-label" for="nj-order">Kolejność</label><input id="nj-order" class="form-control" type="number" inputmode="decimal" min="0" max="10000" x-model="newJob.order"></div>
+          </div>
+          <label class="form-label mt-2" for="nj-desc">Opis</label><textarea id="nj-desc" class="form-control mb-3" rows="2" placeholder="Krótki opis..." x-model="newJob.description"></textarea>
+          <button type="submit" class="btn btn-primary btn-main px-4"><i class="bi bi-plus-lg" aria-hidden="true"></i> Dodaj pracę</button>
+        </form>
+      </div>
+    </template>
+    <template x-if="stage && job">
+      <div class="pane-inner">
+        <div class="pane-head"><a class="back-link" :href="link('stages', {stage: stage.id})"><i class="bi bi-chevron-left" aria-hidden="true"></i><span x-text="stage.name"></span></a>
+          <h1 class="pane-title" x-text="job.name"></h1>
+          <div class="d-flex flex-wrap gap-1"><span class="badge text-bg-light border" x-text="job.unit"></span><span class="badge text-bg-light border" x-text="AREA_LABELS[job.area_type]"></span>
+            <span class="small text-body-secondary" x-text="'Śr. tempo: ' + (job.average_speed ? measure(job.average_speed) + ' h/' + job.unit : '-')"></span></div></div>
+
+        <form class="card-plain" @submit.prevent="saveJob()">
+          <label class="form-label" for="ej-name">Nazwa pracy</label><input id="ej-name" class="form-control mb-2" maxlength="100" x-model="jobEdit.name">
+          <div class="row g-2">
+            <div class="col-6"><label class="form-label" for="ej-unit">Jednostka</label><select id="ej-unit" class="form-select" disabled aria-describedby="locked-hint"><option x-text="job.unit"></option></select></div>
+            <div class="col-6"><label class="form-label" for="ej-area">Wymiar (auto-ilość)</label><select id="ej-area" class="form-select" disabled aria-describedby="locked-hint"><option x-text="AREA_LABELS[job.area_type]"></option></select></div>
+          </div>
+          <div class="small text-body-secondary mb-2" id="locked-hint"><i class="bi bi-lock" aria-hidden="true"></i> Inna jednostka albo wymiar to nowa praca</div>
+          <div class="row g-2">
+            <div class="col-6"><label class="form-label" for="ej-price">Śr. cena (zł)</label><input id="ej-price" class="form-control" type="number" inputmode="decimal" step="any" min="0" x-model="jobEdit.price"></div>
+            <div class="col-6"><label class="form-label" for="ej-order">Kolejność</label><input id="ej-order" class="form-control" type="number" inputmode="decimal" min="0" max="10000" x-model="jobEdit.order"></div>
+          </div>
+          <label class="form-label mt-2" for="ej-stage">Etap</label>
+          <select id="ej-stage" class="form-select mb-2" x-model="jobEdit.stage_id"><template x-for="s in stagesSorted()" :key="s.id"><option :value="String(s.id)" x-text="s.name" :selected="String(s.id) === jobEdit.stage_id"></option></template></select>
+          <label class="form-label" for="ej-desc">Opis</label><textarea id="ej-desc" class="form-control mb-3" rows="2" placeholder="Szczegółowy opis pracy..." x-model="jobEdit.description"></textarea>
+          <div class="d-flex flex-wrap gap-2"><button type="submit" class="btn btn-primary">Zapisz pracę</button>
+            <button type="button" class="btn btn-outline-danger" @click="deleteJob()"><i class="bi bi-trash" aria-hidden="true"></i> Usuń pracę</button></div>
+        </form>
+
+        <h2 class="group-title">Materiały potrzebne do pracy</h2>
+        <ul class="group">
+          <template x-for="(m, i) in job.materials" :key="m.material_id">
+            <li class="row-item flex-wrap">
+              <span class="row-main"><div class="fw-semibold" x-text="material(m.material_id)?.name"></div>
+                <div class="small text-body-secondary" x-text="materialLine(material(m.material_id))"></div></span>
+              <span class="d-flex align-items-end gap-2"><span><label class="form-label small mb-1" :for="'mq-' + m.material_id" x-text="material(m.material_id)?.unit + ' na ' + job.unit + ':'"></label>
+                <input class="form-control" style="width:7.5rem" :id="'mq-' + m.material_id" type="number" inputmode="decimal" step="any" min="0" :value="m.quantity_per_unit" @change="setMaterialQty(m, $event.target)"></span>
+                <button type="button" class="btn btn-outline-danger btn-icon" :aria-label="'Usuń materiał: ' + material(m.material_id)?.name" @click="removeMaterial(m)"><i class="bi bi-trash" aria-hidden="true"></i></button></span>
+              <span class="saved w-100 text-end" x-show="savedKey === 'm' + m.material_id"><i class="bi bi-check2" aria-hidden="true"></i> Zapisano</span>
+            </li>
+          </template>
+          <li><button type="button" class="row-link row-add" @click="matFormOpen = !matFormOpen" :aria-expanded="matFormOpen"><span class="row-icon"><i class="bi bi-plus-lg" aria-hidden="true"></i></span>Dodaj materiał</button></li>
+        </ul>
+        <form class="card-plain mt-2" x-show="matFormOpen" @submit.prevent="addMaterial()">
+          <label class="form-label" for="mat-pick">Materiał</label>
+          <select id="mat-pick" class="form-select mb-2" x-model="matPick">
+            <option value="">-- Wybierz materiał --</option>
+            <template x-for="mm in materialOptions()" :key="mm.id"><option :value="String(mm.id)" x-text="mm.name"></option></template></select>
+          <label class="form-label" for="mat-qty" x-text="'Ilość na jednostkę:' + (matPick ? ' (' + material(Number(matPick)).unit + ' na ' + job.unit + ')' : '')"></label>
+          <input id="mat-qty" class="form-control mb-3" type="number" inputmode="decimal" step="any" min="0" x-model="matQty">
+          <div class="d-flex gap-2"><button type="submit" class="btn btn-primary">Dodaj</button><button type="button" class="btn btn-outline-secondary" @click="matFormOpen = false">Anuluj</button></div>
+        </form>
+
+        <h2 class="group-title">Wykonawcy mogący wykonać tę pracę</h2>
+        <ul class="group">
+          <template x-for="c in activeCrews()" :key="c.contractor_id">
+            <li class="p-3">
+              <div class="d-flex justify-content-between align-items-start gap-2"><div class="fw-semibold" x-text="contractorName(c.contractor_id)"></div>
+                <button type="button" class="btn btn-outline-danger btn-icon" :aria-label="'Usuń wykonawcę: ' + contractorName(c.contractor_id)" @click="removeCrew(c)"><i class="bi bi-trash" aria-hidden="true"></i></button></div>
+              <div class="row g-2">
+                <div class="col-6 col-xl-3"><label class="form-label small mb-1" :for="'cp-' + c.contractor_id">Cena: (zł)</label>
+                  <input class="form-control" :id="'cp-' + c.contractor_id" type="number" inputmode="decimal" step="any" min="0" placeholder="średnia" :value="c.price ?? ''" @change="setCrew(c, 'price', $event.target)"></div>
+                <div class="col-6 col-xl-3"><label class="form-label small mb-1" :for="'cmin-' + c.contractor_id">Tempo: min (h)</label>
+                  <input class="form-control" :id="'cmin-' + c.contractor_id" type="number" inputmode="decimal" step="any" min="0" :value="c.speed_min ?? ''" @change="setCrew(c, 'speed_min', $event.target)"></div>
+                <div class="col-6 col-xl-3"><label class="form-label small mb-1" :for="'cmax-' + c.contractor_id">Tempo: max (h)</label>
+                  <input class="form-control" :id="'cmax-' + c.contractor_id" type="number" inputmode="decimal" step="any" min="0" :value="c.speed_max ?? ''" @change="setCrew(c, 'speed_max', $event.target)"></div>
+                <div class="col-6 col-xl-3"><label class="form-label small mb-1" :for="'cq-' + c.contractor_id">Jakość:</label>
+                  <select class="form-select" :id="'cq-' + c.contractor_id" @change="c.quality = $event.target.value ? Number($event.target.value) : null; saveCat(); markSaved('c' + c.contractor_id)">
+                    <option value="" :selected="c.quality == null">brak oceny</option><template x-for="[k, l] in Object.entries(QUALITY)" :key="k"><option :value="k" x-text="l" :selected="Number(k) === c.quality"></option></template></select></div>
+              </div>
+              <span class="saved" x-show="savedKey === 'c' + c.contractor_id"><i class="bi bi-check2" aria-hidden="true"></i> Zapisano</span>
+            </li>
+          </template>
+          <li><button type="button" class="row-link row-add" @click="crewFormOpen = !crewFormOpen" :aria-expanded="crewFormOpen"><span class="row-icon"><i class="bi bi-plus-lg" aria-hidden="true"></i></span>Dodaj wykonawcę</button></li>
+        </ul>
+        <form class="card-plain mt-2" x-show="crewFormOpen" @submit.prevent="addCrew()">
+          <label class="form-label" for="crew-pick">Wykonawca</label>
+          <select id="crew-pick" class="form-select mb-2" x-model="crew.contractor_id"><option value="">-- Wykonawca --</option>
+            <template x-for="cc in activeContractors()" :key="cc.id"><option :value="String(cc.id)" x-text="cc.name"></option></template></select>
+          <div class="row g-2 mb-3">
+            <div class="col-6 col-xl-3"><label class="form-label small mb-1" for="crew-price">Cena: (zł)</label><input id="crew-price" class="form-control" type="number" inputmode="decimal" step="any" min="0" placeholder="średnia" x-model="crew.price"></div>
+            <div class="col-6 col-xl-3"><label class="form-label small mb-1" for="crew-min">Tempo: min (h)</label><input id="crew-min" class="form-control" type="number" inputmode="decimal" step="any" min="0" x-model="crew.speed_min"></div>
+            <div class="col-6 col-xl-3"><label class="form-label small mb-1" for="crew-max">Tempo: max (h)</label><input id="crew-max" class="form-control" type="number" inputmode="decimal" step="any" min="0" x-model="crew.speed_max"></div>
+            <div class="col-6 col-xl-3"><label class="form-label small mb-1" for="crew-q">Jakość:</label><select id="crew-q" class="form-select" x-model="crew.quality"><option value="">brak oceny</option>
+              <template x-for="[k, l] in Object.entries(QUALITY)" :key="k"><option :value="k" x-text="l"></option></template></select></div>
+          </div>
+          <div class="d-flex gap-2"><button type="submit" class="btn btn-primary">Dodaj</button><button type="button" class="btn btn-outline-secondary" @click="crewFormOpen = false">Anuluj</button></div>
+        </form>
+      </div>
+    </template>
+  </section>
+</div>
+</main>
+<script type="module">
+import { boot, db, save, intParam, param, link, go, toast, alertBox, confirmBox, flashNext, parseNumber, roundHalfUp, fold,
+  stagesSorted, allJobs, material, materialUnitPrice, materialPackage, contractor, AREA_BY_UNIT, pln, measure } from '../assets/app.js';
+const num = (t) => (String(t ?? '').trim() === '' ? null : parseNumber(t));
+boot(() => ({
+  level: 1, stage: null, job: null, jobId: null, search: '', stageFormOpen: false, newStage: { name: '', order: '' },
+  stageEdit: { name: '', order: '' }, stagePercent: '', jobErrors: [],
+  newJob: { name: '', unit: 'm²', area_type: 'manual', price: '', order: '', description: '' },
+  jobEdit: {}, matFormOpen: false, matPick: '', matQty: '1', crewFormOpen: false,
+  crew: { contractor_id: '', price: '', speed_min: '', speed_max: '', quality: '' }, savedKey: null,
+  init() {
+    this.stage = db.stages.find((s) => s.id === intParam('stage')) ?? null;
+    this.jobId = param('job') === 'new' ? 'new' : intParam('job');
+    this.job = this.stage && this.jobId !== 'new' ? this.stage.jobs.find((j) => j.id === this.jobId) ?? null : null;
+    this.level = this.stage ? (this.job || this.jobId === 'new' ? 3 : 2) : 1;
+    this.newStage.order = String(Math.max(0, ...db.stages.map((s) => s.order)) + 1);
+    if (this.stage) {
+      this.stageEdit = { name: this.stage.name, order: String(this.stage.order) };
+      this.newJob.order = String(Math.max(0, ...this.stage.jobs.map((j) => j.order)) + 1);
+    }
+    if (this.job) this.jobEdit = { name: this.job.name, price: this.job.average_price ?? '', order: String(this.job.order), stage_id: String(this.stage.id), description: this.job.description ?? '' };
+    document.title = `${this.job ? `${this.job.name} — ` : ''}${this.stage ? `${this.stage.name} — ` : ''}Prace i Etapy — IKPM`;
+  },
+  markSaved(key) { this.savedKey = key; this.announce('Zapisano'); clearTimeout(this.savedTimer); this.savedTimer = setTimeout(() => { this.savedKey = null; }, 2500); },
+  saveCat(message) { save('stages'); if (message) toast(message); },
+  jobsOf(s) { return [...s.jobs].sort((a, b) => a.order - b.order || a.id - b.id); },
+  searchResults() { const _s = fold(this.search.trim()); return allJobs().filter((j) => fold(j.name).includes(_s)).slice(0, 60); },
+  areaOptions(unit) { return [...(AREA_BY_UNIT[unit] ?? []), 'manual']; },
+  addStage() {
+    const _name = this.newStage.name.trim();
+    if (!_name) { alertBox('Nazwa nie może być pusta'); return; }
+    const _s = { id: Math.max(0, ...db.stages.map((x) => x.id)) + 1, name: _name, order: Number(this.newStage.order) || 0, jobs: [] };
+    db.stages.push(_s); save('stages'); flashNext('notice', `Etap '${_name}' został dodany.`); go('stages', { stage: _s.id });
+  },
+  saveStage() {
+    const _name = this.stageEdit.name.trim();
+    if (!_name) { alertBox('Nazwa nie może być pusta'); return; }
+    this.stage.name = _name; this.stage.order = Number(this.stageEdit.order) || 0; this.saveCat(`Etap '${_name}' został zaktualizowany.`);
+  },
+  async deleteStage() {
+    const _ok = await confirmBox({ title: `Usunąć etap '${this.stage.name}'? Etapu z pracami nie da się usunąć.`, consequences: ['Etap zniknie z cennika.'], ok: 'Usuń', okClass: 'btn-danger' });
+    if (!_ok) return;
+    if (this.stage.jobs.length) { alertBox('Nie można usunąć, gdyż istnieją zależne od niego prace'); return; }
+    db.stages.splice(db.stages.indexOf(this.stage), 1); save('stages'); flashNext('notice', `Etap '${this.stage.name}' został usunięty.`); go('stages');
+  },
+  addJob() {
+    const _j = this.newJob; const _e = [];
+    if (!_j.name.trim()) _e.push('Nazwa nie może być pusta');
+    const _price = num(_j.price);
+    if (_price !== null && (Number.isNaN(_price) || _price <= 0 || _price > 1e6)) _e.push('Cena średnia musi być większa od 0');
+    if (!this.areaOptions(_j.unit).includes(_j.area_type)) _e.push('Typ powierzchni nie pasuje do jednostki');
+    this.jobErrors = _e; if (_e.length) return;
+    const _new = { id: Math.max(0, ...allJobs().map((x) => x.id)) + 1, name: _j.name.trim(), unit: _j.unit, area_type: _j.area_type,
+      average_price: _price === null ? null : roundHalfUp(_price), average_speed: null, order: Number(_j.order) || 0, description: _j.description, materials: [], crews: [] };
+    this.stage.jobs.push(_new); save('stages');
+    flashNext('notice', `Praca '${_new.name}' została dodana.`); go('stages', { stage: this.stage.id, job: _new.id });
+  },
+  saveJob() {
+    const _e = this.jobEdit; const _price = num(_e.price);
+    if (!String(_e.name).trim()) { alertBox('Nazwa nie może być pusta'); return; }
+    if (_price !== null && (Number.isNaN(_price) || _price <= 0 || _price > 1e6)) { alertBox('Cena średnia musi być większa od 0'); return; }
+    Object.assign(this.job, { name: _e.name.trim(), average_price: _price === null ? null : roundHalfUp(_price), order: Number(_e.order) || 0, description: _e.description });
+    const _target = db.stages.find((s) => String(s.id) === _e.stage_id);
+    if (_target && _target !== this.stage) {
+      this.stage.jobs.splice(this.stage.jobs.indexOf(this.job), 1); _target.jobs.push(this.job); save('stages');
+      flashNext('notice', `Praca '${this.job.name}' została zaktualizowana.`); go('stages', { stage: _target.id, job: this.job.id }); return;
+    }
+    this.saveCat(`Praca '${this.job.name}' została zaktualizowana.`);
+  },
+  async deleteJob() {
+    const _ok = await confirmBox({ title: `Usunąć pracę '${this.job.name}'?`, consequences: ['Praca zniknie z cennika razem z materiałami i cenami ekip.'], ok: 'Usuń', okClass: 'btn-danger' });
+    if (!_ok) return;
+    const _used = db.quotes.some((q) => q.rooms.some((r) => r.jobs.some((j) => j.job_id === this.job.id))) || db.realizations.some((x) => x.rooms.some((r) => r.jobs.some((j) => j.job_id === this.job.id)));
+    if (_used) { alertBox('Nie można usunąć, gdyż istnieją zależne od niej prace w wycenach i realizacjach'); return; }
+    this.stage.jobs.splice(this.stage.jobs.indexOf(this.job), 1); save('stages');
+    flashNext('notice', `Praca '${this.job.name}' została usunięta.`); go('stages', { stage: this.stage.id });
+  },
+  materialLine(m) { return m ? `${pln(materialUnitPrice(m))}/${m.unit} · opak. ${materialPackage(m)} za ${pln(m.price)}` : ''; },
+  materialOptions() {
+    return [...db.materials].sort((a, b) => a.name.localeCompare(b.name, 'pl') || a.id - b.id);
+  },
+  addMaterial() {
+    if (!this.matPick) { alertBox('Materiał musi istnieć'); return; }
+    const _q = num(this.matQty);
+    if (_q === null || Number.isNaN(_q) || _q <= 0 || _q > 1e6) { alertBox('Ilość na jednostkę musi być większa od 0'); return; }
+    if (this.job.materials.some((m) => m.material_id === Number(this.matPick))) { alertBox('Materiał jest już przypisany do tej pracy'); return; }
+    this.job.materials.push({ material_id: Number(this.matPick), quantity_per_unit: roundHalfUp(_q) });
+    this.matPick = ''; this.matQty = '1'; this.matFormOpen = false; this.saveCat('Materiał został przypisany do pracy.');
+  },
+  setMaterialQty(m, el) {
+    const _q = this.readNumber(el);
+    if (_q === null || Number.isNaN(_q) || _q <= 0 || _q > 1e6) { alertBox('Ilość na jednostkę musi być większa od 0'); el.value = m.quantity_per_unit; return; }
+    m.quantity_per_unit = roundHalfUp(_q); this.saveCat(); this.markSaved(`m${m.material_id}`);
+  },
+  async removeMaterial(m) {
+    const _ok = await confirmBox({ title: 'Usunąć ten materiał z pracy?', consequences: ['Koszt materiałów tej pracy zmieni się w szkicach wycen bez zamrożonego kosztu.'], ok: 'Usuń', okClass: 'btn-danger' });
+    if (!_ok) return;
+    this.job.materials.splice(this.job.materials.indexOf(m), 1); this.saveCat('Materiał został usunięty z pracy.');
+  },
+  activeCrews() { return this.job.crews.filter((c) => !contractor(c.contractor_id)?.archived); },
+  crewNumber(text, label) {
+    const _v = num(text);
+    if (_v !== null && (Number.isNaN(_v) || _v < 0 || _v > 1e6)) return { error: `${label} musi być większa lub równa 0` };
+    return { value: _v === null ? null : roundHalfUp(_v) };
+  },
+  setCrew(c, field, el) {
+    const _v = this.readNumber(el);
+    if (field === 'price' && _v !== null && (Number.isNaN(_v) || _v <= 0 || _v > 1e6)) { alertBox('Cena musi być większa od 0'); el.value = c.price ?? ''; return; }
+    if (field !== 'price' && _v !== null && (Number.isNaN(_v) || _v < 0 || _v > 1e6)) { alertBox('Tempo musi być większe lub równe 0'); el.value = c[field] ?? ''; return; }
+    c[field] = _v === null ? null : roundHalfUp(_v); this.saveCat(); this.markSaved(`c${c.contractor_id}`);
+  },
+  addCrew() {
+    const _cid = Number(this.crew.contractor_id);
+    if (!_cid) { alertBox('Wykonawca musi istnieć'); return; }
+    if (this.job.crews.some((c) => c.contractor_id === _cid)) { alertBox('Wykonawca ma już tę pracę w cenniku'); return; }
+    if (contractor(_cid)?.archived) { alertBox('Wykonawca jest w archiwum — przywróć go, żeby dodać cenę.'); return; }
+    const _price = num(this.crew.price);
+    if (_price !== null && (Number.isNaN(_price) || _price <= 0 || _price > 1e6)) { alertBox('Cena musi być większa od 0'); return; }
+    const _min = this.crewNumber(this.crew.speed_min, 'Tempo'); const _max = this.crewNumber(this.crew.speed_max, 'Tempo');
+    if (_min.error || _max.error) { alertBox(_min.error || _max.error); return; }
+    this.job.crews.push({ contractor_id: _cid, price: _price === null ? null : roundHalfUp(_price), speed_min: _min.value, speed_max: _max.value, quality: this.crew.quality ? Number(this.crew.quality) : null });
+    this.crew = { contractor_id: '', price: '', speed_min: '', speed_max: '', quality: '' }; this.crewFormOpen = false;
+    this.saveCat('Wykonawca został przypisany do pracy.');
+  },
+  async removeCrew(c) {
+    const _ok = await confirmBox({ title: 'Usunąć tego wykonawcę?', consequences: [`${contractor(c.contractor_id)?.name} zniknie z cennika tej pracy i z doboru wykonawców do niej.`], ok: 'Usuń', okClass: 'btn-danger' });
+    if (!_ok) return;
+    this.job.crews.splice(this.job.crews.indexOf(c), 1); this.saveCat('Wykonawca został usunięty z pracy.');
+  },
+}));
+</script>
+</body>
+</html>

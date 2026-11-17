@@ -1,0 +1,454 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Edytor wyceny — IKPM</title>
+<link rel="stylesheet" href="../assets/bootstrap/bootstrap.min.css">
+<link rel="stylesheet" href="../assets/bootstrap-icons/bootstrap-icons.min.css">
+<link rel="stylesheet" href="../assets/app.css">
+</head>
+<body data-screen="builder" data-nav="quotes-index" data-tab="wyceny">
+<main x-data="page" x-cloak>
+<template x-if="q">
+<div>
+<div class="panes" :data-level="level">
+  <section class="pane pane-list" aria-label="Lista wycen" data-partial="quote-list"></section>
+  <section class="pane pane-folder" aria-label="Wycena" data-partial="quote-folder"></section>
+  <section class="pane pane-detail" aria-label="Szczegóły wyceny">
+
+    <!-- Pokój: wymiary, szablony, prace -->
+    <template x-if="view === 'room' && room">
+      <div class="pane-inner">
+        <div class="pane-head">
+          <a class="back-link" :href="link('builder', {id: q.id})"><i class="bi bi-chevron-left" aria-hidden="true"></i><span x-text="'Wycena #' + q.id"></span></a>
+          <h1 class="pane-title" x-text="room.name"></h1>
+          <div class="pane-sub" x-text="sizeAll(room) || 'bez wymiarów'"></div>
+        </div>
+        <div class="alert alert-warning" x-show="room.client_comment" role="note"><b><i class="bi bi-chat-left-text" aria-hidden="true"></i> Komentarz klienta:</b> <span x-text="room.client_comment"></span></div>
+
+        <h2 class="group-title">1. Wymiary pokoju <span class="saved ms-2 text-none" x-show="savedKey === 'dims'"><i class="bi bi-check2" aria-hidden="true"></i> Zapisano</span></h2>
+        <div class="card-plain">
+          <label class="form-label" for="room-name">Nazwa pokoju</label>
+          <input id="room-name" class="form-control" maxlength="100" :value="room.name" @change="setName($event.target)">
+          <div class="text-danger small mt-1" x-show="nameError" x-text="nameError"></div>
+          <div class="row g-2 mt-1">
+            <template x-for="[f, label] in DIMENSIONS" :key="f">
+              <div class="col-6 col-xl-3"><label class="form-label small mb-1" :for="'dim-' + f" x-text="label"></label>
+                <input class="form-control" :id="'dim-' + f" type="number" inputmode="decimal" step="any" min="0" :value="dims[f] || ''" @input="previewDim(f, $event.target)" @change="setDim(f, $event.target)"></div>
+            </template>
+          </div>
+          <div class="form-check form-switch big mt-2">
+            <input class="form-check-input" type="checkbox" role="switch" id="irregular" :checked="irregular" @change="toggleIrregular($event.target.checked)">
+            <label class="form-check-label" for="irregular">Pokój nieregularny</label>
+          </div>
+          <div x-show="irregular">
+            <p class="small text-body-secondary mb-2" id="irregular-hint">Puste pole — wartość z wymiarów (podpowiedź w polu); sufit jak podłoga, ściany: obwód × wysokość − otwory. Wpisane ściany to powierzchnia netto — otworów się od nich nie odejmuje.</p>
+            <div class="row g-2">
+              <template x-for="[f, label, kind] in OVERRIDES" :key="f">
+                <div class="col-6 col-xl-3"><label class="form-label small mb-1" :for="'ov-' + f" x-text="label"></label>
+                  <input class="form-control" :id="'ov-' + f" type="number" inputmode="decimal" step="any" min="0" aria-describedby="irregular-hint"
+                    :value="dims[f] ?? ''" :placeholder="overridePlaceholder(f, kind)" @input="previewDim(f, $event.target)" @change="setDim(f, $event.target)"></div>
+              </template>
+            </div>
+          </div>
+          <div class="d-flex flex-wrap gap-3 mt-2 small" aria-live="polite">
+            <span x-text="'Podłoga: ' + areaText(areaFor(dimsRoom(), 'floor'))"></span>
+            <span x-text="'Ściany: ' + areaText(areaFor(dimsRoom(), 'wall'))"></span>
+            <span x-text="'Obwód: ' + dec(roundHalfUp(areaFor(dimsRoom(), 'perimeter'))) + ' mb'"></span>
+          </div>
+          <div class="alert alert-danger py-2 mt-2 mb-0" role="alert" x-show="dimError" x-text="dimError"></div>
+          <label class="form-label mt-3" for="room-notes">Notatka</label>
+          <textarea id="room-notes" class="form-control" rows="2" placeholder="Np. stan ścian, ustalenia z klientem" aria-describedby="room-notes-hint" :value="room.notes ?? ''" @change="room.notes = $event.target.value || null; saveQuote(); markSaved('dims')"></textarea>
+          <div class="small text-body-secondary" id="room-notes-hint"><i class="bi bi-lock" aria-hidden="true"></i> Wewnętrzna — nie trafia do oferty dla klienta.</div>
+        </div>
+
+        <h2 class="group-title">2. Szablony prac <span class="text-none fw-normal">(kliknij aby dodać prace z szablonu)</span></h2>
+        <div class="d-flex flex-wrap gap-2">
+          <template x-for="tpl in templatesSorted()" :key="tpl.id">
+            <button type="button" class="btn btn-outline-primary" @click="useTemplate(tpl)"><i class="bi bi-grid-1x2" aria-hidden="true"></i> <span x-text="tpl.name"></span> <span class="badge text-bg-light border" x-text="jobsNom(tpl.jobs.length)"></span></button>
+          </template>
+        </div>
+
+        <h2 class="group-title">3. Prace w pokoju <span class="badge text-bg-secondary ms-1" x-text="jobsNom(room.jobs.length)"></span></h2>
+        <p class="text-body-secondary" x-show="!room.jobs.length">Brak prac w tym pokoju.</p>
+        <template x-for="g in jobsByStage(room.jobs)" :key="g.stage">
+          <section :aria-label="g.stage">
+            <h3 class="stage-title" x-text="g.stage"></h3>
+            <ul class="job-list">
+              <template x-for="j in g.jobs" :key="j.id">
+                <li class="job-row" :id="'job-' + j.id" :class="j.id === newJobId ? 'flash' : ''">
+                  <div class="d-flex gap-2 align-items-start">
+                    <div class="flex-grow-1" style="min-width:0">
+                      <div class="job-name" x-text="j.name"></div>
+                      <div class="small text-body-secondary d-flex flex-wrap gap-1 align-items-center">
+                        <span x-text="j.unit"></span>
+                        <template x-if="j.area_type !== 'manual'"><span class="badge text-bg-light border" title="Wyliczane automatycznie z wymiarów"><i class="bi bi-rulers" aria-hidden="true"></i><span x-text="AREA_LABELS[j.area_type]"></span></span></template>
+                        <span x-text="j.contractor_id ? '· Ekipa: ' + contractorName(j.contractor_id) : '· Bez wykonawcy'"></span>
+                      </div>
+                    </div>
+                    <button type="button" class="btn btn-outline-danger btn-icon" :aria-label="'Usuń pracę: ' + j.name" @click="removeJob(j)"><i class="bi bi-trash" aria-hidden="true"></i></button>
+                  </div>
+                  <div class="row g-2 mt-1 align-items-end">
+                    <div class="col-6 col-xl-3"><label class="form-label small mb-1" :for="'qty-' + j.id" x-text="'Ilość (' + j.unit + ')'"></label>
+                      <input class="form-control" :id="'qty-' + j.id" type="number" inputmode="decimal" step="any" min="0" :value="j.quantity" @input="previewQty(j, $event.target)" @change="setQty(j, $event.target)"></div>
+                    <div class="col-6 col-xl-3"><label class="form-label small mb-1" :for="'price-' + j.id">Cena/jedn. (zł)</label>
+                      <input class="form-control" :id="'price-' + j.id" type="number" inputmode="decimal" step="any" min="0" :value="j.contractor_price ?? ''" :placeholder="'śr. ' + dec(liveAverage(j) ?? 0)" @change="setPrice(j, $event.target)"></div>
+                    <div class="col-6 col-xl-3 small text-body-secondary" x-text="'mat. ' + pln(effMaterial(j)) + '/' + j.unit"></div>
+                    <div class="col-6 col-xl-3 text-end"><div class="small text-body-secondary" title="Wartość dla klienta (z narzutem)">Wartość</div><div class="fw-bold" x-text="pln(jobValue(liveJob(j), q))"></div></div>
+                  </div>
+                  <div class="d-flex flex-wrap gap-2 mt-1 align-items-center">
+                    <template x-if="j.matched_quantity != null && roundHalfUp(j.quantity) !== roundHalfUp(j.matched_quantity)">
+                      <span class="badge text-bg-warning"><i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i>zmieniona ilość po doborze</span></template>
+                    <template x-if="j.typed && roundHalfUp(j.quantity) !== defaultQuantity(j, room)">
+                      <button type="button" class="btn btn-link px-1" @click="resetQty(j)" x-text="'z wymiarów: ' + dec(defaultQuantity(j, room))"></button></template>
+                    <span class="saved" x-show="savedKey === j.id"><i class="bi bi-check2" aria-hidden="true"></i> Zapisano</span>
+                  </div>
+                </li>
+              </template>
+            </ul>
+          </section>
+        </template>
+        <div class="group mt-3">
+          <a class="row-link row-add" :href="link('builder', {id: q.id, room: room.id, view: 'add'})"><span class="row-icon"><i class="bi bi-plus-lg" aria-hidden="true"></i></span>Dodaj pracę<i class="bi bi-chevron-right chev" aria-hidden="true"></i></a>
+        </div>
+        <div class="d-flex justify-content-between align-items-baseline card-plain mt-3"><span class="fw-semibold">Suma pokoju:</span><span class="fs-5 fw-bold" x-text="pln(roomTotal(liveRoom(), q))"></span></div>
+
+        <h2 class="group-title">Pokój</h2>
+        <div class="group">
+          <button type="button" class="row-link" @click="doDuplicateRoom()"><span class="row-icon"><i class="bi bi-copy" aria-hidden="true"></i></span>Duplikuj pokój</button>
+          <button type="button" class="row-link" @click="tplOpen = !tplOpen; tplName = room.name" :aria-expanded="tplOpen"><span class="row-icon"><i class="bi bi-bookmark-plus" aria-hidden="true"></i></span>Zapisz jako szablon</button>
+          <div class="p-3" x-show="tplOpen">
+            <label class="form-label" for="tpl-name">Nazwa szablonu</label>
+            <input id="tpl-name" class="form-control" maxlength="100" x-model="tplName" aria-describedby="tpl-hint">
+            <div class="small text-body-secondary mb-2" id="tpl-hint">Nowy szablon z wymiarami i pracami pokoju (ilości tylko prac ręcznych).</div>
+            <button type="button" class="btn btn-primary" @click="doSaveTemplate()">Zapisz szablon</button>
+          </div>
+          <button type="button" class="row-link text-danger" @click="doDeleteRoom()"><span class="row-icon"><i class="bi bi-trash" aria-hidden="true"></i></span>Usuń pokój</button>
+        </div>
+        <div class="d-md-none" style="height:64px"></div>
+      </div>
+    </template>
+
+    <!-- Dodaj pracę: lista z katalogu -->
+    <template x-if="view === 'add' && room">
+      <div class="pane-inner">
+        <div class="pane-head">
+          <a class="back-link keep" :href="link('builder', {id: q.id, room: room.id})"><i class="bi bi-chevron-left" aria-hidden="true"></i><span x-text="room.name"></span></a>
+          <h1 class="pane-title">Dodaj pracę</h1><div class="pane-sub" x-text="'Pokój: ' + room.name"></div>
+        </div>
+        <label class="form-label" for="job-search">Szukaj pracy</label>
+        <input id="job-search" class="form-control" type="search" x-model="search" autocomplete="off">
+        <template x-for="g in pickerGroups()" :key="g.stage.id">
+          <section>
+            <h2 class="group-title" x-text="g.stage.name"></h2>
+            <p class="small text-body-secondary mb-0" x-show="!g.jobs.length">Wszystkie prace etapu są w pokoju</p>
+            <ul class="group" x-show="g.jobs.length">
+              <template x-for="cj in g.jobs" :key="cj.id">
+                <li><button type="button" class="row-link" @click="pickJob(cj)">
+                  <span class="row-main"><div class="fw-semibold" x-text="cj.name + ' (' + cj.unit + ')'"></div>
+                    <div class="small text-body-secondary" x-text="AREA_LABELS[cj.area_type] + (cj.area_type === 'manual' ? '' : ' · ' + dec(defaultQuantity(cj, room)) + ' ' + cj.unit)"></div></span>
+                  <span class="row-end small" x-text="cj.average_price ? 'śr. ' + pln(cj.average_price) : 'śr. -'"></span>
+                  <i class="bi bi-plus-circle chev text-primary" aria-hidden="true"></i></button></li>
+              </template>
+            </ul>
+          </section>
+        </template>
+        <p class="mt-3 text-body-secondary" x-show="search.trim() && !pickerGroups().some(g => g.jobs.length)">Brak prac pasujących do wyszukiwania</p>
+      </div>
+    </template>
+
+    <!-- Wszystkie prace -->
+    <template x-if="view === 'all'">
+      <div class="pane-inner">
+        <div class="pane-head"><a class="back-link" :href="link('builder', {id: q.id})"><i class="bi bi-chevron-left" aria-hidden="true"></i><span x-text="'Wycena #' + q.id"></span></a>
+          <h1 class="pane-title">Wszystkie prace w wycenie</h1></div>
+        <div class="row g-2">
+          <div class="col-6 col-xl-3"><div class="card-plain"><div class="small text-body-secondary">Pokoje</div><div class="fs-4 fw-bold" x-text="q.rooms.length"></div></div></div>
+          <div class="col-6 col-xl-3"><div class="card-plain"><div class="small text-body-secondary">Prace</div><div class="fs-4 fw-bold" x-text="qJobs(q).length"></div></div></div>
+          <div class="col-6 col-xl-3"><div class="card-plain"><div class="small text-body-secondary">m² łącznie</div><div class="fs-4 fw-bold" x-text="dec(q.rooms.reduce((s, r) => s + roundHalfUp(areaFor(r, 'floor')), 0))"></div></div></div>
+          <div class="col-6 col-xl-3"><div class="card-plain"><div class="small text-body-secondary">Wartość</div><div class="fs-5 fw-bold" x-text="pln(totals(q).net)"></div></div></div>
+        </div>
+        <p class="mt-3 text-body-secondary" x-show="!qJobs(q).length">Brak prac w wycenie. Dodaj prace do pokoi.</p>
+        <template x-for="g in jobsByStage(qJobs(q))" :key="g.stage">
+          <section class="mt-3">
+            <h2 class="stage-title" x-text="g.stage"></h2>
+            <div class="table-box" tabindex="0"><table class="table table-sm align-middle mb-0">
+              <thead><tr><th scope="col">Praca</th><th scope="col">Pokój</th><th scope="col" class="num">Ilość</th><th scope="col" class="num">Cena/j.</th><th scope="col" class="num">Wartość</th></tr></thead>
+              <tbody><template x-for="j in g.jobs" :key="j.id"><tr>
+                <td x-text="j.name"></td><td><a class="tap" :href="link('builder', {id: q.id, room: roomOf(j).id})" x-text="roomOf(j).name"></a></td>
+                <td class="num" x-text="dec(j.quantity) + ' ' + j.unit"></td><td class="num" x-text="pln(jobUnitPrice(j, q))"></td><td class="num" x-text="pln(jobValue(j, q))"></td></tr></template></tbody>
+              <tfoot><tr><th scope="row" colspan="4" class="text-end">Suma etapu:</th><td class="num fw-bold" x-text="pln(roundHalfUp(g.jobs.reduce((s, j) => s + jobValue(j, q), 0)))"></td></tr></tfoot>
+            </table></div>
+          </section>
+        </template>
+      </div>
+    </template>
+
+    <!-- Klient -->
+    <template x-if="view === 'client'">
+      <div class="pane-inner">
+        <div class="pane-head"><a class="back-link" :href="link('builder', {id: q.id})"><i class="bi bi-chevron-left" aria-hidden="true"></i><span x-text="'Wycena #' + q.id"></span></a>
+          <h1 class="pane-title">Klient wyceny</h1></div>
+        <div class="card-plain">
+          <label class="form-label" for="client-pick">Wybierz klienta z bazy</label>
+          <div class="d-flex gap-2"><select id="client-pick" class="form-select" x-model="clientPick">
+            <option value="">-- wybierz klienta --</option>
+            <template x-for="c in clientsSorted()" :key="c.id"><option :value="c.id" x-text="c.name" :selected="c.id === q.client_id"></option></template></select>
+            <button type="button" class="btn btn-primary" @click="assignClient()">Przypisz</button></div>
+        </div>
+        <p class="text-center my-2 text-body-secondary">lub</p>
+        <div class="card-plain">
+          <h2 class="h5">Dodaj nowego klienta</h2>
+          <div role="alert" x-show="clientErrors.length"><ul class="text-danger small"><template x-for="e in clientErrors"><li x-text="e"></li></template></ul></div>
+          <label class="form-label" for="nc-name">Nazwa *</label><input id="nc-name" class="form-control mb-2" maxlength="100" x-model="newClient.name">
+          <label class="form-label" for="nc-email">Email</label><input id="nc-email" class="form-control mb-2" type="email" maxlength="254" x-model="newClient.email">
+          <label class="form-label" for="nc-phone">Telefon</label><input id="nc-phone" class="form-control mb-2" type="tel" placeholder="+48 600 000 000" title="Numer telefonu: cyfry, spacje oraz + ( ) -" x-model="newClient.phone">
+          <label class="form-label" for="nc-notes">Notatki</label><textarea id="nc-notes" class="form-control mb-3" rows="2" x-model="newClient.notes"></textarea>
+          <button type="button" class="btn btn-primary" @click="createClient()">Utwórz i przypisz</button>
+        </div>
+        <p class="mt-3" x-show="q.client_id">Aktualny klient: <a class="tap" :href="link('client-form', {id: q.client_id})" x-text="client(q.client_id)?.name"></a></p>
+      </div>
+    </template>
+
+    <!-- Termin i adres -->
+    <template x-if="view === 'term'">
+      <div class="pane-inner">
+        <div class="pane-head"><a class="back-link" :href="link('builder', {id: q.id})"><i class="bi bi-chevron-left" aria-hidden="true"></i><span x-text="'Wycena #' + q.id"></span></a>
+          <h1 class="pane-title">Termin i adres</h1></div>
+        <div class="card-plain">
+          <label class="form-label" for="term-start">Planowany start:</label>
+          <input id="term-start" class="form-control mb-3" type="date" min="2000-01-01" max="2099-12-31" x-model="term.start">
+          <label class="form-label" for="term-end">Termin zakończenia:</label>
+          <input id="term-end" class="form-control" type="date" :min="term.start || '2000-01-01'" max="2099-12-31" x-model="term.end">
+          <div class="mt-2 mb-3 d-flex flex-wrap align-items-center gap-2" aria-live="polite">
+            <template x-if="!q.suggested_work_days"><span class="small text-body-secondary">Dobierz wykonawców, żeby dostać sugestię</span></template>
+            <template x-if="q.suggested_work_days && term.start !== (q.planned_start_on ?? '')"><span class="small text-body-secondary">Zapisz start, żeby przeliczyć sugestię</span></template>
+            <template x-if="q.suggested_work_days && !q.planned_start_on && term.start === ''"><span class="small text-body-secondary" x-text="workDaysText(q.suggested_work_days) + ' od startu'"></span></template>
+            <template x-if="q.suggested_work_days && q.planned_start_on && term.start === q.planned_start_on">
+              <span class="d-flex flex-wrap align-items-center gap-2"><span class="fw-semibold" x-text="'Sugerowany: ' + date(suggestedEnd(q)) + ' (' + workDaysText(q.suggested_work_days) + ')'"></span>
+                <button type="button" class="btn btn-outline-primary" @click="term.end = suggestedEnd(q)">Użyj</button></span></template>
+          </div>
+          <label class="form-label" for="term-address">Adres inwestycji:</label>
+          <input id="term-address" class="form-control mb-3" x-model="term.address">
+          <div class="alert alert-danger py-2" role="alert" x-show="termError" x-text="termError"></div>
+          <div class="d-flex align-items-center gap-3">
+            <button type="button" class="btn btn-primary btn-main px-4" @click="saveTerm()">Zapisz</button>
+            <span class="badge text-bg-warning" x-show="termDirty()"><i class="bi bi-pencil" aria-hidden="true"></i>Niezapisane zmiany</span>
+            <span class="saved" x-show="savedKey === 'term' && !termDirty()"><i class="bi bi-check2" aria-hidden="true"></i> Zapisano</span>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <!-- Notatki -->
+    <template x-if="view === 'notes'">
+      <div class="pane-inner">
+        <div class="pane-head"><a class="back-link" :href="link('builder', {id: q.id})"><i class="bi bi-chevron-left" aria-hidden="true"></i><span x-text="'Wycena #' + q.id"></span></a>
+          <h1 class="pane-title">Notatki wyceny</h1></div>
+        <div class="card-plain">
+          <label class="form-label" for="q-notes">Notatki (klient ich nie widzi)</label>
+          <textarea id="q-notes" class="form-control mb-3" rows="8" x-model="notesDraft"></textarea>
+          <div class="d-flex gap-2"><a class="btn btn-outline-secondary" :href="link('builder', {id: q.id})">Anuluj</a>
+            <button type="button" class="btn btn-primary" @click="q.notes = notesDraft; saveQuote('Wycena zaktualizowana.'); markSaved('notes')">Zapisz</button>
+            <span class="saved align-self-center" x-show="savedKey === 'notes'"><i class="bi bi-check2" aria-hidden="true"></i> Zapisano</span></div>
+        </div>
+      </div>
+    </template>
+  </section>
+</div>
+<div class="sticky-total" x-show="view === 'room' || view === 'add'">
+  <span><span class="small">Suma:</span> <b x-text="pln(totals(liveQ()).net)"></b></span><span class="small" x-text="'Brutto: ' + pln(totals(liveQ()).gross)"></span>
+</div>
+</div>
+</template>
+</main>
+<script type="module">
+import { boot, db, quoteOps, intParam, param, link, go, save, flashNext, toast, alertBox, confirmBox, roundHalfUp, defaultQuantity,
+  areaFor, recalcRoom, roomSnapshot, addJobToRoom, applyTemplate, duplicateRoom, saveRoomAsTemplate, DIMENSIONS, OVERRIDES,
+  stagesSorted, fold, isIrregular, hasDimensions, dec, jobsNom } from '../assets/app.js';
+
+const LABEL = Object.fromEntries([...DIMENSIONS, ...OVERRIDES].map(([f, l]) => [f, l.replace(/ \(.*\)$/, '')]));
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PHONE = /^[0-9 +()-]{7,20}$/;
+
+boot(() => ({
+  ...quoteOps(),
+  room: null, view: null, level: 2,
+  dims: {}, dimError: '', irregular: false, nameError: '', liveDims: {}, liveQty: {}, measuredAtLoad: false, tplAdded: new Set(),
+  search: '', newJobId: null, tplOpen: false, tplName: '',
+  clientPick: '', newClient: { name: '', email: '', phone: '', notes: '' }, clientErrors: [],
+  term: { start: '', end: '', address: '' }, termError: '', notesDraft: '',
+  init() {
+    const _id = intParam('id');
+    const _q = db.quotes.find((x) => x.id === _id) ?? null;
+    if (!_q) { location.replace(link('error-404')); return; }
+    if (_q.status !== 'draft') {
+      flashNext('alert', 'Wycena jest u klienta — przywróć ją do edycji, aby ją zmienić.');
+      location.replace(link('quote-show', { id: _id })); return;
+    }
+    this.currentQuoteId = _id;
+    this.room = _q.rooms.find((r) => r.id === intParam('room')) ?? null;
+    const _v = param('view');
+    this.view = ['all', 'client', 'term', 'notes'].includes(_v) ? _v : (this.room ? (_v === 'add' ? 'add' : 'room') : null);
+    this.level = this.view ? 3 : 2;
+    this.term = { start: _q.planned_start_on ?? '', end: _q.planned_end_on ?? '', address: _q.site_address ?? '' };
+    this.notesDraft = _q.notes ?? '';
+    this.clientPick = _q.client_id ? String(_q.client_id) : '';
+    this.newJobId = intParam('new');
+    this.q = _q;
+    if (this.room) { this.loadDims(); this.measuredAtLoad = hasDimensions(this.room) || isIrregular(this.room); }
+    const _titles = { room: this.room?.name, add: 'Dodaj pracę', all: 'Wszystkie prace', client: 'Klient wyceny', term: 'Termin i adres', notes: 'Notatki wyceny' };
+    document.title = `${_titles[this.view] ? `${_titles[this.view]} — ` : ''}Wycena #${_q.id} — IKPM`;
+    if (this.newJobId) this.$nextTick(() => setTimeout(() => document.getElementById(`job-${this.newJobId}`)?.scrollIntoView({ block: 'center' }), 50));
+  },
+  // --- pokój ---
+  loadDims() {
+    this.dims = Object.fromEntries([...DIMENSIONS, ...OVERRIDES].map(([f]) => [f, this.room[f]]));
+    this.irregular = isIrregular(this.room); this.dimError = '';
+  },
+  dimsRoom() { return Object.fromEntries(Object.entries({ ...this.dims, ...this.liveDims }).map(([k, v]) => [k, Number.isNaN(v) ? null : v])); },
+  // Suma na żywo: wpisywana (jeszcze niezapisana) liczba liczy się od razu; zapis i komunikaty — po wyjściu z pola.
+  previewDim(f, el) { this.liveDims[f] = this.readNumber(el); },
+  previewQty(j, el) { const _v = this.readNumber(el); if (_v > 0 && _v <= 1e6) this.liveQty[j.id] = roundHalfUp(_v); else delete this.liveQty[j.id]; },
+  liveRoom() {
+    if (!this.room) return null;
+    const _dims = Object.keys(this.liveDims).length; const _qty = Object.keys(this.liveQty).length;
+    if (!_dims && !_qty) return this.room;
+    const _r = { ...this.room, jobs: this.room.jobs.map((j) => ({ ...j })) };
+    const _d = { ...this.dims, ...this.liveDims };
+    if (_dims && !this.dimsError(_d)) {
+      for (const [f, v] of Object.entries(_d)) _r[f] = v === null ? null : roundHalfUp(v);
+      recalcRoom(_r, roomSnapshot(this.room));
+    }
+    for (const j of _r.jobs) if (this.liveQty[j.id] !== undefined) j.quantity = this.liveQty[j.id];
+    return _r;
+  },
+  liveRoomOf(r) { return r === this.room ? this.liveRoom() : r; },
+  liveQ() { return this.room ? { ...this.q, rooms: this.q.rooms.map((r) => this.liveRoomOf(r)) } : this.q; },
+  liveJob(j) { return this.liveRoom().jobs.find((x) => x.id === j.id) ?? j; },
+  overridePlaceholder(f, kind) { return dec(roundHalfUp(areaFor({ ...this.dimsRoom(), [f]: null }, kind))); },
+  setName(el) {
+    const _v = el.value.trim();
+    if (!_v) { this.nameError = 'Nazwa nie może być pusta'; return; }
+    this.nameError = ''; this.room.name = _v; this.saveQuote(); this.markSaved('dims');
+    document.title = `${_v} — Wycena #${this.q.id} — IKPM`;
+  },
+  setDim(f, el) {
+    const _v = this.readNumber(el);
+    this.dims[f] = _v; delete this.liveDims[f];
+    if (f === 'height') this.room.default_height = false;
+    this.commitDims();
+  },
+  toggleIrregular(on) {
+    this.irregular = on;
+    if (!on) { for (const [f] of OVERRIDES) { this.dims[f] = null; delete this.liveDims[f]; } this.commitDims(); }
+  },
+  dimsError(_d = this.dims) {
+    for (const [f, v] of Object.entries(_d)) {
+      if (Number.isNaN(v)) return `${LABEL[f]} nie jest liczbą`;
+      if (v !== null && v < 0) return 'Wymiary i powierzchnie nie mogą być ujemne.';
+      if (v !== null && v > 1e6) return `${LABEL[f]} ${f === 'perimeter_override' ? 'musi być mniejszy lub równy' : 'musi być mniejsza lub równa'} 1000000`;
+    }
+    const _perimeter = _d.perimeter_override ?? 2 * ((_d.length || 0) + (_d.width || 0));
+    if ((_d.holes_area || 0) > 0 && (_d.holes_area || 0) > _perimeter * (_d.height || 0)) return 'Powierzchnia otworów przekracza powierzchnię ścian — popraw wymiary.';
+    return '';
+  },
+  commitDims() {
+    this.dimError = this.dimsError();
+    if (this.dimError) return;
+    const _before = roomSnapshot(this.room);
+    for (const [f, v] of Object.entries(this.dims)) this.room[f] = v === null ? null : roundHalfUp(v);
+    recalcRoom(this.room, _before);
+    this.saveQuote(); this.markSaved('dims');
+  },
+  templatesSorted() { return [...db.templates].sort((a, b) => a.order - b.order || a.name.localeCompare(b.name, 'pl')); },
+  useTemplate(tpl) {
+    if (this.dimError) { alertBox(this.dimError); return; }
+    applyTemplate(this.room, tpl, { fillDims: !this.measuredAtLoad, tplAdded: this.tplAdded }); this.saveQuote('Pokój zaktualizowany.'); this.loadDims();
+  },
+  setQty(j, el) {
+    const _v = this.readNumber(el); delete this.liveQty[j.id];
+    if (_v === null || Number.isNaN(_v) || _v <= 0) { alertBox(`Praca '${j.name}': Ilość musi być większa od 0`); el.value = j.quantity; return; }
+    if (_v > 1e6) { alertBox(`Praca '${j.name}': Ilość musi być mniejsza lub równa 1000000`); el.value = j.quantity; return; }
+    j.quantity = roundHalfUp(_v); el.value = j.quantity;
+    j.typed = j.area_type !== 'manual' && j.quantity !== defaultQuantity(j, this.room);
+    this.saveQuote(); this.markSaved(j.id);
+  },
+  resetQty(j) { delete this.liveQty[j.id]; j.quantity = defaultQuantity(j, this.room); j.typed = false; this.saveQuote(); this.markSaved(j.id); },
+  setPrice(j, el) {
+    const _v = this.readNumber(el);
+    if (_v !== null && (Number.isNaN(_v) || _v <= 0 || _v > 1e6)) {
+      alertBox(`Praca '${j.name}': Cena wykonawcy musi być większa od 0`); el.value = j.contractor_price ?? ''; return;
+    }
+    j.contractor_price = _v === null ? null : roundHalfUp(_v); el.value = j.contractor_price ?? '';
+    this.saveQuote(); this.markSaved(j.id);
+  },
+  async removeJob(j) {
+    const _ok = await confirmBox({ title: 'Usunąć tę pracę z wyceny?', consequences: [`Praca „${j.name}” zniknie z pokoju „${this.room.name}” i z sumy wyceny.`], ok: 'Usuń', okClass: 'btn-danger' });
+    if (!_ok) return;
+    this.room.jobs.splice(this.room.jobs.indexOf(j), 1); this.saveQuote('Praca usunięta z wyceny.');
+  },
+  roomOf(j) { return this.q.rooms.find((r) => r.jobs.includes(j)); },
+  doDuplicateRoom() {
+    const _copy = duplicateRoom(this.q, this.room); save('quotes');
+    flashNext('notice', `Pokój '${_copy.name}' utworzony.`); go('builder', { id: this.q.id, room: _copy.id });
+  },
+  doSaveTemplate() {
+    const _r = saveRoomAsTemplate(this.room, this.tplName);
+    if (!_r.ok) { alertBox(_r.error); return; }
+    this.tplOpen = false; toast(_r.notice);
+  },
+  async doDeleteRoom() {
+    const _ok = await confirmBox({ title: 'Czy na pewno usunąć ten pokój i wszystkie jego prace?',
+      consequences: [`Pokój „${this.room.name}” i jego prace (${jobsNom(this.room.jobs.length)}) znikną z wyceny i z sumy.`], ok: 'Usuń pokój', okClass: 'btn-danger' });
+    if (!_ok) return;
+    this.q.rooms.splice(this.q.rooms.indexOf(this.room), 1); save('quotes');
+    flashNext('notice', 'Pokój usunięty.'); go('builder', { id: this.q.id });
+  },
+  // --- dodaj pracę ---
+  pickerGroups() {
+    const _has = new Set(this.room.jobs.map((j) => j.job_id));
+    const _s = fold(this.search.trim());
+    return stagesSorted().map((st) => ({
+      stage: st, inRoom: st.jobs.some((j) => _has.has(j.id)),
+      jobs: [...st.jobs].sort((a, b) => a.order - b.order || a.id - b.id).filter((j) => !_has.has(j.id) && (!_s || fold(j.name).includes(_s))),
+    })).filter((g) => g.jobs.length || (!_s && g.inRoom));
+  },
+  pickJob(cj) {
+    const _j = addJobToRoom(this.room, cj);
+    if (!_j) { alertBox('Praca jest już w tym pokoju'); return; }
+    save('quotes'); flashNext('notice', 'Praca dodana.');
+    go('builder', { id: this.q.id, room: this.room.id, new: _j.id });
+  },
+  // --- klient ---
+  assignClient() {
+    if (!this.clientPick) { alertBox('Wybierz klienta z bazy'); return; }
+    this.q.client_id = Number(this.clientPick); this.saveQuote('Wycena zaktualizowana.');
+  },
+  createClient() {
+    const _c = this.newClient; const _e = [];
+    if (!_c.name.trim()) _e.push('Nazwa nie może być pusta');
+    if (_c.email && !EMAIL.test(_c.email)) _e.push('Email jest nieprawidłowy');
+    if (_c.phone && !PHONE.test(_c.phone)) _e.push('Telefon jest nieprawidłowy');
+    this.clientErrors = _e; if (_e.length) return;
+    const _new = { id: Math.max(0, ...db.clients.map((c) => c.id)) + 1, name: _c.name.trim(), email: _c.email.trim(), phone: _c.phone.trim(), notes: _c.notes };
+    db.clients.push(_new); save('clients');
+    this.q.client_id = _new.id; this.clientPick = String(_new.id); save('quotes');
+    this.newClient = { name: '', email: '', phone: '', notes: '' }; toast('Klient utworzony i przypisany do wyceny.');
+  },
+  // --- termin ---
+  termDirty() { return this.term.start !== (this.q.planned_start_on ?? '') || this.term.end !== (this.q.planned_end_on ?? '') || this.term.address !== (this.q.site_address ?? ''); },
+  saveTerm() {
+    const _inRange = (d) => !d || (d >= '2000-01-01' && d <= '2099-12-31');
+    if (!_inRange(this.term.start)) { this.termError = 'Planowany start musi przypadać w latach 2000–2099'; return; }
+    if (!_inRange(this.term.end)) { this.termError = 'Termin zakończenia musi przypadać w latach 2000–2099'; return; }
+    if (this.term.start && this.term.end && this.term.end < this.term.start) { this.termError = 'Termin zakończenia nie może być wcześniejszy niż planowany start'; return; }
+    this.termError = '';
+    this.q.planned_start_on = this.term.start || null; this.q.planned_end_on = this.term.end || null; this.q.site_address = this.term.address;
+    this.saveQuote('Wycena zaktualizowana.'); this.markSaved('term');
+  },
+}));
+</script>
+</body>
+</html>

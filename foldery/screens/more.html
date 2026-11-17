@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Więcej — IKPM</title>
+<link rel="stylesheet" href="../assets/bootstrap/bootstrap.min.css">
+<link rel="stylesheet" href="../assets/bootstrap-icons/bootstrap-icons.min.css">
+<link rel="stylesheet" href="../assets/app.css">
+</head>
+<body data-screen="more" data-nav="more" data-tab="wiecej">
+<main x-data="page" x-cloak>
+<div class="page"><div class="pane-inner">
+<div class="pane-head"><h1 class="pane-title">Więcej</h1><div class="pane-sub overflow-anywhere" x-text="db.me.email"></div></div>
+<div class="group"><a class="row-link" :href="link('start')"><span class="row-icon"><i class="bi bi-house" aria-hidden="true"></i></span><span class="row-main">Start</span><i class="bi bi-chevron-right chev" aria-hidden="true"></i></a><a class="row-link" :href="link('clients')"><span class="row-icon"><i class="bi bi-people" aria-hidden="true"></i></span><span class="row-main">Klienci</span><i class="bi bi-chevron-right chev" aria-hidden="true"></i></a></div>
+<h2 class="group-title">Finanse</h2>
+<div class="group"><a class="row-link" :href="link('finance', {raport: 'wynik'})"><span class="row-icon"><i class="bi bi-graph-up" aria-hidden="true"></i></span><span class="row-main">Wynik</span><i class="bi bi-chevron-right chev" aria-hidden="true"></i></a><a class="row-link" :href="link('finance', {raport: 'koszty'})"><span class="row-icon"><i class="bi bi-bar-chart" aria-hidden="true"></i></span><span class="row-main">Koszty</span><i class="bi bi-chevron-right chev" aria-hidden="true"></i></a><a class="row-link" :href="link('finance', {raport: 'realizacje'})"><span class="row-icon"><i class="bi bi-clipboard-data" aria-hidden="true"></i></span><span class="row-main">Realizacje</span><i class="bi bi-chevron-right chev" aria-hidden="true"></i></a><a class="row-link" :href="link('finance', {raport: 'oferty'})"><span class="row-icon"><i class="bi bi-file-earmark-bar-graph" aria-hidden="true"></i></span><span class="row-main">Oferty</span><i class="bi bi-chevron-right chev" aria-hidden="true"></i></a><a class="row-link" :href="link('finance', {raport: 'wykonawcy'})"><span class="row-icon"><i class="bi bi-people" aria-hidden="true"></i></span><span class="row-main">Wykonawcy</span><i class="bi bi-chevron-right chev" aria-hidden="true"></i></a></div>
+<h2 class="group-title">Administracja</h2>
+<div class="group"><a class="row-link" :href="link('users')"><span class="row-icon"><i class="bi bi-person-gear" aria-hidden="true"></i></span><span class="row-main">Użytkownicy</span><i class="bi bi-chevron-right chev" aria-hidden="true"></i></a></div>
+<h2 class="group-title">Konto</h2>
+<div class="group"><a class="row-link" :href="link('profile')"><span class="row-icon"><i class="bi bi-person-circle" aria-hidden="true"></i></span><span class="row-main">Mój profil</span><i class="bi bi-chevron-right chev" aria-hidden="true"></i></a><a class="row-link" :href="link('login')"><span class="row-icon"><i class="bi bi-box-arrow-right" aria-hidden="true"></i></span><span class="row-main">Wyloguj się</span><i class="bi bi-chevron-right chev" aria-hidden="true"></i></a></div>
+<h2 class="group-title">Prototyp — strony klienta, maile i dokumenty <span class="koncepcja text-none">prototyp</span></h2>
+<p class="small text-body-secondary">Do przeglądania prototypu: te strony w aplikacji otwiera klient z linku w mailu albo pracownik przyciskiem „PDF”.</p>
+<div class="group"><template x-for="sc in shortcuts()" :key="sc.label"><a class="row-link" :href="sc.href"><span class="row-icon"><i class="bi" :class="sc.icon" aria-hidden="true"></i></span><span class="row-main" x-text="sc.label"></span><i class="bi bi-chevron-right chev" aria-hidden="true"></i></a></template><a class="row-link" :href="link('forbidden')"><span class="row-icon"><i class="bi bi-shield-lock" aria-hidden="true"></i></span><span class="row-main">Brak uprawnień (403)</span><i class="bi bi-chevron-right chev" aria-hidden="true"></i></a><a class="row-link" :href="link('error-404')"><span class="row-icon"><i class="bi bi-question-circle" aria-hidden="true"></i></span><span class="row-main">Strona nie istnieje (404)</span><i class="bi bi-chevron-right chev" aria-hidden="true"></i></a><a class="row-link" :href="link('password-reset')"><span class="row-icon"><i class="bi bi-key" aria-hidden="true"></i></span><span class="row-main">Przypomnienie hasła</span><i class="bi bi-chevron-right chev" aria-hidden="true"></i></a></div>
+<button type="button" class="btn btn-outline-danger mt-4" @click="reset()"><i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i> Przywróć dane testowe (prototyp)</button>
+</div></div>
+</main>
+<script type="module">
+import { boot, db, confirmBox, resetDb, flashNext, go, link, todayISO, QUOTE_STATUS } from '../assets/app.js';
+boot(() => ({
+  // Skróty do pierwszych rekordów w danym stanie (z danych, nie wpisane na sztywno).
+  shortcuts() {
+    const _live = (x) => !x.link_valid_until || x.link_valid_until >= todayISO();
+    const _byId = (a, b) => a.id - b.id;
+    const _quotes = db.quotes.filter((q) => q.status !== 'draft' && _live(q)).sort(_byId);
+    const _out = [];
+    for (const st of ['sent', 'changes_requested', 'accepted']) {
+      const _q = _quotes.find((q) => q.status === st);
+      if (_q) _out.push({ label: `Oferta dla klienta (/q) — Wycena #${_q.id}, ${QUOTE_STATUS[st][0]}`, href: link('public-quote', { id: _q.id }), icon: 'bi-globe' });
+    }
+    const _r = [...db.realizations].filter(_live).sort(_byId).find((x) => x.status === 'in_progress') ?? db.realizations.find(_live);
+    if (_r) _out.push({ label: `Postęp prac dla klienta (/r) — Realizacja #${_r.id}`, href: link('public-realization', { id: _r.id }), icon: 'bi-globe' });
+    if (_quotes[0]) {
+      _out.push({ label: `PDF wyceny #${_quotes[0].id}`, href: link('quote-pdf', { id: _quotes[0].id }), icon: 'bi-file-earmark-pdf' });
+      _out.push({ label: `Mail z ofertą — wycena #${_quotes[0].id}`, href: link('mail-offer', { id: _quotes[0].id }), icon: 'bi-envelope' });
+    }
+    if (_r) _out.push({ label: `Mail z linkiem do postępu prac — realizacja #${_r.id}`, href: link('mail-progress-link', { id: _r.id }), icon: 'bi-envelope' });
+    return _out;
+  },
+  async reset() {
+    const _ok = await confirmBox({ title: 'Przywrócić dane testowe?', consequences: ['Prototyp zapomni wszystkie zmiany z tej przeglądarki i wróci do danych z kit.json.'], ok: 'Przywróć dane testowe', okClass: 'btn-danger' });
+    if (!_ok) return; resetDb(); flashNext('notice', 'Dane testowe przywrócone.'); go('start');
+  },
+}));
+</script>
+</body>
+</html>

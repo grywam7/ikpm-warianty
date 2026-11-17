@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PDF wyceny — IKPM</title>
+<link rel="stylesheet" href="../assets/bootstrap/bootstrap.min.css">
+<link rel="stylesheet" href="../assets/bootstrap-icons/bootstrap-icons.min.css">
+<link rel="stylesheet" href="../assets/app.css">
+</head>
+<body data-screen="quote-pdf" class="bg-secondary-subtle">
+<main x-data="page" x-cloak>
+
+<template x-if="q"><article class="doc">
+  <div class="d-flex flex-wrap justify-content-between gap-3 mb-3">
+    <div><h1 class="h3 mb-0">Wycena #<span x-text="q.id"></span></h1><div x-text="'Data wystawienia: ' + date(q.sent_at || todayISO())"></div></div>
+    <div class="text-sm-end" x-show="q.user"><div class="fw-bold" x-text="q.user"></div><div x-text="sender()?.email"></div><div x-show="sender()?.phone" x-text="'tel. ' + sender()?.phone"></div></div>
+  </div>
+  <h2 class="h6 fw-bold mt-3">Dane klienta</h2>
+  <div class="doc-label">Klient</div>
+  <template x-if="client(q.client_id)"><div><div x-text="client(q.client_id).name"></div><div x-text="client(q.client_id).email"></div><div x-text="client(q.client_id).phone"></div></div></template>
+  <template x-if="!client(q.client_id)"><div>(brak klienta)</div></template>
+  <template x-if="q.site_address || q.planned_start_on || q.planned_end_on"><div><h2 class="h6 fw-bold mt-3">Inwestycja</h2>
+    <div class="row g-2"><div class="col-sm-4" x-show="q.site_address"><div class="doc-label">Adres inwestycji</div><div x-text="q.site_address"></div></div>
+      <div class="col-sm-4" x-show="q.planned_start_on"><div class="doc-label">Planowany start</div><div x-text="date(q.planned_start_on)"></div></div>
+      <div class="col-sm-4" x-show="q.planned_end_on"><div class="doc-label">Termin zakończenia</div><div x-text="date(q.planned_end_on)"></div></div></div></div></template>
+  <h2 class="h6 fw-bold mt-4">Zakres prac</h2>
+  <template x-for="pr in q.rooms" :key="pr.id"><section class="mt-3">
+    <div class="fw-bold" x-text="'Pokój: ' + pr.name"></div><div class="small mb-1" x-text="pdfSize(pr)"></div>
+    <div class="table-box" tabindex="0"><table class="table table-sm mb-0 small">
+      <thead><tr><th scope="col">Praca</th><th scope="col">Etap</th><th scope="col" class="num">Ilość</th><th scope="col" class="num">Cena jedn. netto</th><th scope="col" class="num">Wartość netto</th></tr></thead>
+      <tbody><template x-for="j in sortJobs(pr.jobs)" :key="j.id"><tr><td x-text="j.name"></td><td x-text="j.stage"></td><td class="num" x-text="dec(j.quantity) + ' ' + j.unit"></td><td class="num" x-text="pln(jobUnitPrice(j, q))"></td><td class="num" x-text="pln(jobValue(j, q))"></td></tr></template>
+        <tr x-show="!pr.jobs.length"><td colspan="5">(brak prac w tym pokoju)</td></tr></tbody></table></div>
+  </section></template>
+  <table class="table table-sm mt-4 ms-auto" style="max-width:340px"><tbody>
+    <tr><th scope="row" class="fw-normal">Razem netto</th><td class="num" x-text="pln(totals(q).net)"></td></tr>
+    <tr><th scope="row" class="fw-normal" x-text="'VAT ' + Number(q.vat_rate) + '%'"></th><td class="num" x-text="pln(totals(q).vat)"></td></tr>
+    <tr><th scope="row">Razem brutto</th><td class="num fw-bold" x-text="pln(totals(q).gross)"></td></tr></tbody></table>
+  <footer class="small text-body-secondary border-top pt-2 mt-4"><div>Dokument wygenerowany automatycznie przez system IKPM.</div>
+    <div x-show="sender()" x-text="'Kontakt: ' + sender()?.email + (sender()?.phone ? ', tel. ' + sender().phone : '')"></div></footer>
+</article></template>
+</main>
+<script type="module">
+import { boot, db, intParam, link, sizeParts } from '../assets/app.js';
+boot(() => ({
+  q: null,
+  init() { const _q = db.quotes.find((x) => x.id === intParam('id')) ?? null; if (!_q) { location.replace(link('error-404')); return; } this.q = _q; document.title = `wycena-${_q.id}.pdf`; },
+  sender() { return db.users.find((u) => `${u.first_name} ${u.last_name}`.trim() === this.q.user) ?? null; },
+  pdfSize(room) {
+    const _p = sizeParts(room);
+    if (_p.dimensions) return `Wymiary: ${_p.dimensions}${_p.floor || _p.walls ? ` — ${[_p.floor, _p.walls].filter(Boolean).map((t) => t.charAt(0).toLowerCase() + t.slice(1)).join(', ')}` : ''}`;
+    return [_p.floor, _p.walls].filter(Boolean).map((t, i) => (i ? t.charAt(0).toLowerCase() + t.slice(1) : t)).join(', ');
+  },
+}), { shell: false });
+</script>
+</body>
+</html>

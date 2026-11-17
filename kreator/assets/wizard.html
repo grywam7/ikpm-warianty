@@ -1,0 +1,535 @@
+<template x-if="q">
+<div class="wz">
+  <!-- lista kroków: telefon — krok bieżący + „Kroki”; tablet — pasek kroków; laptop — kolumna po lewej -->
+  <nav class="wz-steps" aria-label="Kroki wyceny">
+    <div class="wz-compact d-md-none mb-2">
+      <div>
+        <span class="small text-body-secondary">Krok <span x-text="stepIndex + 1"></span> z 8</span>
+        <strong class="d-block" x-text="stepLabel"></strong>
+      </div>
+      <div class="d-flex gap-2">
+        <button type="button" class="btn btn-outline-primary" x-show="step !== 'sprawdz' && !isNew" @click="go('sprawdz')"><i class="bi bi-clipboard-check" aria-hidden="true"></i> Sprawdź</button>
+        <button type="button" class="btn btn-outline-secondary" @click="showSteps = !showSteps" :aria-expanded="showSteps" aria-controls="wz-steplist">Kroki</button>
+      </div>
+      <div class="progress w-100" role="progressbar" aria-label="Postęp kreatora" aria-valuemin="0" aria-valuemax="8" :aria-valuenow="stepIndex + 1" style="height: .5rem">
+        <div class="progress-bar" :style="`width: ${(stepIndex + 1) * 12.5}%`"></div>
+      </div>
+    </div>
+    <ol class="wz-steplist" id="wz-steplist" :class="showSteps ? '' : 'collapsed-sm'">
+      <template x-for="(s, i) in STEPS" :key="s.key">
+        <li>
+          <button type="button" class="wz-step" :class="stepClass(s.key)" @click="go(s.key)" :aria-current="step === s.key ? 'step' : null" :disabled="isNew && s.key !== 'klient'">
+            <span class="num" aria-hidden="true">
+              <i class="bi bi-check-lg" x-show="stepDone(s.key) && step !== s.key"></i>
+              <span x-show="!(stepDone(s.key) && step !== s.key)" x-text="i + 1"></span>
+            </span>
+            <span x-text="s.label"></span>
+            <span class="visually-hidden" x-text="stepDone(s.key) ? '(gotowe)' : ''"></span>
+          </button>
+        </li>
+      </template>
+    </ol>
+  </nav>
+
+  <section class="wz-main" aria-labelledby="wz-h1">
+    <p class="lead-line" x-text="heading"></p>
+    <h1 id="wz-h1" class="wz-h1" tabindex="-1" x-text="question"></h1>
+
+    <template x-if="hasComments() && ['sprawdz', 'prace', 'klient', 'pokoje'].includes(step)">
+      <div class="alert alert-warning">
+        <strong><i class="bi bi-chat-left-dots" aria-hidden="true"></i> Uwagi klienta</strong>
+        <p class="mb-1 text-pre" x-text="q.client_general_comment || '(brak komentarza ogólnego — sprawdź komentarze przy pokojach)'"></p>
+        <template x-for="r in commentRooms" :key="r.id">
+          <p class="mb-1"><strong x-text="r.name + ':'"></strong> <span x-text="r.client_comment"></span>
+            <button type="button" class="btn btn-link p-0 align-baseline" x-show="step !== 'prace' || room?.id !== r.id" @click="roomId = r.id; go('prace', { fromCheck: step === 'sprawdz' })">Zmień prace w tym pokoju</button></p>
+        </template>
+      </div>
+    </template>
+
+    <!-- ===================== 1. Klient ===================== -->
+    <template x-if="step === 'klient'">
+      <div>
+        <p>Wybierz klienta z bazy albo dodaj nowego. Możesz przypisać klienta później.</p>
+        <label class="form-label" for="client-search">Szukaj klienta</label>
+        <input id="client-search" class="form-control mb-3" type="search" x-model="clientSearch" autocomplete="off">
+        <div class="choice-grid two">
+          <template x-for="c in clientList" :key="c.id">
+            <button type="button" class="choice" :aria-pressed="q.client?.name === c.name ? 'true' : 'false'" @click="pickClient(c)">
+              <i class="bi bi-person" aria-hidden="true"></i>
+              <span class="min-w-0"><strong class="d-block" x-text="c.name"></strong> <span class="small d-block text-truncate" x-text="c.email || 'bez adresu e-mail'"></span></span>
+              <i class="bi bi-check-circle-fill ms-auto text-primary" aria-hidden="true" x-show="q.client?.name === c.name"></i>
+            </button>
+          </template>
+        </div>
+        <p class="mt-2 mb-0" x-show="!clientList.length">Brak klientów pasujących do wyszukiwania.</p>
+        <div class="choice-grid two mt-3">
+          <button type="button" class="choice" :aria-pressed="!q.client && laterPicked ? 'true' : 'false'" @click="pickClient(null)"><i class="bi bi-clock" aria-hidden="true"></i> Wybierz później</button>
+          <button type="button" class="choice" @click="newClientOpen = !newClientOpen" :aria-expanded="newClientOpen" aria-controls="new-client"><i class="bi bi-person-plus" aria-hidden="true"></i> Dodaj nowego klienta</button>
+        </div>
+        <div id="new-client" class="list-card mt-3" x-show="newClientOpen">
+          <h2 class="h5">Dodaj nowego klienta</h2>
+          <div class="alert alert-danger" role="alert" x-show="newClientError" x-text="newClientError"></div>
+          <div class="row g-3">
+            <div class="col-md-6"><label class="form-label" for="nc-name">Nazwa *</label><input id="nc-name" class="form-control" x-model="newClient.name" maxlength="100" required></div>
+            <div class="col-md-6"><label class="form-label" for="nc-email">Email</label><input id="nc-email" class="form-control" type="email" x-model="newClient.email" maxlength="254"></div>
+            <div class="col-md-6"><label class="form-label" for="nc-phone">Telefon</label><input id="nc-phone" class="form-control" type="tel" x-model="newClient.phone" placeholder="+48 600 000 000"></div>
+            <div class="col-12"><label class="form-label" for="nc-notes">Notatki</label><textarea id="nc-notes" class="form-control" x-model="newClient.notes"></textarea></div>
+          </div>
+          <div class="d-flex gap-2 mt-3 justify-content-end">
+            <button type="button" class="btn btn-outline-secondary" @click="newClientOpen = false">Wróć</button>
+            <button type="button" class="btn btn-primary" @click="addClient()">Utwórz i przypisz</button>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <!-- ===================== 2. Pokoje ===================== -->
+    <template x-if="step === 'pokoje'">
+      <div>
+        <template x-if="isWholeObject">
+          <div class="alert alert-info">Tryb prosty — wycena bez podziału na pokoje. Wszystkie prace są w jednym „wirtualnym” pokoju „Cały obiekt”.</div>
+        </template>
+        <ul class="list-unstyled mb-0" x-show="q.rooms.length">
+          <template x-for="room in q.rooms" :key="room.id">
+            <li class="list-card">
+              <div class="d-flex flex-wrap gap-2 align-items-end">
+                <div class="flex-grow-1 min-w-0">
+                  <label class="form-label" :for="'room-name-' + room.id">Nazwa pokoju</label>
+                  <input class="form-control" :id="'room-name-' + room.id" :value="room.name" maxlength="100" @change="renameRoom(room, $event.target.value)">
+                </div>
+                <button type="button" class="btn btn-outline-danger" @click="removeRoom(room)" :aria-label="'Usuń pokój: ' + room.name"><i class="bi bi-trash" aria-hidden="true"></i> Usuń pokój</button>
+              </div>
+              <p class="small mb-0 mt-2" x-text="roomInfo(room)"></p>
+            </li>
+          </template>
+        </ul>
+        <p x-show="!q.rooms.length">Dodaj pierwszy pokój, aby rozpocząć wycenę.</p>
+        <h2 class="h5 mt-4">Dodaj pokój</h2>
+        <p class="mb-2">Szablon pokoju wpisze typowe wymiary w puste pola i doda swoje prace.</p>
+        <div class="choice-grid two">
+          <template x-for="t in templates" :key="t.name">
+            <button type="button" class="choice" @click="addRoomFromTemplate(t)">
+              <i class="bi bi-grid-3x3-gap" aria-hidden="true"></i>
+              <span class="min-w-0"><strong class="d-block" x-text="'Szablon: ' + t.name"></strong> <span class="small d-block" x-text="templateInfo(t)"></span></span>
+              <i class="bi bi-plus-lg ms-auto" aria-hidden="true"></i>
+            </button>
+          </template>
+          <button type="button" class="choice" @click="addEmptyRoom()"><i class="bi bi-square" aria-hidden="true"></i><span><strong class="d-block">Nowy pokój</strong> <span class="small">bez prac, wymiary wpiszesz w następnym kroku</span></span><i class="bi bi-plus-lg ms-auto" aria-hidden="true"></i></button>
+          <button type="button" class="choice" x-show="!q.rooms.length" @click="addWholeObject()"><i class="bi bi-house" aria-hidden="true"></i><span><strong class="d-block">Cały obiekt (tryb prosty)</strong> <span class="small">Wycena bez podziału na pokoje. Wszystkie prace będą przypisane do jednego „wirtualnego” pokoju.</span></span></button>
+        </div>
+      </div>
+    </template>
+
+    <!-- ===================== 3. Wymiary ===================== -->
+    <template x-if="step === 'wymiary'">
+      <div>
+        <p x-show="!q.rooms.length">Dodaj pierwszy pokój, aby rozpocząć wycenę. <button type="button" class="btn btn-link p-0" @click="go('pokoje')">Przejdź do kroku „Pokoje”</button></p>
+        <div class="chip-row mb-3" role="group" aria-label="Pokój" x-show="q.rooms.length > 1">
+          <template x-for="r in q.rooms" :key="r.id">
+            <button type="button" class="btn" :class="r.id === room?.id ? 'btn-primary' : 'btn-outline-primary'" :aria-pressed="r.id === room?.id ? 'true' : 'false'" @click="selectRoom(r.id)" x-text="r.name"></button>
+          </template>
+        </div>
+        <template x-for="room in roomList" :key="room.id">
+          <div>
+            <p class="lead-line">Pokój <span x-text="roomIndex + 1"></span> z <span x-text="q.rooms.length"></span></p>
+            <div class="row g-3">
+              <template x-for="f in DIMENSIONS" :key="f">
+                <div class="col-6 col-xl-3">
+                  <label class="form-label" :for="'dim-' + f" x-text="DIM_LABELS[f]"></label>
+                  <input class="form-control" :id="'dim-' + f" type="number" inputmode="decimal" step="0.01" min="0" max="1000000" x-init="$el.value = room[f] ?? ''" @input="setDim(room, f, $el)">
+                </div>
+              </template>
+            </div>
+            <div class="form-check form-switch check-row mt-3">
+              <input class="form-check-input" type="checkbox" role="switch" id="irregular" :checked="room._irregular" @change="setIrregular(room, $el.checked)">
+              <label class="form-check-label" for="irregular">Pokój nieregularny</label>
+            </div>
+            <div x-show="room._irregular" class="mt-2">
+              <div class="row g-3">
+                <template x-for="f in OVERRIDES" :key="f">
+                  <div class="col-6 col-xl-3">
+                    <label class="form-label" :for="'ovr-' + f" x-text="OVERRIDE_LABELS[f]"></label>
+                    <input class="form-control" :id="'ovr-' + f" type="number" inputmode="decimal" step="0.01" min="0" max="1000000" :placeholder="computedArea(room, f)" aria-describedby="ovr-hint" x-init="$el.value = room[f] ?? ''" x-effect="if (!room._irregular) $el.value = ''" @input="setDim(room, f, $el)">
+                  </div>
+                </template>
+              </div>
+              <p class="form-text" id="ovr-hint">Puste pole — wartość z wymiarów (podpowiedź w polu); sufit jak podłoga, ściany: obwód × wysokość − otwory. Wpisane ściany to powierzchnia netto — otworów się od nich nie odejmuje.</p>
+            </div>
+            <div class="list-card mt-3" aria-live="polite">
+              <strong class="d-block mb-1">Z wymiarów wychodzi</strong>
+              <ul class="list-inline mb-0"><template x-for="a in areaPreview(room)"><li class="list-inline-item me-3" x-text="a"></li></template></ul>
+            </div>
+            <template x-for="e in roomErrors(room)"><div class="alert alert-danger mt-3 mb-0" role="alert" x-text="e"></div></template>
+            <div class="mt-3">
+              <label class="form-label" for="room-note">Notatka</label>
+              <textarea class="form-control" id="room-note" placeholder="Np. stan ścian, ustalenia z klientem" aria-describedby="room-note-hint" x-init="$el.value = room.notes ?? ''" @change="room.notes = $el.value || null; save()"></textarea>
+              <p class="form-text" id="room-note-hint"><i class="bi bi-lock" aria-hidden="true"></i> Wewnętrzna — nie trafia do oferty dla klienta.</p>
+            </div>
+          </div>
+        </template>
+      </div>
+    </template>
+
+    <!-- ===================== 4. Prace ===================== -->
+    <template x-if="step === 'prace'">
+      <div>
+        <p x-show="!q.rooms.length">Dodaj pierwszy pokój, aby rozpocząć wycenę. <button type="button" class="btn btn-link p-0" @click="go('pokoje')">Przejdź do kroku „Pokoje”</button></p>
+        <div class="chip-row mb-3" role="group" aria-label="Pokój" x-show="q.rooms.length > 1">
+          <template x-for="r in q.rooms" :key="r.id">
+            <button type="button" class="btn" :class="r.id === room?.id ? 'btn-primary' : 'btn-outline-primary'" :aria-pressed="r.id === room?.id ? 'true' : 'false'" @click="selectRoom(r.id)">
+              <span x-text="r.name"></span> <span class="badge text-bg-light border" x-text="r.jobs.length"></span>
+            </button>
+          </template>
+        </div>
+        <template x-for="room in roomList" :key="room.id">
+          <div>
+            <p class="lead-line">Pokój <span x-text="roomIndex + 1"></span> z <span x-text="q.rooms.length"></span><span x-show="roomSize(room)"> · <span x-text="roomSize(room)"></span></span>
+              <button type="button" class="btn btn-link p-0 ms-1 align-baseline" @click="go('wymiary', { fromCheck })" x-show="!isWholeObject">Zmień wymiary</button></p>
+            <template x-if="room.client_comment">
+              <div class="alert alert-warning"><strong>Komentarz klienta:</strong> <span x-text="room.client_comment"></span></div>
+            </template>
+            <p x-show="!room.jobs.length">Brak prac w tym pokoju — dodaj je niżej.</p>
+            <template x-for="g in roomGroups" :key="g.stage">
+              <section class="mb-3">
+                <h2 class="h6 text-uppercase mb-2" x-text="g.stage"></h2>
+                <template x-for="job in g.jobs" :key="job.id">
+                  <div class="job-row">
+                    <div class="d-flex justify-content-between gap-2">
+                      <div class="min-w-0">
+                        <strong x-text="job.name"></strong>
+                        <div class="small mt-1">
+                          <span class="badge text-bg-light border" x-show="isAuto(job)" title="Wyliczane automatycznie z wymiarów"><i class="bi bi-rulers" aria-hidden="true"></i> <span x-text="job.area_type_label"></span></span>
+                          <span class="badge text-bg-light border" x-show="!isAuto(job)">Ręcznie</span>
+                          <span class="badge text-bg-warning" x-show="changedJob(job)"><i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i> Ilość zmieniona po doborze</span>
+                        </div>
+                      </div>
+                      <button type="button" class="btn btn-outline-danger btn-icon" @click="removeJob(job)" :aria-label="'Usuń pracę: ' + job.name"><i class="bi bi-trash" aria-hidden="true"></i></button>
+                    </div>
+                    <div class="d-flex flex-wrap align-items-end gap-3 mt-2">
+                      <div>
+                        <label class="form-label small mb-1" :for="'qty-' + job.id">Ilość (<span x-text="job.unit"></span>)</label>
+                        <input class="form-control qty" :id="'qty-' + job.id" type="number" inputmode="decimal" step="0.01" min="0.01" max="1000000" x-init="$el.value = job.quantity ?? ''" @input="setQty(job, $el)" @change="fixQty(job, $el)">
+                      </div>
+                      <div class="ms-auto text-end">
+                        <span class="small d-block">Wartość</span>
+                        <strong title="Wartość dla klienta (z narzutem)" x-text="pln(line(job))"></strong>
+                      </div>
+                    </div>
+                    <details class="mt-2">
+                      <summary>Cena ekipy i wykonawca</summary>
+                      <div class="d-flex flex-wrap gap-3 align-items-end pt-2">
+                        <div>
+                          <label class="form-label small mb-1" :for="'price-' + job.id">Cena ekipy za jednostkę (zł)</label>
+                          <input class="form-control qty" :id="'price-' + job.id" type="number" inputmode="decimal" step="0.01" min="0.01" max="1000000" :placeholder="'śr. ' + dec(job.average_price)" x-init="$el.value = job.contractor_price ?? ''" @change="setPrice(job, $el)">
+                        </div>
+                        <p class="small mb-0"><span x-text="materialPerUnit(job)"></span><br>Wykonawca: <span x-text="job.contractor || '—'"></span></p>
+                      </div>
+                      <p class="form-text mb-0">Puste pole — cena z cennika.</p>
+                    </details>
+                  </div>
+                </template>
+              </section>
+            </template>
+            <p class="d-flex justify-content-between border-top pt-2 mb-4"><span>Suma pokoju:</span><strong x-text="pln(roomSum(room))"></strong></p>
+
+            <h2 class="h5">Dodaj pracę</h2>
+            <label class="form-label" for="job-search">Szukaj pracy</label>
+            <input class="form-control mb-2" id="job-search" type="search" x-model="jobSearch" autocomplete="off" aria-describedby="job-search-hint">
+            <p class="form-text" id="job-search-hint">Nazwa pracy albo etapu. Pokój ma każdą pracę najwyżej raz — prace, które już są w pokoju, nie pojawiają się na liście.</p>
+            <template x-if="jobSearch.trim()">
+              <ul class="list-unstyled">
+                <template x-for="j in availableJobs.slice(0, 40)" :key="j.id">
+                  <li class="mb-2"><button type="button" class="choice" @click="addJob(j)">
+                    <span class="min-w-0"><strong class="d-block" x-text="j.name + ' (' + j.unit + ')'"></strong> <span class="small" x-text="j.stage + ' · ' + j.area_type_label"></span></span>
+                    <span class="ms-auto text-nowrap"><i class="bi bi-plus-lg" aria-hidden="true"></i> Dodaj</span></button></li>
+                </template>
+                <li x-show="!availableJobs.length">Brak prac pasujących do wyszukiwania.</li>
+              </ul>
+            </template>
+            <template x-if="!jobSearch.trim()">
+              <div>
+                <template x-for="g in availableGroups" :key="g.stage">
+                  <details class="list-card">
+                    <summary><strong x-text="g.stage"></strong>&nbsp;<span class="small" x-text="'(' + jobsText(g.jobs.length) + ' do wyboru)'"></span></summary>
+                    <ul class="list-unstyled mt-2 mb-0">
+                      <template x-for="j in g.jobs" :key="j.id">
+                        <li class="mb-2"><button type="button" class="choice" @click="addJob(j)">
+                          <span class="min-w-0"><span class="d-block" x-text="j.name + ' (' + j.unit + ')'"></span><span class="small" x-text="j.area_type_label"></span></span>
+                          <span class="ms-auto text-nowrap"><i class="bi bi-plus-lg" aria-hidden="true"></i> Dodaj</span></button></li>
+                      </template>
+                    </ul>
+                  </details>
+                </template>
+                <template x-for="s in stagesFull" :key="s"><p class="small mb-1" x-text="s + ': Wszystkie prace etapu są w pokoju'"></p></template>
+              </div>
+            </template>
+            <h3 class="h6 mt-3">Prace z szablonu</h3>
+            <div class="chip-row">
+              <template x-for="t in templates" :key="t.name">
+                <button type="button" class="btn btn-outline-primary" @click="addTemplateJobs(t)"><i class="bi bi-grid-3x3-gap" aria-hidden="true"></i> <span x-text="t.name + ' (' + jobsText(t.jobs.length) + ')'"></span></button>
+              </template>
+            </div>
+          </div>
+        </template>
+      </div>
+    </template>
+
+    <!-- ===================== 5. Wykonawcy ===================== -->
+    <template x-if="step === 'wykonawcy'">
+      <div>
+        <p x-show="!jobsCount">Wycena nie ma jeszcze żadnych prac. Dodaj prace w edytorze. <button type="button" class="btn btn-link p-0" @click="go('prace')">Przejdź do kroku „Prace”</button></p>
+        <template x-if="jobsCount && !plans">
+          <div class="alert alert-secondary"><strong>Prototyp:</strong> plany doboru są tu tylko gotowymi planami z danych aplikacji (szkice demonstracyjne i oferta po poprawce klienta). Dla tej wyceny i tych ilości prototyp nie ma planu — w aplikacji policzy go serwer.</div>
+        </template>
+        <template x-if="plans">
+          <div>
+            <template x-if="changedNames.length">
+              <div class="alert alert-warning" role="alert"><i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i> Prace ze zmienioną ilością po doborze wykonawców: <span x-text="changedNames.join(', ')"></span>. Zastosuj plan ponownie — bez tego wyceny nie da się wysłać.</div>
+            </template>
+            <p class="small">Plany pomijają ekipy o nietypowej dla danej pracy cenie, tempie lub jakości. Każdy plan zachowuje kolejność etapów; po zastosowaniu planu ceny ekip są zamrożone w wycenie.</p>
+            <div class="row g-3">
+              <template x-for="p in plans" :key="p.key">
+                <div class="col-12 col-xl-6">
+                  <article class="plan-card" :class="q.applied_profile_name === p.key ? 'applied' : ''" :aria-labelledby="'plan-' + p.key">
+                    <div class="d-flex flex-wrap justify-content-between gap-2 mb-2">
+                      <h2 class="h5 mb-0" :id="'plan-' + p.key"><i class="bi" :class="'bi-' + PROFILE_ICONS[p.key]" aria-hidden="true"></i> <span x-text="p.plan.label"></span></h2>
+                      <div>
+                        <span class="badge text-bg-success" x-show="q.applied_profile_name === p.key"><i class="bi bi-check-circle" aria-hidden="true"></i> Zastosowany</span>
+                        <span class="badge text-bg-light border" x-text="p.plan.summary.coverage_pct + '%'"></span>
+                      </div>
+                    </div>
+                    <dl>
+                      <dt>Koszt ekip:</dt><dd x-text="pln(p.plan.summary.total_cost)"></dd>
+                      <dt>Liczba ekip:</dt><dd x-text="p.plan.summary.contractor_count"></dd>
+                      <dt>Czas realizacji:</dt><dd><span x-text="hours(p.plan.summary.makespan_hours)"></span><span class="d-block small" x-text="workDays(p.plan.work_days) + ' z odbiorami etapów'"></span></dd>
+                      <dt>Łącznie roboczogodzin:</dt><dd x-text="hours(p.plan.summary.total_work_hours)"></dd>
+                      <dt>Śr. jakość:</dt><dd x-text="oneDec(p.plan.summary.avg_quality) + ' /10'"></dd>
+                    </dl>
+                    <div class="small mb-1">Pokrycie:</div>
+                    <div class="progress mb-3" role="progressbar" :aria-label="'Pokrycie: ' + p.plan.summary.coverage_pct + '%'" aria-valuemin="0" aria-valuemax="100" :aria-valuenow="p.plan.summary.coverage_pct"><div class="progress-bar bg-success" :style="`width: ${p.plan.summary.coverage_pct}%`"></div></div>
+                    <details class="mb-2">
+                      <summary>Harmonogram etapów:</summary>
+                      <ul class="list-unstyled small mb-0">
+                        <template x-for="(s, i) in p.plan.stage_schedule" :key="s.stage">
+                          <li class="mb-2"><span x-text="s.stage + ': ' + hours(s.duration_hours) + ' → ' + hours(cumulative(p.plan)[i])"></span><div class="stage-bar" :style="`width: ${barWidth(p.plan, s)}`"></div></li>
+                        </template>
+                      </ul>
+                    </details>
+                    <p class="small mb-1" x-show="p.plan.summary.unassigned_job_names.length">Bez wykonawcy (brak w cenniku ekipy z ceną): <span x-text="p.plan.summary.unassigned_job_names.join(', ')"></span></p>
+                    <p class="small mb-1">Wykonawcy:</p>
+                    <div class="chip-row mb-3"><template x-for="c in p.plan.summary.contractors_used" :key="c"><span class="badge text-bg-light border" x-text="c"></span></template></div>
+                    <button type="button" class="btn btn-main mt-auto" :class="q.applied_profile_name === p.key ? 'btn-outline-primary' : 'btn-primary'" @click="askPlan(p.key, p.plan)" x-text="q.applied_profile_name === p.key ? 'Zastosuj ponownie' : 'Zastosuj ten plan'"></button>
+                  </article>
+                </div>
+              </template>
+            </div>
+            <details class="mt-3 list-card">
+              <summary>Porównanie planów — harmonogram i kto robi co</summary>
+              <h3 class="h6 mt-2">Harmonogram etapów — porównanie planów</h3>
+              <div class="table-wrap" tabindex="0" role="region" aria-label="Harmonogram etapów — porównanie planów">
+                <table class="table table-sm">
+                  <thead><tr><th scope="col">Etap</th><template x-for="p in plans" :key="p.key"><th scope="col" class="num-cell" x-text="p.plan.label"></th></template></tr></thead>
+                  <tbody>
+                    <template x-for="s in compareStages" :key="s"><tr><th scope="row" x-text="s"></th><template x-for="p in plans" :key="p.key"><td class="num-cell" x-text="crewHours(p.plan, s) !== undefined ? hours(crewHours(p.plan, s)) : '—'"></td></template></tr></template>
+                    <tr><th scope="row">RAZEM</th><template x-for="p in plans" :key="p.key"><td class="num-cell fw-bold" x-text="hours(p.plan.summary.makespan_hours)"></td></template></tr>
+                  </tbody>
+                </table>
+              </div>
+              <h3 class="h6">Porównanie — kto robi co w każdym planie</h3>
+              <div class="table-wrap" tabindex="0" role="region" aria-label="Porównanie — kto robi co w każdym planie">
+                <table class="table table-sm small">
+                  <thead><tr><th scope="col">Pokój</th><th scope="col">Praca</th><th scope="col">Ilość</th><template x-for="p in plans" :key="p.key"><th scope="col" x-text="p.plan.label"></th></template></tr></thead>
+                  <tbody><template x-for="r in compareRows" :key="r.id"><tr><td x-text="r.room"></td><td x-text="r.name"></td><td class="num-cell" x-text="r.qty"></td><template x-for="c in r.cells" :key="c.key"><td x-text="c.text"></td></template></tr></template></tbody>
+                </table>
+              </div>
+            </details>
+          </div>
+        </template>
+      </div>
+    </template>
+
+    <!-- ===================== 6. Termin ===================== -->
+    <template x-if="step === 'termin'">
+      <div>
+        <div class="row g-3">
+          <div class="col-sm-6">
+            <label class="form-label" for="start-on">Planowany start:</label>
+            <input class="form-control" id="start-on" type="date" min="2000-01-01" max="2099-12-31" :value="q.planned_start_on || ''" @change="setField('planned_start_on', $event.target.value)">
+          </div>
+          <div class="col-sm-6">
+            <label class="form-label" for="end-on">Termin zakończenia:</label>
+            <input class="form-control" id="end-on" type="date" :min="q.planned_start_on || '2000-01-01'" max="2099-12-31" :value="q.planned_end_on || ''" @change="setField('planned_end_on', $event.target.value)">
+          </div>
+        </div>
+        <div class="alert alert-danger mt-3" role="alert" x-show="dateError" x-text="dateError"></div>
+        <div class="list-card mt-3 d-flex flex-wrap align-items-center gap-3">
+          <template x-if="q.suggested_work_days && suggestedEnd">
+            <p class="mb-0 flex-grow-1">Sugerowany: <strong x-text="dateText(suggestedEnd)"></strong> (<span x-text="workDays(q.suggested_work_days)"></span>)</p>
+          </template>
+          <template x-if="q.suggested_work_days && !suggestedEnd">
+            <p class="mb-0 flex-grow-1" x-text="workDays(q.suggested_work_days) + ' od startu'"></p>
+          </template>
+          <template x-if="!q.suggested_work_days">
+            <p class="mb-0 flex-grow-1">Dobierz wykonawców, żeby dostać sugestię. <button type="button" class="btn btn-link p-0 align-baseline" @click="go('wykonawcy')">Przejdź do kroku „Wykonawcy”</button></p>
+          </template>
+          <button type="button" class="btn btn-primary btn-main" x-show="suggestedEnd" :disabled="q.planned_end_on === suggestedEnd" @click="useSuggested()">Użyj</button>
+        </div>
+        <div class="mt-3">
+          <label class="form-label" for="site-address">Adres inwestycji:</label>
+          <input class="form-control" id="site-address" :value="q.site_address || ''" @change="setField('site_address', $event.target.value.trim())">
+        </div>
+        <p class="small mt-2 mb-0" x-show="savedAt" aria-live="polite"><i class="bi bi-check2" aria-hidden="true"></i> Zapisano <span x-text="savedAt"></span></p>
+      </div>
+    </template>
+
+    <!-- ===================== 7. Sprawdź ===================== -->
+    <template x-if="step === 'sprawdz'">
+      <div>
+        <p>Każdą część zmienisz przyciskiem „Zmień” — wrócisz tu jednym kliknięciem.</p>
+        <section class="list-card" aria-labelledby="chk-client">
+          <div class="d-flex justify-content-between gap-2"><h2 class="h6 mb-1" id="chk-client">Klient</h2><button type="button" class="btn btn-outline-primary" @click="change('klient')" aria-label="Zmień: Klient">Zmień</button></div>
+          <p class="mb-0" x-show="q.client"><span x-text="q.client?.name"></span> · <span x-text="q.client?.email || 'bez adresu e-mail'"></span><span x-show="q.client?.phone" x-text="' · ' + q.client?.phone"></span></p>
+          <p class="mb-0" x-show="!q.client">(nie przypisano)</p>
+        </section>
+        <section class="list-card" aria-labelledby="chk-rooms">
+          <div class="d-flex justify-content-between gap-2"><h2 class="h6 mb-1" id="chk-rooms">Pokoje i wymiary</h2><button type="button" class="btn btn-outline-primary" @click="change(isWholeObject ? 'pokoje' : 'wymiary')" aria-label="Zmień: Pokoje i wymiary">Zmień</button></div>
+          <ul class="mb-0 ps-3"><template x-for="r in q.rooms" :key="r.id"><li><span x-text="r.name"></span><span x-show="roomSize(r)" x-text="' — ' + roomSize(r)"></span><span x-show="r.notes" class="small" x-text="' · Notatka: ' + r.notes"></span></li></template></ul>
+        </section>
+        <section class="list-card" aria-labelledby="chk-jobs">
+          <div class="d-flex justify-content-between gap-2"><h2 class="h6 mb-1" id="chk-jobs">Prace</h2><button type="button" class="btn btn-outline-primary" @click="change('prace')" aria-label="Zmień: Prace">Zmień</button></div>
+          <ul class="mb-0 ps-3"><template x-for="r in q.rooms" :key="r.id"><li><span x-text="r.name + ': ' + jobsText(r.jobs.length)"></span> — <span x-text="pln(roomSum(r))"></span></li></template></ul>
+        </section>
+        <section class="list-card" aria-labelledby="chk-crews">
+          <div class="d-flex justify-content-between gap-2"><h2 class="h6 mb-1" id="chk-crews">Wykonawcy</h2><button type="button" class="btn btn-outline-primary" @click="change('wykonawcy')" aria-label="Zmień: Wykonawcy">Zmień</button></div>
+          <p class="mb-0"><span x-text="appliedLabel ? 'Plan doboru wykonawców: ' + appliedLabel : 'Nie dobrano wykonawców'"></span><span x-show="withoutCrew" x-text="' · bez wykonawcy: ' + jobsText(withoutCrew)"></span></p>
+        </section>
+        <section class="list-card" aria-labelledby="chk-term">
+          <div class="d-flex justify-content-between gap-2"><h2 class="h6 mb-1" id="chk-term">Termin</h2><button type="button" class="btn btn-outline-primary" @click="change('termin')" aria-label="Zmień: Termin">Zmień</button></div>
+          <p class="mb-0">Planowany start: <span x-text="dateText(q.planned_start_on)"></span> · Termin zakończenia: <span x-text="dateText(q.planned_end_on)"></span><br>Adres inwestycji: <span x-text="q.site_address || '—'"></span></p>
+        </section>
+        <section class="list-card" aria-labelledby="chk-sums">
+          <h2 class="h6" id="chk-sums">Kwoty</h2>
+          <div class="row g-3 align-items-end">
+            <div class="col-6 col-sm-4">
+              <label class="form-label" for="markup">Narzut (%)</label>
+              <input class="form-control" id="markup" type="number" inputmode="decimal" step="0.01" min="0" max="1000" aria-describedby="markup-hint" x-init="$el.value = Number(q.markup_percent)" @input="setMarkup($el)">
+              <span class="form-text d-block" id="markup-hint" title="Marża jako % ceny dla klienta — wynika z narzutu" x-text="marginLine"></span>
+            </div>
+            <div class="col-6 col-sm-4">
+              <label class="form-label" for="vat">VAT:</label>
+              <select class="form-select" id="vat" @change="setVat($event.target.value)">
+                <template x-for="v in kit.labels.vat_rates" :key="v"><option :value="v" :selected="Number(q.vat_rate) === v" x-text="v + '%'"></option></template>
+              </select>
+            </div>
+          </div>
+          <div class="summary-card mt-3"><dl>
+            <dt>Koszt:</dt><dd x-text="pln(sums.cost)"></dd>
+            <dt>Marża:</dt><dd x-text="pln(sums.margin)"></dd>
+            <dt>Razem netto</dt><dd class="fw-bold" x-text="pln(sums.net)"></dd>
+            <dt x-text="vatLabel()"></dt><dd x-text="pln(sums.vat)"></dd>
+            <dt>Razem brutto</dt><dd class="fw-bold" x-text="pln(sums.gross)"></dd>
+          </dl></div>
+        </section>
+        <section class="list-card">
+          <label class="form-label h6" for="quote-notes">Notatki (klient ich nie widzi)</label>
+          <textarea class="form-control" id="quote-notes" x-init="$el.value = q.notes ?? ''" @change="q.notes = $el.value || null; save()"></textarea>
+        </section>
+        <section class="mt-3" aria-labelledby="chk-gates">
+          <h2 class="h5" id="chk-gates">Przed wysłaniem</h2>
+          <template x-if="!problems.length"><p class="text-success-emphasis"><i class="bi bi-check-circle-fill" aria-hidden="true"></i> Wszystko gotowe do wysłania.</p></template>
+          <template x-if="problems.length">
+            <ul class="list-unstyled">
+              <template x-for="p in problems" :key="p.msg">
+                <li class="alert alert-danger d-flex flex-wrap gap-2 align-items-center justify-content-between"><span x-text="p.msg"></span><button type="button" class="btn btn-light border-danger" @click="change(p.step)">Popraw</button></li>
+              </template>
+            </ul>
+          </template>
+        </section>
+        <div class="d-flex flex-wrap gap-2 mt-2">
+          <a class="btn btn-outline-secondary" :href="link('screens/quote-show.html?id=' + q.id)"><i class="bi bi-eye" aria-hidden="true"></i> Podgląd</a>
+          <a class="btn btn-outline-secondary" :href="link('screens/quote-pdf.html?id=' + q.id)" target="_blank"><i class="bi bi-file-earmark-pdf" aria-hidden="true"></i> PDF</a>
+        </div>
+      </div>
+    </template>
+
+    <!-- ===================== 8. Wyślij ===================== -->
+    <template x-if="step === 'wyslij'">
+      <div>
+        <template x-if="problems.length">
+          <div class="alert alert-danger" role="alert"><p class="mb-2">Tej wyceny nie da się jeszcze wysłać:</p><ul class="mb-2"><template x-for="p in problems" :key="p.msg"><li x-text="p.msg"></li></template></ul>
+            <button type="button" class="btn btn-light border-danger" @click="go('sprawdz')">Wróć do „Sprawdź”</button></div>
+        </template>
+        <template x-if="!problems.length">
+          <div>
+            <p class="fs-5">Termin zakończenia: <strong x-text="dateText(q.planned_end_on)"></strong>.<span x-show="hasComments()"> Uwagi klienta trafią do notatek wyceny.</span></p>
+            <h2 class="h6">Co się stanie</h2>
+            <ul>
+              <li>Klient dostanie e-mail z PDF „wycena-<span x-text="q.id"></span>.pdf” i linkiem do oferty — link działa 30 dni od wysyłki.</li>
+              <li>Ceny zostaną zamrożone — późniejsze zmiany cennika nie zmienią oferty.</li>
+              <li>Status zmieni się na „Wysłana”. Wycenę zmienisz dopiero po „Przywróć do edycji”.</li>
+              <li x-show="hasComments()">Uwagi klienta przejdą do notatek wyceny i znikną z pokoi.</li>
+            </ul>
+            <div class="list-card">
+              <p class="mb-1">Klient zobaczy w ofercie:</p>
+              <div class="summary-card"><dl class="mb-0">
+                <dt>Razem netto</dt><dd x-text="pln(sums.net)"></dd>
+                <dt x-text="vatLabel()"></dt><dd x-text="pln(sums.vat)"></dd>
+                <dt>Razem brutto</dt><dd class="fw-bold" x-text="pln(sums.gross)"></dd>
+              </dl></div>
+            </div>
+          </div>
+        </template>
+      </div>
+    </template>
+
+    <div class="alert alert-danger mt-3" role="alert" x-show="stepError" x-text="stepError"></div>
+
+    <div class="wz-actions">
+      <div class="wz-total"><span>Razem netto</span><span x-text="pln(sums.net)"></span></div>
+      <button type="button" class="btn btn-outline-secondary btn-main" @click="back()"><i class="bi bi-arrow-left" aria-hidden="true"></i> Wstecz</button>
+      <button type="button" class="btn btn-primary btn-main" @click="next()" :disabled="step === 'wyslij' && problems.length > 0">
+        <span x-text="nextLabel"></span> <i class="bi" :class="step === 'wyslij' ? 'bi-send' : 'bi-arrow-right'" aria-hidden="true"></i>
+      </button>
+    </div>
+  </section>
+
+  <!-- podsumowanie na żywo -->
+  <aside class="wz-aside" aria-label="Podsumowanie wyceny">
+    <div class="sticky-md list-card summary-card">
+      <div class="d-flex justify-content-between align-items-start gap-2">
+        <h2 class="h5 mb-1" x-text="q.id ? 'Wycena #' + q.id : 'Nowa wycena'"></h2>
+        <span x-html="badge('quote', q.status)"></span>
+      </div>
+      <p class="mb-2" x-text="q.client ? q.client.name : '(brak klienta)'"></p>
+      <ul class="list-unstyled small mb-3">
+        <template x-for="r in q.rooms" :key="r.id">
+          <li class="d-flex justify-content-between gap-2 py-1 border-bottom">
+            <span class="min-w-0"><span x-text="r.name"></span><span class="d-block" x-text="[roomSize(r), jobsText(r.jobs.length)].filter(Boolean).join(' · ')"></span></span>
+            <span class="text-nowrap" x-text="pln(roomSum(r))"></span>
+          </li>
+        </template>
+        <li x-show="!q.rooms.length">Brak pokoi.</li>
+      </ul>
+      <dl class="small mb-2">
+        <dt>Pokoje:</dt><dd x-text="q.rooms.length"></dd>
+        <dt>Prace:</dt><dd x-text="jobsCount"></dd>
+        <dt>Koszt:</dt><dd x-text="pln(sums.cost)"></dd>
+        <dt>Narzut:</dt><dd x-text="dec(q.markup_percent) + ' %'"></dd>
+        <dt>Marża:</dt><dd x-text="pln(sums.margin)"></dd>
+      </dl>
+      <div class="d-flex justify-content-between align-items-baseline border-top pt-2" aria-live="polite">
+        <span>Suma netto</span><span class="summary-total" x-text="pln(sums.net)"></span>
+      </div>
+      <dl class="small mb-2">
+        <dt x-text="vatLabel()"></dt><dd x-text="pln(sums.vat)"></dd>
+        <dt>Brutto:</dt><dd class="fw-semibold" x-text="pln(sums.gross)"></dd>
+      </dl>
+      <dl class="small mb-0 border-top pt-2">
+        <dt>Plan doboru:</dt><dd x-text="appliedLabel || '—'"></dd>
+        <dt>Termin:</dt><dd x-text="dateText(q.planned_end_on)"></dd>
+      </dl>
+      <p class="small mt-2 mb-0" x-show="savedAt"><i class="bi bi-check2" aria-hidden="true"></i> Zapisano <span x-text="savedAt"></span></p>
+    </div>
+  </aside>
+</div>
+</template>

@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Materiały — IKPM</title>
+  <link rel="stylesheet" href="../assets/bootstrap/bootstrap.min.css">
+  <link rel="stylesheet" href="../assets/bootstrap-icons/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="../assets/app.css">
+</head>
+<body data-section="data">
+  <main id="main"><div id="app" class="container-xxl" x-data="page" x-cloak>
+    <nav aria-label="Dane"><ul class="subnav">
+      <template x-for="n in DATA_NAV" :key="n.key"><li><a class="btn" :class="n.key === 'materials' ? 'btn-primary' : 'btn-outline-primary'" :href="link(n.href)" :aria-current="n.key === 'materials' ? 'page' : null" x-text="n.label"></a></li></template>
+    </ul></nav>
+    <h1 class="page-title mt-0">Materiały</h1>
+    <button type="button" class="btn btn-primary btn-main mb-3" @click="formOpen = !formOpen" :aria-expanded="formOpen" aria-controls="new-material"><i class="bi bi-plus-lg" aria-hidden="true"></i> Dodaj materiał</button>
+    <div class="list-card mb-3" id="new-material" x-show="formOpen">
+      <div class="row g-2 align-items-end">
+        <div class="col-md-4"><label class="form-label" for="m-name">Nazwa materiału</label><input class="form-control" id="m-name" placeholder="np. Farba lateksowa biała" maxlength="100"></div>
+        <div class="col-6 col-md-2"><label class="form-label" for="m-price">Cena</label><input class="form-control" id="m-price" type="number" inputmode="decimal" step="0.01" min="0" max="1000000" value="0"></div>
+        <div class="col-6 col-md-2"><label class="form-label" for="m-qty">Ilość</label><input class="form-control" id="m-qty" type="number" inputmode="decimal" step="0.01" min="0.01" max="1000000" value="1"></div>
+        <div class="col-6 col-md-1"><label class="form-label" for="m-unit">Jedn.</label><select class="form-select" id="m-unit"><template x-for="u in ['szt', 'kg', 'l', 'm²', 'mb', 'h']"><option x-text="u"></option></template></select></div>
+        <div class="col-md-3"><label class="form-label" for="m-link">Link do sklepu</label><input class="form-control" id="m-link" type="url" placeholder="https://..."></div>
+        <div class="col-6 col-md-2"><button type="button" class="btn btn-primary w-100" @click="add()">Dodaj</button></div>
+      </div>
+    </div>
+    <section class="list-card mb-3" aria-labelledby="h-change">
+      <h2 class="h5" id="h-change">Zmiana cen</h2>
+      <form id="materials-price-change" class="row g-2 align-items-end" @submit.prevent="preview()">
+        <fieldset class="col-md-6"><legend class="form-label fs-6">Zakres</legend>
+          <label class="check-row"><input class="form-check-input" type="radio" name="selection" value="all" x-model="selection" required> Wszystkie materiały</label>
+          <label class="check-row"><input class="form-check-input" type="radio" name="selection" value="selected" x-model="selection"> Zaznaczone na liście <span class="small" x-text="'(' + picked.length + ')'"></span></label>
+        </fieldset>
+        <div class="col-6 col-md-3"><label class="form-label" for="pct">Zmień ceny o %</label><input class="form-control" id="pct" type="number" inputmode="decimal" step="0.1" min="-90" max="200" x-model="percent" aria-describedby="pct-hint"><span class="form-text" id="pct-hint">od -90 do +200</span></div>
+        <div class="col-6 col-md-3"><button class="btn btn-outline-primary w-100" type="submit">Podgląd</button></div>
+      </form>
+    </section>
+    <section aria-labelledby="h-list">
+      <h2 class="h5" id="h-list">Lista materiałów</h2>
+      <label class="form-label" for="m-filter">Szukaj materiału</label>
+      <input class="form-control mb-2" id="m-filter" type="search" x-model="filter" autocomplete="off">
+      <ul class="list-unstyled">
+        <template x-for="m in shown" :key="m.key">
+          <li class="list-card py-2">
+            <div class="d-flex flex-wrap gap-2 align-items-center">
+              <label class="check-row flex-grow-1 min-w-0"><input class="form-check-input" type="checkbox" :value="m.key" x-model="picked" form="materials-price-change">
+                <span class="min-w-0"><span class="d-block" x-text="m.name"></span><span class="small" x-text="`${pln(m.price)} · opak. ${m.package} · ${pln(m.unit_price)}/${materialUnit(m)}`"></span></span></label>
+              <button type="button" class="btn btn-outline-primary" @click="editing = editing === m.key ? null : m.key" :aria-expanded="editing === m.key" :aria-label="'Zmień: ' + m.name">Zmień</button>
+              <button type="button" class="btn btn-outline-danger btn-icon" @click="askDelete(m)" :aria-label="'Usuń materiał: ' + m.name"><i class="bi bi-trash" aria-hidden="true"></i></button>
+            </div>
+            <div class="row g-2 align-items-end mt-1" x-show="editing === m.key">
+              <div class="col-md-4"><label class="form-label small" :for="'en-' + m.key">Nazwa</label><input class="form-control" :id="'en-' + m.key" :value="m.name"></div>
+              <div class="col-6 col-md-2"><label class="form-label small" :for="'ep-' + m.key">Cena</label><input class="form-control" :id="'ep-' + m.key" type="number" inputmode="decimal" step="0.01" min="0" max="1000000" :value="m.price"></div>
+              <div class="col-6 col-md-2"><label class="form-label small" :for="'eq-' + m.key">Ilość</label><input class="form-control" :id="'eq-' + m.key" type="number" inputmode="decimal" step="0.01" min="0.01" max="1000000" :value="parseFloat(m.package)"></div>
+              <div class="col-6 col-md-2"><label class="form-label small" :for="'eu-' + m.key">Jedn.</label><input class="form-control" :id="'eu-' + m.key" :value="materialUnit(m)"></div>
+              <div class="col-6 col-md-2"><button type="button" class="btn btn-primary w-100" @click="editing = null; $store.toast.show(`Materiał '${m.name}' został zaktualizowany.`)">Zapisz</button></div>
+            </div>
+          </li>
+        </template>
+      </ul>
+      <p x-show="!shown.length">Brak materiałów. Dodaj pierwszy materiał powyżej.</p>
+    </section>
+  </div></main>
+  <script type="module">
+    import { start, materials, materialUnit, DATA_NAV, link } from '../assets/app.js';
+    start(() => ({
+      DATA_NAV, materialUnit,
+      all: materials().map((m, i) => ({ ...m, key: i })).sort((a, b) => a.name.localeCompare(b.name, 'pl') || a.key - b.key),
+      filter: '', formOpen: false, editing: null, picked: [], selection: '', percent: '',
+      get shown() { const _f = this.filter.trim().toLowerCase(); return this.all.filter((m) => !_f || m.name.toLowerCase().includes(_f)); },
+      add() { const _n = document.getElementById('m-name').value.trim(); if (!_n) { this.$store.alert.msg = 'Nazwa nie może być pusta'; return; } this.formOpen = false; this.$store.toast.show(`Materiał '${_n}' został dodany.`); },
+      askDelete(m) { this.$store.confirm.ask({ title: `Usunąć materiał '${m.name}'?`, lines: ['Materiału przypisanego do prac nie da się usunąć.'], ok: 'Usuń', variant: 'danger', run: () => this.$store.toast.show(`Materiał '${m.name}' został usunięty.`) }); },
+      preview() {
+        if (!this.selection) { this.$store.alert.msg = 'Zaznacz materiały, których ceny chcesz zmienić, albo wybierz „Wszystkie”.'; return; }
+        if (this.selection === 'selected' && !this.picked.length) { this.$store.alert.msg = 'Zaznacz materiały, których ceny chcesz zmienić, albo wybierz „Wszystkie”.'; return; }
+        location.href = link(`screens/price-change.html?scope=materials&selection=${this.selection}&ids=${this.picked.join(',')}&percent=${encodeURIComponent(this.percent)}`);
+      },
+    }));
+  </script>
+</body>
+</html>

@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Podgląd wyceny — IKPM</title>
+<link rel="stylesheet" href="../assets/bootstrap/bootstrap.min.css">
+<link rel="stylesheet" href="../assets/bootstrap-icons/bootstrap-icons.min.css">
+<link rel="stylesheet" href="../assets/app.css">
+</head>
+<body data-nav="quotes">
+<div id="nav"></div>
+<main x-data="page" x-cloak class="container-xxl px-3 mw-doc pb-5">
+<template x-if="q">
+<div>
+  <div id="alerts"></div>
+  <section class="card my-3" aria-labelledby="doc-title">
+    <div class="card-body">
+      <div class="d-flex flex-wrap align-items-center gap-2">
+        <h1 id="doc-title" class="h3 mb-0 me-auto">Wycena #<span x-text="q.id"></span> <span class="fs-6 align-middle" x-html="ik.quoteBadge(q.status)"></span></h1>
+        <template x-if="q.status === 'draft'"><a class="btn btn-primary" :href="ik.href('screens/builder.html?id=' + q.id)"><i class="bi bi-pencil" aria-hidden="true"></i> Edytuj</a></template>
+        <template x-if="q.status === 'draft'"><a class="btn btn-outline-primary" :href="ik.href('screens/match-contractors.html?id=' + q.id)"><i class="bi bi-people" aria-hidden="true"></i> Dobierz wykonawców</a></template>
+        <template x-if="q.status !== 'draft' && !realization"><button type="button" class="btn btn-warning btn-main" @click="reopen()"><i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i> Przywróć do edycji</button></template>
+        <template x-if="q.status === 'accepted' && !realization"><button type="button" class="btn btn-success btn-main" @click="convert()"><i class="bi bi-hammer" aria-hidden="true"></i> Przekształć w realizację</button></template>
+        <template x-if="realization"><a class="btn btn-outline-success" :href="ik.href('screens/realization-show.html?id=' + realization.id)"><i class="bi bi-hammer" aria-hidden="true"></i> Realizacja</a></template>
+        <a class="btn btn-outline-secondary" :href="ik.href('screens/quote-pdf.html?id=' + q.id)" target="_blank" rel="noopener"><i class="bi bi-file-earmark-pdf" aria-hidden="true"></i> PDF</a>
+        <button type="button" class="btn btn-outline-secondary" @click="copy()"><i class="bi bi-copy" aria-hidden="true"></i> Kopiuj</button>
+      </div>
+      <p class="small text-body-secondary mt-2 mb-0" x-show="q.status !== 'draft' && !realization"><i class="bi bi-lock" aria-hidden="true"></i> Oferta u klienta — tylko do odczytu. Zmiany po „Przywróć do edycji”.</p>
+      <dl class="row mt-3 mb-0">
+        <dt class="col-sm-4 col-lg-2">Klient</dt>
+        <dd class="col-sm-8 col-lg-4"><template x-if="q.client"><span><a class="tap" :href="clientHref" x-text="q.client.name"></a><span class="d-block small text-body-secondary" x-text="[q.client.email, q.client.phone].filter(Boolean).join(' · ')"></span></span></template><template x-if="!q.client"><span>(nie przypisano)</span></template></dd>
+        <dt class="col-sm-4 col-lg-2">Status</dt><dd class="col-sm-8 col-lg-4" x-html="ik.quoteBadge(q.status)"></dd>
+        <template x-if="q.site_address"><dt class="col-sm-4 col-lg-2">Adres inwestycji</dt></template><template x-if="q.site_address"><dd class="col-sm-8 col-lg-4" x-text="q.site_address"></dd></template>
+        <template x-if="q.planned_start_on"><dt class="col-sm-4 col-lg-2">Planowany start</dt></template><template x-if="q.planned_start_on"><dd class="col-sm-8 col-lg-4" x-text="ik.date(q.planned_start_on)"></dd></template>
+        <template x-if="q.planned_end_on"><dt class="col-sm-4 col-lg-2">Termin zakończenia</dt></template><template x-if="q.planned_end_on"><dd class="col-sm-8 col-lg-4" x-text="ik.date(q.planned_end_on)"></dd></template>
+        <template x-if="q.sent_at"><dt class="col-sm-4 col-lg-2">Wysłana</dt></template><template x-if="q.sent_at"><dd class="col-sm-8 col-lg-4" x-text="ik.date(q.sent_at)"></dd></template>
+        <template x-if="q.responded_at"><dt class="col-sm-4 col-lg-2">Odpowiedź</dt></template><template x-if="q.responded_at"><dd class="col-sm-8 col-lg-4" x-text="ik.date(q.responded_at)"></dd></template>
+      </dl>
+    </div>
+  </section>
+
+  <template x-if="ik.clientComments(q)">
+    <section class="alert alert-warning" aria-labelledby="cc-title">
+      <h2 id="cc-title" class="h5"><i class="bi bi-chat-left-text" aria-hidden="true"></i> Uwagi klienta</h2>
+      <p class="mb-2 text-pre" x-text="q.client_general_comment || '(brak komentarza ogólnego — sprawdź komentarze przy pokojach)'"></p>
+      <ul class="mb-0"><template x-for="r in q.rooms.filter(x => x.client_comment)" :key="r.id"><li><a class="tap alert-link" :href="'#room-' + r.id" x-text="r.name"></a>: <span x-text="r.client_comment"></span></li></template></ul>
+    </section>
+  </template>
+
+  <p class="small text-body-secondary"><i class="bi bi-eye" aria-hidden="true"></i> Klient zobaczy w ofercie (strona oferty i PDF): pokoje, prace, ilości, ceny dla klienta („Cena/j.” i „Wartość”), sumy i terminy. <i class="bi bi-lock" aria-hidden="true"></i> Tylko firma: wykonawcy, notatki, koszt, narzut i marża.</p>
+  <template x-for="room in q.rooms" :key="room.id">
+    <section class="doc-room card mb-3" :id="'room-' + room.id" :aria-labelledby="'rt-' + room.id">
+      <div class="doc-room-head card-header bg-body d-flex flex-wrap align-items-center gap-2">
+        <h2 class="h5 mb-0 me-auto"><span :id="'rt-' + room.id" x-text="room.name"></span> <small class="d-block text-body-secondary fw-normal" x-text="ik.roomSizeParts(room).dimensions || Object.values(ik.roomSizeParts(room))[0] || ''"></small></h2>
+        <span class="fw-semibold num">Suma pokoju: <span x-text="ik.pln(ik.roomTotal(room, q.markup_percent))"></span></span>
+        <button type="button" class="btn btn-outline-secondary" @click="openTplSave(room)"><i class="bi bi-bookmark-plus" aria-hidden="true"></i> Zapisz jako szablon</button>
+      </div>
+      <div class="px-3 pt-2" x-show="room.client_comment"><div class="alert alert-warning py-2 mb-2"><i class="bi bi-chat-left-text" aria-hidden="true"></i> <strong>Komentarz klienta:</strong> <span x-text="room.client_comment"></span></div></div>
+      <p class="px-3 pt-2 mb-0 small" x-show="room.notes"><strong>Notatka:</strong> <span x-text="room.notes"></span></p>
+      <table class="table doc-table reflow mb-0">
+        <caption class="visually-hidden" x-text="'Prace: ' + room.name"></caption>
+        <thead><tr><th scope="col">Praca</th><th scope="col" class="text-end">Ilość</th><th scope="col" class="text-end">Cena/j.</th><th scope="col" class="text-end">Wartość</th></tr></thead>
+        <tbody>
+          <template x-for="j in ik.sortJobs(room.jobs)" :key="j.id">
+            <tr><td data-label="Praca" class="reflow-full"><span class="small text-body-secondary" x-text="j.stage + ' › '"></span><span x-text="j.name"></span><small class="d-block text-body-secondary" x-text="j.contractor ? 'Wykonawca: ' + j.contractor : 'bez wykonawcy'"></small></td>
+              <td data-label="Ilość" class="num" x-text="ik.dec(j.quantity) + ' ' + j.unit"></td>
+              <td data-label="Cena/j." class="num" x-text="ik.pln(ik.clientUnitPrice(j, q.markup_percent))"></td>
+              <td data-label="Wartość" class="num fw-semibold" x-text="ik.pln(ik.lineTotal(j, q.markup_percent))"></td></tr>
+          </template>
+        </tbody>
+      </table>
+    </section>
+  </template>
+
+  <section class="card mb-3" aria-labelledby="sum-title">
+    <div class="card-body">
+      <h2 id="sum-title" class="h5">Podsumowanie</h2>
+      <div class="row g-4">
+        <dl class="col-md-6 row mb-0">
+          <dt class="col-7 fw-normal">Pokoje:</dt><dd class="col-5 text-end" x-text="q.rooms.length"></dd>
+          <dt class="col-7 fw-normal">Prace:</dt><dd class="col-5 text-end" x-text="ik.jobsOf(q).length"></dd>
+          <dt class="col-7 fw-normal">Koszt (ekipy + materiały):</dt><dd class="col-5 text-end num" x-text="ik.pln(ik.quoteCost(q))"></dd>
+          <dt class="col-7 fw-normal">Narzut:</dt><dd class="col-5 text-end num" x-text="ik.dec(q.markup_percent) + ' %'"></dd>
+          <dt class="col-7 fw-normal">Marża:</dt><dd class="col-5 text-end num" x-text="ik.pln(totals.net - ik.quoteCost(q))"></dd>
+        </dl>
+        <dl class="col-md-6 row mb-0" data-quote-totals>
+          <dt class="col-7">Razem netto</dt><dd class="col-5 text-end num fw-semibold" id="total-net" x-text="ik.pln(totals.net)"></dd>
+          <dt class="col-7 fw-normal" x-text="'VAT ' + Number(q.vat_rate) + '%'"></dt><dd class="col-5 text-end num" x-text="ik.pln(totals.vat)"></dd>
+          <dt class="col-7">Razem brutto</dt><dd class="col-5 text-end num fw-bold fs-5" x-text="ik.pln(totals.gross)"></dd>
+        </dl>
+      </div>
+      <template x-if="q.notes"><div class="mt-3"><h3 class="h6">Notatki</h3><p class="text-pre mb-0" x-text="q.notes"></p></div></template>
+      <a class="btn btn-outline-secondary mt-3" :href="ik.href('screens/quotes-index.html')"><i class="bi bi-arrow-left" aria-hidden="true"></i> Wróć do listy</a>
+    </div>
+  </section>
+</div>
+</template>
+
+<dialog class="sheet" id="tpl-sheet" aria-labelledby="tpl-sheet-title">
+  <div class="sheet-head px-3 pb-2"><div class="sheet-grip"></div><h2 id="tpl-sheet-title" class="h5 pt-2 mb-0">Zapisz jako szablon</h2></div>
+  <form class="p-3" @submit.prevent="saveTemplate()" novalidate>
+    <div class="alert alert-danger py-2" role="alert" x-show="tplError" x-text="tplError"></div>
+    <label class="form-label" for="tpl-name">Nazwa szablonu</label>
+    <input id="tpl-name" class="form-control" maxlength="100" x-model="tplName" aria-describedby="tpl-hint">
+    <p id="tpl-hint" class="small text-body-secondary">Nowy szablon z wymiarami i pracami pokoju (ilości tylko prac ręcznych).</p>
+    <div class="d-flex gap-2 justify-content-end"><button type="button" class="btn btn-outline-secondary btn-main" @click="document.getElementById('tpl-sheet').close()">Wróć</button><button class="btn btn-primary btn-main">Zapisz szablon</button></div>
+  </form>
+</dialog>
+</main>
+<script type="module">
+import { boot, db, save, nextId, go, toast, ask, idParam } from '../assets/app.js';
+
+boot(() => ({
+  q: null, tplRoom: null, tplName: '', tplError: '',
+  init() {
+    const q = db.quotes.find((x) => x.id === idParam(2));
+    if (!q) { location.replace(ik.href('screens/error-404.html')); return; }
+    this.q = q;
+  },
+  get totals() { return ik.quoteTotals(this.q); },
+  get realization() { return ik.realizationOf(this.q); },
+  get clientHref() { const c = ik.clientByName(this.q.client.name); return ik.href(`screens/client-show.html?id=${c ? c.id : ''}`); },
+  async reopen() {
+    const q = this.q;
+    const ok = await ask({
+      title: 'Przywróć do edycji',
+      text: `Przywrócić wycenę do edycji? Link klienta przestanie pokazywać ofertę do ponownej wysyłki.${q.status === 'accepted' ? ' Akceptacja klienta zostanie anulowana.' : ''}`,
+      points: ['Wycena wróci do statusu „Szkic” — pokoje, prace, dobór i terminy znów będzie można zmieniać.', 'Klient pod swoim linkiem zobaczy „Oferta jest aktualizowana” do ponownej wysyłki.', 'Uwagi klienta zostają w wycenie; przy ponownej wysyłce trafią do notatek.'],
+      ok: 'Przywróć do edycji', okClass: 'warning',
+    });
+    if (!ok) return;
+    Object.assign(q, { status: 'draft', sent_at: null, responded_at: null });
+    save();
+    go(`screens/builder.html?id=${q.id}`, 'Wycena przywrócona do edycji — link klienta pokaże ją dopiero po ponownej wysyłce.');
+  },
+  async convert() {
+    const q = this.q;
+    const ok = await ask({
+      title: 'Przekształć w realizację', text: 'Przekształcić tę wycenę w realizację?',
+      points: ['Pokoje i prace zostaną skopiowane do realizacji z zamrożonymi cenami — zmiany cennika ich nie zmienią.', 'Ruszy link postępu prac dla klienta (/r) — ważny 30 dni.', 'Tej wyceny nie będzie już można przywrócić do edycji.'],
+      ok: 'Przekształć w realizację', okClass: 'success',
+    });
+    if (!ok) return;
+    const id = nextId('real');
+    const rooms = q.rooms.map((room) => ({ ...JSON.parse(JSON.stringify(room)), id: nextId('room'), client_comment: null,
+      jobs: room.jobs.map((j) => ({ ...j, id: nextId('job'), contractor_price: String(ik.laborUnitCost(j)), client_unit_price: String(ik.clientUnitPrice(j, q.markup_percent)), total_price: String(ik.lineTotal(j, q.markup_percent)), status: 'to_do', status_label: 'Do zrobienia', notes: null, internal_notes: null, actual_contractor_price: null })) }));
+    db.realizations.unshift({ id, quote_id: q.id, status: 'planned', settlement: 'on_completion', client: { ...q.client }, markup_percent: q.markup_percent, site_address: q.site_address,
+      planned_start_on: q.planned_start_on, promised_end_on: q.planned_end_on, expected_end_on: q.planned_end_on, total_price: String(this.totals.net), estimated_cost: String(ik.quoteCost(q)),
+      link_valid_until: ik.addDays(ik.todayISO(), 30), rooms, photos: [] });
+    save();
+    go(`screens/realization-show.html?id=${id}`, 'Utworzono realizację z wyceny.');
+  },
+  copy() {
+    const q = this.q; const id = nextId('quote');
+    const rooms = q.rooms.map((room) => ({ ...JSON.parse(JSON.stringify(room)), id: nextId('room'), client_comment: null,
+      jobs: room.jobs.map((j) => { const cat = ik.catJobs().byId.get(j.job_id); return { ...j, id: nextId('job'), contractor: null, contractor_price: null, matched_quantity: null, effective_material_unit_cost: cat ? cat.job.material_unit_cost : j.effective_material_unit_cost, average_price: cat ? cat.job.average_price : j.average_price }; }) }));
+    db.quotes.unshift({ id, notes: null, status: 'draft', client: q.client ? { ...q.client } : null, user: db.users[0].display_name, markup_percent: q.markup_percent, vat_rate: q.vat_rate,
+      site_address: null, planned_start_on: null, planned_end_on: null, suggested_work_days: null, applied_profile_name: null, client_general_comment: null, sent_at: null, responded_at: null, rooms });
+    save();
+    go(`screens/builder.html?id=${id}`, `Utworzono kopię wyceny #${q.id}. Ceny są z aktualnego cennika — dobierz wykonawców i uzupełnij termin oferty.`);
+  },
+  openTplSave(room) { this.tplRoom = room; this.tplName = room.name; this.tplError = ''; document.getElementById('tpl-sheet').showModal(); },
+  saveTemplate() {
+    const room = this.tplRoom; const name = this.tplName.replace(/\s+/g, ' ').trim() || room.name;
+    if (db.templates.some((t) => t.name.toLowerCase() === name.toLowerCase())) { this.tplError = 'Nie można zapisać szablonu: Szablon o tej nazwie już istnieje — zmień nazwę.'; return; }
+    db.templates.push({ id: nextId('template'), name, description: '', order: db.templates.length + 1, length: room.length, width: room.width, height: room.height, holes_area: room.holes_area,
+      jobs: ik.sortJobs(room.jobs).map((j, i) => ({ name: j.name, unit: j.unit, area_type: j.area_type, area_type_label: j.area_type_label, quantity: j.area_type === 'manual' ? String(j.quantity) : null, order: i + 1 })) });
+    save(); document.getElementById('tpl-sheet').close(); toast(`Szablon '${name}' został utworzony.`);
+  },
+}));
+</script>
+</body>
+</html>

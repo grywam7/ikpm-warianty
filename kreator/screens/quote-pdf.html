@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>wycena.pdf — IKPM</title>
+  <link rel="stylesheet" href="../assets/bootstrap/bootstrap.min.css">
+  <link rel="stylesheet" href="../assets/bootstrap-icons/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="../assets/app.css">
+</head>
+<body data-section="public" style="background: #e9ecef">
+  <!-- Statyczny obraz PDF oferty (QuotePdfRenderer): bez kosztu, narzutu, ekip, notatek i uwag klienta. -->
+  <main id="main"><div id="app" class="container-xxl" x-data="page" x-cloak>
+    <template x-if="q">
+      <article class="paper" aria-label="PDF wyceny">
+        <div class="d-flex flex-wrap justify-content-between gap-3">
+          <div><h1 class="h3 mb-1">Wycena #<span x-text="q.id"></span></h1><p class="mb-0">Data wystawienia: <span x-text="dateText(q.sent_at || today)"></span></p></div>
+          <div class="text-sm-end" x-show="from"><strong x-text="from?.display_name"></strong><span class="d-block" x-text="from?.email"></span></div>
+        </div>
+        <h2 class="h6 mt-4">Dane klienta</h2>
+        <div class="label-caps">Klient</div>
+        <p x-show="q.client"><span x-text="q.client?.name"></span><span class="d-block" x-text="q.client?.email"></span><span class="d-block" x-show="q.client?.phone" x-text="q.client?.phone"></span></p>
+        <p x-show="!q.client">(brak klienta)</p>
+        <template x-if="q.site_address || q.planned_start_on || q.planned_end_on">
+          <div><h2 class="h6">Inwestycja</h2>
+            <div class="row g-2 mb-3">
+              <div class="col-sm-4" x-show="q.site_address"><div class="label-caps">Adres inwestycji</div><div x-text="q.site_address"></div></div>
+              <div class="col-sm-4" x-show="q.planned_start_on"><div class="label-caps">Planowany start</div><div x-text="dateText(q.planned_start_on)"></div></div>
+              <div class="col-sm-4" x-show="q.planned_end_on"><div class="label-caps">Termin zakończenia</div><div x-text="dateText(q.planned_end_on)"></div></div>
+            </div></div>
+        </template>
+        <h2 class="h6">Zakres prac</h2>
+        <template x-for="room in q.rooms" :key="room.id">
+          <section class="mb-3">
+            <h3 class="h6 mb-0" x-text="'Pokój: ' + room.name"></h3>
+            <p class="small mb-1" x-show="pdfSize(room)" x-text="pdfSize(room)"></p>
+            <div class="table-wrap" tabindex="0" role="region" :aria-label="'Prace: ' + room.name">
+              <table class="table table-sm table-bordered small mb-0">
+                <thead><tr><th scope="col">Praca</th><th scope="col">Etap</th><th scope="col" class="num-cell">Ilość</th><th scope="col" class="num-cell">Cena jedn. netto</th><th scope="col" class="num-cell">Wartość netto</th></tr></thead>
+                <tbody>
+                  <template x-for="job in sorted(room.jobs)" :key="job.id"><tr><td x-text="job.name"></td><td x-text="job.stage"></td><td class="num-cell" x-text="qtyText(job.quantity, job.unit)"></td><td class="num-cell" x-text="pln(unitPrice(job))"></td><td class="num-cell" x-text="pln(line(job))"></td></tr></template>
+                  <tr x-show="!room.jobs.length"><td colspan="5">(brak prac w tym pokoju)</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </template>
+        <div class="summary-card ms-auto" style="max-width: 20rem"><dl>
+          <dt>Razem netto</dt><dd x-text="pln(sums.net)"></dd>
+          <dt x-text="'VAT ' + Number(q.vat_rate) + '%'"></dt><dd x-text="pln(sums.vat)"></dd>
+          <dt>Razem brutto</dt><dd class="fw-bold" x-text="pln(sums.gross)"></dd>
+        </dl></div>
+        <hr>
+        <p class="small mb-0">Dokument wygenerowany automatycznie przez system IKPM.</p>
+        <p class="small mb-0" x-text="'Kontakt: ' + (from ? from.email : 'noreply@ikpm.local')"></p>
+      </article>
+    </template>
+  </div></main>
+  <script type="module">
+    import { start, getQuote, totals, sortJobs, roomSizeParts, sender, todayISO, ikpm } from '../assets/app.js';
+    const _q = getQuote(new URLSearchParams(location.search).get('id') ?? 2);
+    if (!_q) location.replace('error-404.html');
+    if (_q) document.title = `wycena-${_q.id}.pdf — IKPM`;
+    start(() => ({
+      q: _q, from: _q && sender(_q), today: todayISO(), sorted: sortJobs,
+      get sums() { return totals(this.q); },
+      unitPrice(job) { return ikpm.clientUnitPrice(job, this.q.markup_percent); },
+      line(job) { return ikpm.lineTotal(job, this.q.markup_percent); },
+      pdfSize(room) {
+        const _p = roomSizeParts(room);
+        const _areas = [_p.floor, _p.walls].filter(Boolean).map((t) => t.toLowerCase()).join(', ');
+        if (_p.dimensions) return `Wymiary: ${_p.dimensions}${_areas ? ` — ${_areas}` : ''}`;
+        return _areas ? _areas.charAt(0).toUpperCase() + _areas.slice(1) : '';
+      },
+    }));
+  </script>
+</body>
+</html>

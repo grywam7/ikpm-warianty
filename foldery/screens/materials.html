@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Materiały — IKPM</title>
+<link rel="stylesheet" href="../assets/bootstrap/bootstrap.min.css">
+<link rel="stylesheet" href="../assets/bootstrap-icons/bootstrap-icons.min.css">
+<link rel="stylesheet" href="../assets/app.css">
+</head>
+<body data-screen="materials" data-nav="materials" data-tab="dane">
+<main x-data="page" x-cloak>
+<div class="panes" :data-level="level">
+  <section class="pane pane-list" aria-label="Materiały">
+    <div class="pane-inner">
+      <div class="pane-head"><a class="back-link back-only-phone" :href="link('data')"><i class="bi bi-chevron-left" aria-hidden="true"></i>Dane</a><h1 class="pane-title">Materiały</h1></div>
+      <div class="group"><a class="row-link row-add" :href="link('materials', {id: 'new'})" :aria-current="isNew ? 'page' : null"><span class="row-icon"><i class="bi bi-plus-lg" aria-hidden="true"></i></span>Dodaj materiał</a></div>
+      <h2 class="group-title">Zmiana cen</h2>
+      <form class="card-plain" id="materials-price-change" @submit.prevent="previewChange()">
+        <fieldset><legend class="form-label fs-6">Zakres</legend>
+          <div class="form-check big"><input class="form-check-input" type="radio" name="scope" id="sc-all" value="all" x-model="scope" required><label class="form-check-label" for="sc-all">Wszystkie materiały</label></div>
+          <div class="form-check big"><input class="form-check-input" type="radio" name="scope" id="sc-sel" value="selected" x-model="scope"><label class="form-check-label" for="sc-sel" x-text="'Zaznaczone na liście (' + selected.length + ')'"></label></div></fieldset>
+        <label class="form-label" for="m-pct">Zmień ceny o % <span class="visually-hidden">materiałów</span> (od -90 do 200)</label>
+        <div class="d-flex gap-2"><input id="m-pct" class="form-control" type="number" inputmode="decimal" step="0.1" min="-90" max="200" required x-model="percent"><button type="submit" class="btn btn-outline-primary">Podgląd</button></div>
+      </form>
+      <h2 class="group-title">Lista materiałów</h2>
+      <p class="text-body-secondary" x-show="!db.materials.length">Brak materiałów. Dodaj pierwszy materiał powyżej.</p>
+      <ul class="group">
+        <template x-for="m in filtered()" :key="m.id">
+          <li class="d-flex align-items-center">
+            <label class="d-flex align-items-center justify-content-center flex-shrink-0" style="width:52px;min-height:56px" :for="'sel-' + m.id">
+              <input class="form-check-input m-0" style="width:1.4rem;height:1.4rem" type="checkbox" :id="'sel-' + m.id" :value="m.id" x-model.number="selected" :aria-label="m.name + ' (' + materialPackage(m) + ')'"></label>
+            <a class="row-link ps-1" :href="link('materials', {id: m.id})" :aria-current="cur && cur.id === m.id ? 'page' : null">
+              <span class="row-main"><div class="fw-semibold" x-text="m.name"></div><div class="small text-body-secondary" x-text="'opak. ' + materialPackage(m) + ' · ' + pln(m.price)"></div></span>
+              <i class="bi bi-chevron-right chev" aria-hidden="true"></i></a></li>
+        </template>
+      </ul>
+    </div>
+  </section>
+  <section class="pane pane-folder" aria-label="Materiał">
+    <template x-if="cur || isNew">
+      <div class="pane-inner">
+        <div class="pane-head"><a class="back-link" :href="link('materials')"><i class="bi bi-chevron-left" aria-hidden="true"></i>Materiały</a>
+          <h1 class="pane-title" x-text="isNew ? 'Dodaj materiał' : cur.name"></h1>
+          <div class="pane-sub" x-show="cur" x-text="cur ? pln(materialUnitPrice(cur)) + '/' + cur.unit : ''"></div></div>
+        <form class="card-plain" @submit.prevent="submit()">
+          <label class="form-label" for="mf-name">Nazwa materiału</label><input id="mf-name" class="form-control mb-2" maxlength="100" placeholder="np. Farba lateksowa biała" x-model="form.name">
+          <div class="row g-2">
+            <div class="col-4"><label class="form-label" for="mf-price">Cena (zł)</label><input id="mf-price" class="form-control" type="number" inputmode="decimal" step="any" min="0" x-model="form.price"></div>
+            <div class="col-4"><label class="form-label" for="mf-qty">Ilość</label><input id="mf-qty" class="form-control" type="number" inputmode="decimal" step="any" min="0" x-model="form.quantity"></div>
+            <div class="col-4"><label class="form-label" for="mf-unit">Jedn.</label><select id="mf-unit" class="form-select" x-model="form.unit"><template x-for="u in UNITS" :key="u"><option :value="u" x-text="u" :selected="u === form.unit"></option></template></select></div>
+          </div>
+          <label class="form-label mt-2" for="mf-link">Link do sklepu</label>
+          <div class="d-flex gap-2 mb-3"><input id="mf-link" class="form-control" type="url" placeholder="https://..." x-model="form.link">
+            <template x-if="/^https?:\/\//.test(form.link || '')"><a class="btn btn-outline-secondary btn-icon" :href="form.link" target="_blank" rel="noopener" aria-label="Otwórz link do sklepu"><i class="bi bi-box-arrow-up-right" aria-hidden="true"></i></a></template></div>
+          <div class="d-flex gap-2"><button class="btn btn-primary" type="submit" x-text="isNew ? 'Dodaj' : 'Zapisz'"></button>
+            <template x-if="cur"><button type="button" class="btn btn-outline-danger" @click="destroy()"><i class="bi bi-trash" aria-hidden="true"></i> Usuń</button></template></div>
+        </form>
+      </div>
+    </template>
+  </section>
+</div>
+</main>
+<script type="module">
+import { boot, db, save, intParam, param, link, go, toast, alertBox, confirmBox, flashNext, fold, allJobs, roundHalfUp } from '../assets/app.js';
+boot(() => ({
+  level: 1, cur: null, isNew: false, form: {}, search: '', scope: '', selected: [], percent: '',
+  init() {
+    this.isNew = param('id') === 'new';
+    this.cur = db.materials.find((m) => m.id === intParam('id')) ?? null;
+    this.level = this.cur || this.isNew ? 2 : 1;
+    const _m = this.cur ?? { name: '', price: 0, quantity: 1, unit: 'szt', link: '' };
+    this.form = { name: _m.name, price: String(_m.price), quantity: String(_m.quantity), unit: _m.unit, link: _m.link };
+    document.title = `${this.cur ? `${this.cur.name} — ` : ''}Materiały — IKPM`;
+  },
+  filtered() { return [...db.materials].sort((a, b) => a.name.localeCompare(b.name, 'pl') || a.id - b.id); },
+  usedIn() { return allJobs().filter((j) => j.materials.some((x) => x.material_id === this.cur.id)); },
+  previewChange() {
+    if (this.scope === 'selected' && !this.selected.length) { alertBox('Zaznacz materiały, których ceny chcesz zmienić, albo wybierz „Wszystkie”.'); return; }
+    go('price-change', { scope: 'materials', percent: this.percent, ids: this.scope === 'selected' ? this.selected.join(',') : null });
+  },
+  submit() {
+    const _name = this.form.name.trim(); const _price = Number(this.form.price); const _qty = Number(this.form.quantity);
+    if (!_name) { alertBox('Nazwa nie może być pusta'); return; }
+    if (!(_price >= 0) || _price > 1e6) { alertBox('Cena musi być większa lub równa 0'); return; }
+    if (!(_qty > 0) || _qty > 1e6) { alertBox('Wielkość opakowania musi być większa od 0'); return; }
+    const _data = { name: _name, price: roundHalfUp(_price), quantity: roundHalfUp(_qty), unit: this.form.unit, link: this.form.link };
+    if (this.isNew) {
+      const _m = { id: Math.max(0, ...db.materials.map((m) => m.id)) + 1, ..._data };
+      db.materials.push(_m); save('materials'); flashNext('notice', `Materiał '${_name}' został dodany.`); go('materials', { id: _m.id }); return;
+    }
+    Object.assign(this.cur, _data); save('materials'); toast(`Materiał '${_name}' został zaktualizowany.`);
+  },
+  async destroy() {
+    const _ok = await confirmBox({ title: `Usunąć materiał '${this.cur.name}'?`, consequences: ['Materiał zniknie z listy.'], ok: 'Usuń', okClass: 'btn-danger' }); if (!_ok) return;
+    if (this.usedIn().length) { alertBox('Nie można usunąć, gdyż istnieją zależne od niego materiały prac'); return; }
+    db.materials.splice(db.materials.indexOf(this.cur), 1); save('materials'); flashNext('notice', `Materiał '${this.cur.name}' został usunięty.`); go('materials');
+  },
+}));
+</script>
+</body>
+</html>

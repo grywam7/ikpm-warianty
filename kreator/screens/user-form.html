@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Użytkownik — IKPM</title>
+  <link rel="stylesheet" href="../assets/bootstrap/bootstrap.min.css">
+  <link rel="stylesheet" href="../assets/bootstrap-icons/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="../assets/app.css">
+</head>
+<body data-section="users">
+  <main id="main"><div id="app" class="container-xxl" x-data="page" x-cloak>
+    <h1 class="page-title" x-text="u ? 'Edycja użytkownika ' + u.email : 'Nowy użytkownik'"></h1>
+    <form class="list-card" style="max-width: 44rem" @submit.prevent="save()">
+      <div class="row g-3">
+        <div class="col-12"><label class="form-label" for="u-email">Email</label><input class="form-control" id="u-email" type="email" :value="u?.email ?? ''" required></div>
+        <div class="col-md-6"><label class="form-label" for="u-first">Imię</label><input class="form-control" id="u-first" :value="u?.first_name ?? ''"></div>
+        <div class="col-md-6"><label class="form-label" for="u-last">Nazwisko</label><input class="form-control" id="u-last" :value="u?.last_name ?? ''"></div>
+        <div class="col-md-6"><label class="form-label" for="u-phone">Telefon</label><input class="form-control" id="u-phone" type="tel" placeholder="+48 600 000 000"></div>
+        <div class="col-md-6"><label class="form-label" for="u-pass" x-text="u ? 'Nowe hasło (puste = bez zmiany)' : 'Hasło'"></label><input class="form-control" id="u-pass" type="password" autocomplete="new-password"></div>
+        <div class="col-md-6"><label class="form-label" for="u-pass2">Powtórz hasło</label><input class="form-control" id="u-pass2" type="password" autocomplete="new-password"></div>
+        <fieldset class="col-12"><legend class="form-label fs-6">Role</legend>
+          <template x-for="[k, v] in Object.entries(kit.labels.role)" :key="k">
+            <label class="check-row"><input class="form-check-input" type="checkbox" :checked="u?.roles.includes(k)"> <span x-text="v"></span></label>
+          </template>
+        </fieldset>
+        <template x-if="u">
+          <div class="col-12">
+            <div class="form-check form-switch check-row"><input class="form-check-input" type="checkbox" role="switch" id="u-active" :checked="u.active" aria-describedby="u-active-hint"><label class="form-check-label" for="u-active">Konto aktywne</label></div>
+            <p class="form-text" id="u-active-hint">Nieaktywne konto nie zaloguje się — jego wyceny i realizacje zostają.</p>
+          </div>
+        </template>
+      </div>
+      <div class="d-flex gap-2 justify-content-end mt-3">
+        <a class="btn btn-outline-secondary btn-main" :href="link('screens/users.html')">Anuluj</a>
+        <button class="btn btn-primary btn-main" type="submit">Zapisz</button>
+      </div>
+    </form>
+  </div></main>
+  <script type="module">
+    import { start, kit, go } from '../assets/app.js';
+    const _email = new URLSearchParams(location.search).get('email');
+    start(() => ({
+      u: kit.users.find((x) => x.email === _email) ?? null,
+      save() { go('screens/users.html', this.u ? 'Użytkownik zaktualizowany.' : 'Użytkownik utworzony.'); },
+    }));
+  </script>
+</body>
+</html>

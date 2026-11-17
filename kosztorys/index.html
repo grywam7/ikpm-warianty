@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>IKPM — System kosztorysów</title>
+<link rel="stylesheet" href="assets/bootstrap/bootstrap.min.css">
+<link rel="stylesheet" href="assets/bootstrap-icons/bootstrap-icons.min.css">
+<link rel="stylesheet" href="assets/app.css">
+</head>
+<body data-nav="start">
+<div id="nav"></div>
+<main x-data="page" x-cloak class="container-xxl px-3 mw-doc pb-5">
+  <div id="alerts"></div>
+  <div class="d-grid d-sm-flex flex-wrap align-items-center gap-2 my-3">
+    <h1 class="h3 mb-0 me-sm-auto">Start</h1>
+    <a class="btn btn-success btn-main" :href="ik.href('screens/quotes-new.html?mode=rooms')"><i class="bi bi-grid-3x2" aria-hidden="true"></i> Nowa wycena (pokoje)</a>
+    <a class="btn btn-outline-success btn-main" :href="ik.href('screens/quotes-new.html?mode=simple')"><i class="bi bi-file-earmark-plus" aria-hidden="true"></i> Nowa wycena (prosta)</a>
+  </div>
+
+  <section class="card mb-4" aria-labelledby="real-title">
+    <div class="card-header bg-body d-flex flex-wrap align-items-center gap-2">
+      <h2 id="real-title" class="h5 mb-0 me-auto"><i class="bi bi-hammer" aria-hidden="true"></i> Realizacje w toku</h2>
+      <a class="btn btn-sm btn-outline-secondary text-nowrap" :href="ik.href('screens/realizations-index.html')">Lista realizacji</a>
+    </div>
+    <p class="card-body mb-0 text-body-secondary" x-show="!realizations.length">Brak realizacji planowanych i w trakcie.</p>
+    <table class="table doc-table reflow mb-0" x-show="realizations.length">
+      <caption class="visually-hidden">Realizacje planowane i w trakcie</caption>
+      <thead class="table-light"><tr><th scope="col">Realizacja</th><th scope="col">Status</th><th scope="col" style="min-width: 12rem">Postęp prac</th><th scope="col">Termin</th><th scope="col"><span class="visually-hidden">Akcja</span></th></tr></thead>
+      <tbody>
+        <template x-for="r in realizations" :key="r.id">
+          <tr>
+            <td data-label="Realizacja" class="reflow-full"><strong x-text="'#' + r.id + ' ' + r.client.name"></strong><small class="d-block text-body-secondary" x-text="r.site_address"></small></td>
+            <td data-label="Status" x-html="ik.realBadge(r.status)"></td>
+            <td data-label="Postęp prac"><div class="d-flex align-items-center gap-2 w-100"><div class="progress flex-grow-1" role="progressbar" :aria-label="'Postęp prac #' + r.id" :aria-valuenow="ik.progress(r)" aria-valuemin="0" aria-valuemax="100"><div class="progress-bar bg-success" :style="'width:' + ik.progress(r) + '%'"></div></div><span class="small num text-nowrap" x-text="ik.progress(r) + '% (' + ik.doneCount(r) + ' / ' + ik.realJobs(r).length + ')'"></span></div></td>
+            <td data-label="Termin"><span x-text="ik.date(ik.endOn(r))"></span><small class="d-block text-danger" x-show="ik.delayed(r)" x-text="'obiecany ' + ik.date(r.promised_end_on)"></small></td>
+            <td class="text-end"><a class="btn btn-primary btn-main" :href="ik.href('screens/realization-show.html?id=' + r.id)" :aria-label="'Otwórz realizację #' + r.id">Otwórz</a></td>
+          </tr>
+        </template>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="card mb-4" aria-labelledby="quotes-title">
+    <div class="card-header bg-body d-flex flex-wrap align-items-center gap-2">
+      <h2 id="quotes-title" class="h5 mb-0 me-auto"><i class="bi bi-file-earmark-text" aria-hidden="true"></i> Wyceny czekające na następny krok</h2>
+      <a class="btn btn-sm btn-outline-secondary text-nowrap" :href="ik.href('screens/quotes-index.html')">Lista wycen</a>
+    </div>
+    <template x-for="g in groups" :key="g.key">
+      <div x-show="g.quotes.length">
+        <h3 class="h6 px-3 pt-3 mb-2 d-flex align-items-center gap-2"><span x-html="ik.quoteBadge(g.status)"></span> <span x-text="g.title"></span> <span class="badge rounded-pill text-bg-light border" x-text="g.quotes.length"></span></h3>
+        <table class="table doc-table reflow mb-0">
+          <caption class="visually-hidden" x-text="g.title"></caption>
+          <thead><tr><th scope="col">Wycena</th><th scope="col">Adres inwestycji</th><th scope="col" class="text-end">Wartość</th><th scope="col"><span class="visually-hidden">Akcja</span></th></tr></thead>
+          <tbody>
+            <template x-for="q in g.quotes" :key="q.id">
+              <tr>
+                <td data-label="Wycena" class="reflow-full"><strong x-text="'#' + q.id + ' ' + (q.client ? q.client.name : '(brak klienta)')"></strong>
+                  <small class="d-block text-warning-emphasis" x-show="ik.clientComments(q)"><i class="bi bi-chat-left-text" aria-hidden="true"></i> Uwagi klienta</small></td>
+                <td data-label="Adres inwestycji" x-text="q.site_address || '—'"></td>
+                <td data-label="Wartość" class="num" x-text="ik.pln(ik.quoteTotals(q).net)"></td>
+                <td class="text-end"><a class="btn btn-outline-primary btn-main" :href="ik.href('screens/' + (q.status === 'draft' ? 'builder' : 'quote-show') + '.html?id=' + q.id)" :aria-label="(q.status === 'draft' ? 'Edytuj' : 'Podgląd') + ' — wycena #' + q.id" x-text="q.status === 'draft' ? 'Edytuj' : 'Podgląd'"></a></td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    </template>
+  </section>
+</main>
+<script type="module">
+import { boot, db } from './assets/app.js';
+
+boot(() => ({
+  get realizations() { return db.realizations.filter((r) => ik.realActive(r)).sort((a, b) => (a.status === 'in_progress' ? 0 : 1) - (b.status === 'in_progress' ? 0 : 1) || b.id - a.id); },
+  get groups() {
+    const by = (status, extra = () => true) => [...db.quotes].filter((q) => q.status === status && extra(q)).sort((a, b) => b.id - a.id);
+    return [
+      { key: 'cr', status: 'changes_requested', title: 'klient czeka na poprawioną ofertę', quotes: by('changes_requested') },
+      { key: 'draft', status: 'draft', title: 'do dokończenia i wysłania', quotes: by('draft') },
+      { key: 'acc', status: 'accepted', title: 'bez realizacji', quotes: by('accepted', (q) => !ik.realizationOf(q)) },
+      { key: 'sent', status: 'sent', title: 'czeka na odpowiedź klienta', quotes: by('sent') },
+    ];
+  },
+}));
+</script>
+</body>
+</html>

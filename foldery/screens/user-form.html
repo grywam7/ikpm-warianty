@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Użytkownik — IKPM</title>
+<link rel="stylesheet" href="../assets/bootstrap/bootstrap.min.css">
+<link rel="stylesheet" href="../assets/bootstrap-icons/bootstrap-icons.min.css">
+<link rel="stylesheet" href="../assets/app.css">
+</head>
+<body data-screen="user-form" data-nav="users" data-tab="wiecej">
+<main x-data="page" x-cloak>
+<div class="panes" data-level="2">
+  <section class="pane pane-list" aria-label="Użytkownicy" data-partial="user-list"></section>
+  <section class="pane pane-folder" aria-label="Formularz użytkownika">
+    <div class="pane-inner">
+      <div class="pane-head"><a class="back-link" :href="link('users')"><i class="bi bi-chevron-left" aria-hidden="true"></i>Użytkownicy</a>
+        <h1 class="pane-title overflow-anywhere" x-text="u ? 'Edycja użytkownika ' + u.email : 'Nowy użytkownik'"></h1></div>
+      <form class="card-plain" @submit.prevent="submit()" novalidate>
+        <div class="alert alert-danger" role="alert" x-show="errors.length"><ul class="mb-0 ps-3"><template x-for="e in errors"><li x-text="e"></li></template></ul></div>
+        <label class="form-label" for="uf-email">Email</label><input id="uf-email" class="form-control mb-2" type="email" autocomplete="off" x-model="form.email">
+        <div class="row g-2"><div class="col-sm-6"><label class="form-label" for="uf-first">Imię</label><input id="uf-first" class="form-control" x-model="form.first_name"></div>
+          <div class="col-sm-6"><label class="form-label" for="uf-last">Nazwisko</label><input id="uf-last" class="form-control" x-model="form.last_name"></div></div>
+        <label class="form-label mt-2" for="uf-phone">Telefon</label><input id="uf-phone" class="form-control mb-2" type="tel" title="Numer telefonu: cyfry, spacje oraz + ( ) -" x-model="form.phone">
+        <label class="form-label" for="uf-pass" x-text="u ? 'Nowe hasło (puste = bez zmiany)' : 'Hasło'"></label><input id="uf-pass" class="form-control mb-2" type="password" autocomplete="new-password" x-model="form.password">
+        <label class="form-label" for="uf-pass2">Powtórz hasło</label><input id="uf-pass2" class="form-control mb-2" type="password" autocomplete="new-password" x-model="form.password2">
+        <fieldset class="mb-2"><legend class="form-label fs-6">Role</legend>
+          <template x-for="[k, l] in Object.entries(ROLES)" :key="k"><div class="form-check big"><input class="form-check-input" type="checkbox" :id="'role-' + k" :value="k" x-model="form.roles"><label class="form-check-label" :for="'role-' + k" x-text="l"></label></div></template></fieldset>
+        <template x-if="u"><div class="mb-3"><div class="form-check form-switch big"><input class="form-check-input" type="checkbox" role="switch" id="uf-active" x-model="form.active" aria-describedby="uf-active-hint"><label class="form-check-label" for="uf-active">Konto aktywne</label></div>
+          <div class="small text-body-secondary" id="uf-active-hint">Nieaktywne konto nie zaloguje się — jego wyceny i realizacje zostają.</div></div></template>
+        <div class="d-flex gap-2"><button class="btn btn-primary btn-main px-4" type="submit">Zapisz</button><a class="btn btn-outline-secondary btn-main px-4" :href="link('users')">Anuluj</a></div>
+      </form>
+    </div>
+  </section>
+</div>
+</main>
+<script type="module">
+import { boot, db, save, intParam, go, flashNext, alertBox } from '../assets/app.js';
+boot(() => ({
+  u: null, form: { email: '', first_name: '', last_name: '', phone: '', password: '', password2: '', roles: [], active: true }, errors: [],
+  init() {
+    this.u = db.users.find((x) => x.id === intParam('id')) ?? null;
+    if (this.u) { this.currentUserId = this.u.id; this.form = { ...this.form, email: this.u.email, first_name: this.u.first_name, last_name: this.u.last_name, phone: this.u.phone, roles: [...this.u.roles], active: this.u.active }; }
+    document.title = `${this.u ? `Edycja użytkownika ${this.u.email}` : 'Nowy użytkownik'} — IKPM`;
+  },
+  submit() {
+    const _f = this.form; const _e = [];
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(_f.email)) _e.push(_f.email ? 'Email jest nieprawidłowy' : 'Email nie może być pusty');
+    if (!this.u && !_f.password) _e.push('Hasło nie może być puste');
+    if (_f.password && _f.password.length < 6) _e.push('Hasło jest za krótkie (przynajmniej 6 znaków)');
+    if (_f.password !== _f.password2) _e.push('Powtórz hasło musi być takie samo jak hasło');
+    this.errors = _e; if (_e.length) return;
+    if (this.u && this.u.id === db.me.id && !_f.roles.includes('admin')) { flashNext('alert', 'Nie możesz odebrać sobie roli administratora.'); location.reload(); return; }
+    if (this.u && this.u.id === db.me.id && !_f.active) { flashNext('alert', 'Nie możesz dezaktywować własnego konta.'); location.reload(); return; }
+    const _data = { email: _f.email, first_name: _f.first_name, last_name: _f.last_name, phone: _f.phone, roles: _f.roles };
+    if (this.u) { Object.assign(this.u, _data, { active: _f.active }); save('users'); flashNext('notice', 'Użytkownik zaktualizowany.'); go('users'); return; }
+    db.users.push({ id: Math.max(0, ...db.users.map((x) => x.id)) + 1, ..._data, active: true }); save('users'); flashNext('notice', 'Użytkownik utworzony.'); go('users');
+  },
+}));
+</script>
+</body>
+</html>

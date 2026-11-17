@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Klienci — IKPM</title>
+<link rel="stylesheet" href="../assets/bootstrap/bootstrap.min.css">
+<link rel="stylesheet" href="../assets/bootstrap-icons/bootstrap-icons.min.css">
+<link rel="stylesheet" href="../assets/app.css">
+</head>
+<body data-screen="clients" data-nav="clients" data-tab="wyceny">
+<main x-data="page" x-cloak>
+<div class="panes" data-level="1">
+  <section class="pane pane-list" aria-label="Klienci" data-partial="client-list"></section>
+  <section class="pane pane-empty" aria-label="Szczegóły"><div class="pane-inner"><i class="bi bi-people fs-1" aria-hidden="true"></i><p class="mt-2">Wybierz klienta z listy.</p>
+    <a class="btn btn-primary" :href="link('client-form')">Nowy klient</a></div></section>
+</div>
+</main>
+<script type="module">
+import { boot } from '../assets/app.js';
+boot();
+</script>
+</body>
+</html>

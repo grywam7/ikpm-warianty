@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Postęp prac — IKPM</title>
+<link rel="stylesheet" href="../assets/bootstrap/bootstrap.min.css">
+<link rel="stylesheet" href="../assets/bootstrap-icons/bootstrap-icons.min.css">
+<link rel="stylesheet" href="../assets/app.css">
+</head>
+<body data-screen="public-realization">
+<main x-data="page" x-cloak>
+<div class="public-bar">IKPM</div>
+<div class="public-main">
+<template x-if="r">
+  <div>
+    <h1 class="h2 mb-0">Postęp prac</h1><div class="text-body-secondary mb-3" x-text="'dla ' + clientName(r)"></div>
+    <div class="row g-3">
+      <div class="col-md-6"><div class="card-plain h-100"><div class="doc-label">Od</div><div class="fw-semibold" x-text="sender()"></div><div class="small" x-text="db.me.email"></div></div></div>
+      <div class="col-md-6"><div class="card-plain h-100"><div class="doc-label">Status realizacji</div><div class="mt-1" x-html="realBadge(r)"></div></div></div>
+    </div>
+    <div class="card-plain mt-3">
+      <div class="d-flex justify-content-between"><span class="fw-semibold">Postęp prac</span><span x-text="progressOf(rJobs(r)).pct + '% (' + progressOf(rJobs(r)).done + ' / ' + progressOf(rJobs(r)).all + ')'"></span></div>
+      <div class="progress mt-1" style="height:12px" role="progressbar" aria-label="Postęp prac" aria-valuemin="0" aria-valuemax="100" :aria-valuenow="progressOf(rJobs(r)).pct"><div class="progress-bar bg-success" :style="'width:' + progressOf(rJobs(r)).pct + '%'"></div></div>
+      <div class="row g-2 mt-2" x-show="r.status !== 'cancelled'">
+        <div class="col-sm-6" x-show="r.site_address"><div class="doc-label">Adres inwestycji</div><div x-text="r.site_address"></div></div>
+        <div class="col-sm-6"><div class="doc-label">Termin zakończenia</div><div x-text="endText()"></div></div>
+      </div>
+    </div>
+    <template x-for="pr in r.rooms" :key="pr.id">
+      <section class="mt-4"><h2 class="h4" x-text="pr.name"></h2>
+        <ul class="group">
+          <template x-for="j in sortJobs(pr.jobs)" :key="j.id">
+            <li class="row-item flex-wrap"><span class="row-main"><div x-text="j.name"></div><div class="small text-body-secondary" x-text="j.stage"></div>
+              <div class="small mt-1"><b>Komentarz:</b> <span x-text="j.notes || '—'"></span></div></span><span class="row-end" x-html="jobBadge(j.status)"></span></li>
+          </template>
+          <li class="row-item" x-show="!pr.jobs.length"><span class="text-body-secondary">(brak prac w tym pomieszczeniu)</span></li>
+        </ul>
+      </section>
+    </template>
+    <template x-if="visiblePhotos().length">
+      <section class="mt-4"><h2 class="h4">Zdjęcia</h2>
+        <template x-for="grp in photoGroups()" :key="grp.key"><div><h3 class="group-title" x-text="grp.name"></h3>
+          <div class="photo-grid"><template x-for="p in grp.photos" :key="p.id"><div class="photo-card"><div class="photo-thumb">
+            <template x-if="p.src"><img :src="p.src" :alt="p.filename"></template><template x-if="!p.src"><span><i class="bi bi-image fs-2" aria-hidden="true"></i><br><span x-text="p.filename"></span></span></template></div></div></template></div></div></template>
+      </section>
+    </template>
+  </div>
+</template>
+</div><footer class="text-center small text-body-secondary py-4">Wygenerowane przez system IKPM.</footer>
+</main>
+<script type="module">
+import { boot, db, intParam, link, todayISO, date } from '../assets/app.js';
+boot(() => ({
+  r: null,
+  init() {
+    const _r = db.realizations.find((x) => x.id === intParam('id')) ?? null;
+    if (!_r || (_r.link_valid_until && _r.link_valid_until < todayISO())) { location.replace(link('error-404')); return; }
+    this.r = _r; document.title = 'Postęp prac — IKPM';
+  },
+  sender() { return `${db.me.first_name} ${db.me.last_name}`.trim() || 'Zespół IKPM'; },
+  endText() {
+    if (this.r.status === 'done') return `Zakończono ${date(this.r.completed_on)}`;
+    if (this.r.expected_end_on && this.r.promised_end_on && this.r.expected_end_on !== this.r.promised_end_on) return `Pierwotnie obiecany ${date(this.r.promised_end_on)}, aktualnie przewidywany ${date(this.r.expected_end_on)}`;
+    return date(this.r.expected_end_on || this.r.promised_end_on);
+  },
+  visiblePhotos() { return this.r.photos.filter((p) => p.client_visible); },
+  photoGroups() {
+    const _v = this.visiblePhotos();
+    return [{ key: 'none', name: 'Ogólne', photos: _v.filter((p) => !p.room_id) }, ...this.r.rooms.map((pr) => ({ key: pr.id, name: pr.name, photos: _v.filter((p) => p.room_id === pr.id) }))].filter((g) => g.photos.length);
+  },
+}), { shell: false });
+</script>
+</body>
+</html>

@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mail z linkiem do postępu — IKPM</title>
+  <link rel="stylesheet" href="../assets/bootstrap/bootstrap.min.css">
+  <link rel="stylesheet" href="../assets/bootstrap-icons/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="../assets/app.css">
+</head>
+<body data-section="mail">
+  <main id="main"><div id="app" class="container-xxl" x-data="page" x-cloak>
+    <template x-if="r">
+      <article class="mail" aria-label="Wiadomość e-mail z linkiem do postępu prac">
+        <div class="mail-head small">
+          <div><strong>Od:</strong> IKPM &lt;noreply@ikpm.local&gt;</div>
+          <div><strong>Do:</strong> <span x-text="r.client.email"></span></div>
+          <div><strong>Temat:</strong> <span x-text="'Postęp prac — ' + r.client.name"></span></div>
+        </div>
+        <div class="mail-body">
+          <h1 class="visually-hidden" x-text="'Postęp prac — ' + r.client.name"></h1>
+          <p>Witamy,</p>
+          <p>Zapraszamy do śledzenia postępu Państwa prac:<br><a class="tap-link text-break" :href="link('screens/public-realization.html?id=' + r.id)" x-text="location.origin + '/r/' + r.id"></a></p>
+          <p class="mb-0">Zespół</p>
+        </div>
+      </article>
+    </template>
+  </div></main>
+  <script type="module">
+    import { start, getRealization } from '../assets/app.js';
+    start(() => ({ r: getRealization(new URLSearchParams(location.search).get('id') ?? 1), location }));
+  </script>
+</body>
+</html>

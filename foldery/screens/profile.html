@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mój profil — IKPM</title>
+<link rel="stylesheet" href="../assets/bootstrap/bootstrap.min.css">
+<link rel="stylesheet" href="../assets/bootstrap-icons/bootstrap-icons.min.css">
+<link rel="stylesheet" href="../assets/app.css">
+</head>
+<body data-screen="profile" data-nav="profile" data-tab="wiecej">
+<main x-data="page" x-cloak>
+<div class="page"><div class="pane-inner">
+<div class="pane-head"><a class="back-link back-only-phone" :href="link('more')"><i class="bi bi-chevron-left" aria-hidden="true"></i>Więcej</a><h1 class="pane-title">Mój profil</h1></div>
+<form class="card-plain" style="max-width:560px" @submit.prevent="submit()" novalidate>
+  <div class="alert alert-danger" role="alert" x-show="errors.length"><ul class="mb-0 ps-3"><template x-for="e in errors"><li x-text="e"></li></template></ul></div>
+  <label class="form-label" for="p-first">Imię</label><input id="p-first" class="form-control mb-2" x-model="form.first_name">
+  <label class="form-label" for="p-last">Nazwisko</label><input id="p-last" class="form-control mb-2" x-model="form.last_name">
+  <label class="form-label" for="p-phone">Telefon</label><input id="p-phone" class="form-control" type="tel" placeholder="np. +48 600 000 000" aria-describedby="p-phone-hint" x-model="form.phone">
+  <div class="small text-body-secondary mb-2" id="p-phone-hint">Numer telefonu: cyfry, spacje oraz + ( ) -</div>
+  <label class="form-label" for="p-email">Email</label><input id="p-email" class="form-control" type="email" readonly :value="db.me.email">
+  <div class="small mb-3">Aby zmienić email lub hasło, przejdź do <a :href="link('account-edit')">ustawień konta</a>.</div>
+  <button class="btn btn-primary btn-main px-4" type="submit">Zapisz</button>
+</form>
+</div></div>
+</main>
+<script type="module">
+import { boot, db, save, toast } from '../assets/app.js';
+boot(() => ({
+  form: {}, errors: [],
+  init() { this.form = { first_name: db.me.first_name, last_name: db.me.last_name, phone: db.me.phone }; },
+  submit() {
+    this.errors = this.form.phone && !/^[0-9 +()-]{7,20}$/.test(this.form.phone) ? ['Telefon jest nieprawidłowy'] : [];
+    if (this.errors.length) return;
+    Object.assign(db.me, this.form); save('users'); toast('Profil zaktualizowany.');
+  },
+}));
+</script>
+</body>
+</html>

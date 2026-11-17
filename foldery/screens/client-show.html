@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Klient — IKPM</title>
+<link rel="stylesheet" href="../assets/bootstrap/bootstrap.min.css">
+<link rel="stylesheet" href="../assets/bootstrap-icons/bootstrap-icons.min.css">
+<link rel="stylesheet" href="../assets/app.css">
+</head>
+<body data-screen="client-show" data-nav="clients" data-tab="wyceny">
+<main x-data="page" x-cloak>
+<template x-if="c">
+<div class="panes" data-level="2">
+  <section class="pane pane-list" aria-label="Klienci" data-partial="client-list"></section>
+  <section class="pane pane-folder" aria-label="Klient">
+    <div class="pane-inner">
+      <div class="pane-head"><a class="back-link" :href="link('clients')"><i class="bi bi-chevron-left" aria-hidden="true"></i>Klienci</a><h1 class="pane-title" x-text="c.name"></h1></div>
+      <div class="d-flex gap-2 mb-3"><a class="btn btn-outline-primary" :href="link('client-form', {id: c.id})"><i class="bi bi-pencil" aria-hidden="true"></i> Edytuj</a>
+        <button type="button" class="btn btn-outline-danger" @click="destroy()"><i class="bi bi-trash" aria-hidden="true"></i> Usuń</button></div>
+      <ul class="group">
+        <li class="row-item"><span class="row-main text-body-secondary">Email</span><span class="row-end overflow-anywhere"><a class="tap" x-show="c.email" :href="'mailto:' + c.email" x-text="c.email"></a><span x-show="!c.email">—</span></span></li>
+        <li class="row-item"><span class="row-main text-body-secondary">Telefon</span><span class="row-end"><a class="tap" x-show="c.phone" :href="'tel:' + c.phone.replace(/\s/g, '')" x-text="c.phone"></a><span x-show="!c.phone">—</span></span></li>
+        <li class="row-item"><span class="row-main text-body-secondary">Notatki</span><span class="row-end" x-text="c.notes || '—'"></span></li>
+      </ul>
+      <h2 class="group-title">Wyceny</h2>
+      <ul class="group">
+        <template x-for="q in quotesSorted().filter(x => x.client_id === c.id)" :key="q.id">
+          <li><a class="row-link" :href="quoteHref(q)"><span class="row-main"><div class="fw-semibold">Wycena #<span x-text="q.id"></span></div>
+            <div class="small text-body-secondary" x-text="'Utworzona: ' + date(q.created_on) + ' · Wysłana: ' + date(q.sent_at)"></div></span>
+            <span class="row-end small"><span x-html="quoteBadge(q)"></span><div class="mt-1" x-text="pln(netTotal(q))"></div></span><i class="bi bi-chevron-right chev" aria-hidden="true"></i></a></li>
+        </template>
+        <li class="row-item" x-show="!db.quotes.some(x => x.client_id === c.id)"><span class="text-body-secondary">Brak wycen.</span></li>
+      </ul>
+      <h2 class="group-title">Realizacje</h2>
+      <ul class="group">
+        <template x-for="r in realizationsSorted().filter(x => x.client_id === c.id)" :key="r.id">
+          <li><a class="row-link" :href="link('realization-show', {id: r.id})"><span class="row-main"><div class="fw-semibold">Realizacja #<span x-text="r.id"></span></div>
+            <div class="small" x-text="'Wartość (z wyceny): ' + pln(r.total_price)"></div>
+            <div class="progress mini-progress mt-1" role="progressbar" :aria-label="'Postęp prac realizacji #' + r.id" aria-valuemin="0" aria-valuemax="100" :aria-valuenow="progressOf(rJobs(r)).pct"><div class="progress-bar bg-success" :style="'width:' + progressOf(rJobs(r)).pct + '%'"></div></div></span>
+            <span class="row-end small"><span x-html="realBadge(r)"></span><div class="mt-1" x-text="progressOf(rJobs(r)).pct + '%'"></div></span><i class="bi bi-chevron-right chev" aria-hidden="true"></i></a></li>
+        </template>
+        <li class="row-item" x-show="!db.realizations.some(x => x.client_id === c.id)"><span class="text-body-secondary">Brak realizacji.</span></li>
+      </ul>
+    </div>
+  </section>
+</div>
+</template>
+</main>
+<script type="module">
+import { boot, db, save, intParam, link, go, alertBox, confirmBox, flashNext } from '../assets/app.js';
+boot(() => ({
+  c: null,
+  init() {
+    const _c = db.clients.find((x) => x.id === intParam('id')) ?? null;
+    if (!_c) { location.replace(link('error-404')); return; }
+    this.currentClientId = _c.id; this.c = _c; document.title = `${_c.name} — Klienci — IKPM`;
+  },
+  async destroy() {
+    const _ok = await confirmBox({ title: `Usunąć klienta „${this.c.name}”?`, consequences: ['Klient zniknie z bazy — klienta z wycenami lub realizacjami nie da się usunąć.'], ok: 'Usuń', okClass: 'btn-danger' }); if (!_ok) return;
+    if (db.quotes.some((q) => q.client_id === this.c.id)) { alertBox('Nie można usunąć, gdyż istnieją zależne od niego wyceny'); return; }
+    if (db.realizations.some((r) => r.client_id === this.c.id)) { alertBox('Nie można usunąć, gdyż istnieją zależne od niego realizacje'); return; }
+    db.clients.splice(db.clients.indexOf(this.c), 1); save('clients'); flashNext('notice', 'Klient usunięty.'); go('clients');
+  },
+}));
+</script>
+</body>
+</html>

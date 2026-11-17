@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Wyceny — IKPM</title>
+  <link rel="stylesheet" href="../assets/bootstrap/bootstrap.min.css">
+  <link rel="stylesheet" href="../assets/bootstrap-icons/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="../assets/app.css">
+</head>
+<body data-section="quotes">
+  <main id="main"><div id="app" class="container-xxl" x-data="page" x-cloak>
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 page-title">
+      <h1 class="mb-0">Wyceny</h1>
+      <div class="d-flex flex-wrap gap-2">
+        <a class="btn btn-primary btn-main" :href="link('screens/quotes-new.html?mode=rooms')"><i class="bi bi-plus-lg" aria-hidden="true"></i> Nowa wycena (pokoje)</a>
+        <a class="btn btn-outline-primary btn-main" :href="link('screens/quotes-new.html?mode=simple')"><i class="bi bi-plus-lg" aria-hidden="true"></i> Nowa wycena (prosta)</a>
+        <a class="btn btn-outline-secondary btn-main" :href="link('screens/clients.html')"><i class="bi bi-people" aria-hidden="true"></i> Klienci</a>
+      </div>
+    </div>
+    <template x-for="q in list" :key="q.id">
+      <article class="list-card">
+        <div class="row g-2 align-items-center">
+          <div class="col-lg-4 min-w-0">
+            <a class="fw-semibold tap-link" :href="link('screens/quote-show.html?id=' + q.id)" x-text="'Wycena #' + q.id"></a>
+            <span x-html="badge('quote', q.status)"></span>
+            <span class="d-block" x-text="q.client?.name || '(brak klienta)'"></span>
+            <span class="d-block small" x-show="q.site_address" x-text="q.site_address"></span>
+          </div>
+          <div class="col-lg-4">
+            <dl class="row small mb-0 g-0">
+              <dt class="col-4 fw-normal">Pokoje</dt><dd class="col-8 mb-0" x-text="q.rooms.length"></dd>
+              <dt class="col-4 fw-normal">Prace</dt><dd class="col-8 mb-0" x-text="jobCount(q)"></dd>
+              <dt class="col-4 fw-normal">Wartość</dt><dd class="col-8 mb-0 fw-semibold" x-text="pln(net(q))"></dd>
+              <dt class="col-4 fw-normal">Wysłana</dt><dd class="col-8 mb-0" x-text="dateText(q.sent_at)"></dd>
+              <dt class="col-4 fw-normal">Odpowiedź</dt><dd class="col-8 mb-0" x-text="dateText(q.responded_at)"></dd>
+            </dl>
+          </div>
+          <div class="col-lg-4 d-flex flex-wrap gap-2 justify-content-lg-end">
+            <template x-if="q.status === 'draft'"><a class="btn btn-primary" :href="builderLink(q, nextStep(q).step)" x-text="nextStep(q).label"></a></template>
+            <template x-if="q.status === 'draft'"><a class="btn btn-outline-primary" :href="builderLink(q, 'sprawdz')">Edytuj</a></template>
+            <a class="btn btn-outline-secondary btn-icon" :href="link('screens/quote-show.html?id=' + q.id)" :aria-label="'Podgląd: wycena #' + q.id" title="Podgląd"><i class="bi bi-eye" aria-hidden="true"></i></a>
+            <button type="button" class="btn btn-outline-secondary btn-icon" @click="copy(q)" :aria-label="'Kopiuj: wycena #' + q.id" title="Kopiuj"><i class="bi bi-copy" aria-hidden="true"></i></button>
+            <template x-if="q.status === 'draft'"><button type="button" class="btn btn-outline-danger btn-icon" @click="askDelete(q)" :aria-label="'Usuń: wycena #' + q.id" title="Usuń"><i class="bi bi-trash" aria-hidden="true"></i></button></template>
+          </div>
+        </div>
+      </article>
+    </template>
+    <p x-show="!list.length">Brak wycen. Utwórz pierwszą wycenę.</p>
+  </div></main>
+  <script type="module">
+    import { start, quotes, quoteJobs, totals, nextStep, builderLink, copyQuote, saveQuote, go } from '../assets/app.js';
+    start(() => ({
+      list: quotes(), nextStep, builderLink,
+      jobCount: (q) => quoteJobs(q).length,
+      net: (q) => totals(q).net,
+      copy(q) { const _c = copyQuote(q); go(`screens/builder.html?id=${_c.id}&krok=sprawdz`, `Utworzono kopię wyceny #${q.id}. Ceny są z aktualnego cennika — dobierz wykonawców i uzupełnij termin oferty.`); },
+      askDelete(q) {
+        this.$store.confirm.ask({ title: `Usunąć wycenę #${q.id}?`, lines: ['Szkic zniknie razem z pokojami i pracami. Tego nie da się cofnąć.'], ok: 'Usuń', variant: 'danger',
+          run: () => { q.deleted = true; saveQuote(q); this.list = quotes(); this.$store.toast.show('Wycena usunięta.'); } });
+      },
+    }));
+  </script>
+</body>
+</html>

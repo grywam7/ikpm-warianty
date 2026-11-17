@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wyceny — IKPM</title>
+<link rel="stylesheet" href="../assets/bootstrap/bootstrap.min.css">
+<link rel="stylesheet" href="../assets/bootstrap-icons/bootstrap-icons.min.css">
+<link rel="stylesheet" href="../assets/app.css">
+</head>
+<body data-screen="quotes-index" data-nav="quotes-index" data-tab="wyceny">
+<main x-data="page" x-cloak>
+<div class="panes" data-level="1">
+  <section class="pane pane-list" aria-label="Lista wycen" data-partial="quote-list"></section>
+  <section class="pane pane-empty" aria-label="Szczegóły">
+    <div class="pane-inner">
+      <i class="bi bi-folder2-open fs-1" aria-hidden="true"></i>
+      <p class="mt-2">Wybierz wycenę z listy albo utwórz nową.</p>
+      <div class="d-flex flex-wrap gap-2 justify-content-center">
+        <a class="btn btn-primary" :href="link('quotes-new', {mode: 'rooms'})">Nowa wycena (pokoje)</a>
+        <a class="btn btn-outline-primary" :href="link('quotes-new', {mode: 'simple'})">Nowa wycena (prosta)</a>
+      </div>
+    </div>
+  </section>
+</div>
+</main>
+<script type="module">
+import { boot } from '../assets/app.js';
+boot();
+</script>
+</body>
+</html>
