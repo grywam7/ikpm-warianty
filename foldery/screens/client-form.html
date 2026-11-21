@@ -2,10 +2,11 @@
 <html lang="pl">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Klient — formularz — IKPM</title>
 <link rel="stylesheet" href="../assets/bootstrap/bootstrap.min.css">
 <link rel="stylesheet" href="../assets/bootstrap-icons/bootstrap-icons.min.css">
+<link rel="stylesheet" href="../assets/ikpm-ui.css">
 <link rel="stylesheet" href="../assets/app.css">
 </head>
 <body data-screen="client-form" data-nav="clients" data-tab="wyceny">
@@ -13,17 +14,17 @@
 <div class="panes" data-level="2">
   <section class="pane pane-list" aria-label="Klienci" data-partial="client-list"></section>
   <section class="pane pane-folder" aria-label="Formularz klienta">
-    <div class="pane-inner">
-      <div class="pane-head"><a class="back-link" :href="c ? link('client-show', {id: c.id}) : link('clients')"><i class="bi bi-chevron-left" aria-hidden="true"></i><span x-text="c ? c.name : 'Klienci'"></span></a>
-        <h1 class="pane-title" x-text="c ? 'Edycja klienta ' + c.name : 'Nowy klient'"></h1></div>
-      <form class="card-plain" @submit.prevent="submit()" novalidate>
+    <div class="ikpm-content">
+      <div class="pane-head"><a class="ikpm-back" :href="c ? link('client-show', {id: c.id}) : link('clients')"><span x-text="c ? c.name : 'Klienci'"></span></a>
+        <h1 class="ikpm-page-title" x-text="c ? 'Edycja klienta ' + c.name : 'Nowy klient'"></h1></div>
+      <form class="card card-body" data-dirty-watch="Klient" @submit.prevent="submit()" novalidate>
         <div class="alert alert-danger" role="alert" x-show="errors.length"><ul class="mb-0 ps-3"><template x-for="e in errors"><li x-text="e"></li></template></ul></div>
         <label class="form-label" for="cf-name">Nazwa *</label><input id="cf-name" class="form-control mb-2" maxlength="100" required x-model="form.name">
         <label class="form-label" for="cf-email">Email</label><input id="cf-email" class="form-control mb-2" type="email" maxlength="254" x-model="form.email">
         <label class="form-label" for="cf-phone">Telefon</label><input id="cf-phone" class="form-control mb-2" type="tel" placeholder="+48 600 000 000" title="Numer telefonu: cyfry, spacje oraz + ( ) -" x-model="form.phone">
         <label class="form-label" for="cf-notes">Notatki</label><textarea id="cf-notes" class="form-control mb-3" rows="3" x-model="form.notes"></textarea>
-        <div class="d-flex gap-2"><button class="btn btn-primary btn-main px-4" type="submit">Zapisz</button>
-          <a class="btn btn-outline-secondary btn-main px-4" :href="c ? link('client-show', {id: c.id}) : link('clients')">Anuluj</a></div>
+        <div class="d-flex flex-wrap gap-2"><button class="btn btn-primary btn-lg px-4" type="submit">Zapisz</button><span class="ikpm-save form-dirty align-self-center" data-state="dirty" hidden>Niezapisane zmiany</span>
+          <a class="btn btn-outline-secondary btn-lg px-4" :href="c ? link('client-show', {id: c.id}) : link('clients')">Anuluj</a></div>
       </form>
     </div>
   </section>

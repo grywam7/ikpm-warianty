@@ -2,22 +2,23 @@
 <html lang="pl">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Zaloguj się — IKPM</title>
 <link rel="stylesheet" href="../assets/bootstrap/bootstrap.min.css">
 <link rel="stylesheet" href="../assets/bootstrap-icons/bootstrap-icons.min.css">
+<link rel="stylesheet" href="../assets/ikpm-ui.css">
 <link rel="stylesheet" href="../assets/app.css">
 </head>
 <body data-screen="login">
 <main x-data="page" x-cloak>
-<div class="guest"><div class="card-plain p-4">
-  <div class="mb-3"><strong class="fs-4">IKPM</strong><div class="small text-body-secondary">System kosztorysów</div></div>
+<div class="guest"><div class="card card-body p-4">
+  <div class="mb-3"><strong class="fs-4">IKPM</strong><div class="ikpm-meta">System kosztorysów</div></div>
   <h1 class="h3 mb-3">Zaloguj się</h1>
   <form @submit.prevent="submit()" novalidate>
     <label class="form-label" for="l-email">Email</label><input id="l-email" class="form-control mb-2" type="email" autocomplete="email" x-model="email">
     <label class="form-label" for="l-pass">Hasło</label><input id="l-pass" class="form-control mb-2" type="password" autocomplete="current-password" x-model="password">
-    <div class="form-check big mb-2"><input class="form-check-input" type="checkbox" id="l-remember"><label class="form-check-label" for="l-remember">Zapamiętaj mnie</label></div>
-    <button class="btn btn-primary btn-main w-100" type="submit">Zaloguj się</button>
+    <div class="form-check mb-2"><input class="form-check-input" type="checkbox" id="l-remember"><label class="form-check-label" for="l-remember">Zapamiętaj mnie</label></div>
+    <button class="btn btn-primary btn-lg w-100" type="submit">Zaloguj się</button>
   </form>
   <a class="tap mt-2" :href="link('password-reset')">Zapomniałeś hasła?</a>
 </div></div>

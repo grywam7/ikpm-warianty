@@ -2,111 +2,126 @@
 <html lang="pl">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Dobieranie wykonawców — IKPM</title>
 <link rel="stylesheet" href="../assets/bootstrap/bootstrap.min.css">
 <link rel="stylesheet" href="../assets/bootstrap-icons/bootstrap-icons.min.css">
+<link rel="stylesheet" href="../assets/ikpm-ui.css">
 <link rel="stylesheet" href="../assets/app.css">
-<style>
-  .plan-table th[scope=row] { width: 13rem; }
-  .plan-table td, .plan-table th { min-width: 11rem; }
-</style>
+
 </head>
 <body data-nav="quotes">
 <div id="nav"></div>
-<main x-data="page" x-cloak class="container-xxl px-3 mw-doc pb-5">
+<main id="main" x-data="page" x-cloak class="ikpm-content">
 <template x-if="q">
 <div>
   <div id="alerts"></div>
-  <div class="d-flex flex-wrap align-items-center gap-2 my-3">
-    <h1 class="h3 mb-0 me-auto"><i class="bi bi-people-fill" aria-hidden="true"></i> Dobieranie wykonawców — Wycena #<span x-text="q.id"></span></h1>
-    <a class="btn btn-outline-secondary" :href="ik.href('screens/builder.html?id=' + q.id)"><i class="bi bi-arrow-left" aria-hidden="true"></i> Wróć do edytora</a>
+  <div class="ikpm-page-head">
+    <a class="ikpm-back" :href="ik.href('screens/builder.html?id=' + q.id)">Wróć do edytora</a>
+    <div class="ikpm-page-heading">
+      <h1 class="ikpm-page-title">Dobieranie wykonawców — Wycena #<span x-text="q.id"></span></h1>
+      <div class="ikpm-page-meta"><span x-text="q.client ? q.client.name : '(brak klienta)'"></span><span x-text="ik.jobsCount(ik.jobsOf(q).length)"></span><span>Razem netto <strong class="ikpm-num" x-text="ik.pln(ik.quoteTotals(q).net)"></strong></span></div>
+    </div>
   </div>
-  <p class="text-body-secondary small" x-text="(q.client ? q.client.name : '(brak klienta)') + ' · ' + ik.jobsCount(ik.jobsOf(q).length) + ' · Razem netto ' + ik.pln(ik.quoteTotals(q).net)"></p>
 
   <template x-if="!ik.jobsOf(q).length">
-    <div class="alert alert-warning"><i class="bi bi-exclamation-triangle" aria-hidden="true"></i> Wycena nie ma jeszcze żadnych prac. Dodaj prace w edytorze.</div>
+    <div class="alert alert-warning d-flex gap-2"><i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i><span>Wycena nie ma jeszcze żadnych prac. Dodaj prace w edytorze.</span></div>
   </template>
   <template x-if="ik.jobsOf(q).length && !src && !ik.hasKitPlans(q)">
-    <div class="alert alert-secondary">Prototyp: plany doboru są policzone przez aplikację tylko dla wycen z danych demo. Dla wyceny utworzonej w prototypie karta planów zostaje pusta.</div>
+    <div class="alert alert-secondary d-flex gap-2"><i class="bi bi-info-circle-fill" aria-hidden="true"></i><span>Prototyp: plany doboru są policzone przez aplikację tylko dla wycen z danych demo. Dla wyceny utworzonej w prototypie karta planów zostaje pusta.</span></div>
   </template>
   <template x-if="ik.jobsOf(q).length && !src && ik.hasKitPlans(q)">
-    <div class="alert alert-secondary">Prototyp: plany doboru są policzone przez aplikację dla jednej wersji tej wyceny (te same prace i ilości). Ta wersja ma inne prace albo ilości, więc prototyp nie ma dla niej planu.</div>
+    <div class="alert alert-secondary d-flex gap-2"><i class="bi bi-info-circle-fill" aria-hidden="true"></i><span>Prototyp: plany doboru są policzone przez aplikację dla jednej wersji tej wyceny (te same prace i ilości). Ta wersja ma inne prace albo ilości, więc prototyp nie ma dla niej planu.</span></div>
   </template>
 
   <template x-if="ik.jobsOf(q).length && src">
     <div>
-      <p class="text-body-secondary small">Plany pomijają ekipy o nietypowej dla danej pracy cenie, tempie lub jakości. Poza „Najszybszym” żaden etap nie trwa ponad 2 × tyle, co przy najszybszym podziale prac na najwyżej 3 ekipy naraz (o ile ekipy na to pozwalają) — dlatego „Najtańszy” nie zawsze bierze najtańsze ekipy, a „Minimum ekip” dobiera kolejną ekipę, gdy jedna robiłaby etap za długo. Plan najlepszy w kilku miarach widać na kilku kartach.</p>
+      <p class="ikpm-meta ikpm-measure">Plany pomijają ekipy o nietypowej dla danej pracy cenie, tempie lub jakości. Poza „Najszybszym” żaden etap nie trwa ponad 2 × tyle, co przy najszybszym podziale prac na najwyżej 3 ekipy naraz (o ile ekipy na to pozwalają) — dlatego „Najtańszy” nie zawsze bierze najtańsze ekipy, a „Minimum ekip” dobiera kolejną ekipę, gdy jedna robiłaby etap za długo. Plan najlepszy w kilku miarach widać na kilku kartach.</p>
 
-      <!-- Arkusz porównania: plany w kolumnach (od 1200 px) -->
-      <div class="card d-none d-xl-block mb-4">
-        <div tabindex="0" class="box-scroll">
-          <table class="table plan-table doc-table mb-0">
-            <caption class="visually-hidden">Porównanie planów doboru wykonawców</caption>
-            <thead class="table-light">
-              <tr>
-                <th scope="col">Plan</th>
-                <template x-for="p in plans" :key="p.key">
-                  <th scope="col" :class="{ 'table-success': p.applied }">
-                    <i class="bi" :class="p.icon" aria-hidden="true"></i> <span x-text="p.plan.label"></span>
-                    <span class="badge text-bg-success ms-1" x-show="p.applied"><i class="bi bi-check-lg" aria-hidden="true"></i> Zastosowany</span>
-                  </th>
-                </template>
-              </tr>
-            </thead>
-            <tbody>
-              <tr><th scope="row">Koszt ekip:</th><template x-for="p in plans" :key="p.key"><td class="num fw-bold" x-text="ik.pln(p.plan.summary.total_cost)"></td></template></tr>
-              <tr><th scope="row">Liczba ekip:</th><template x-for="p in plans" :key="p.key"><td class="num fw-bold" x-text="p.plan.summary.contractor_count"></td></template></tr>
-              <tr><th scope="row"><i class="bi bi-clock" aria-hidden="true"></i> Czas realizacji:</th><template x-for="p in plans" :key="p.key"><td><strong class="num" x-text="ik.hours(p.plan.summary.makespan_hours)"></strong><small class="d-block text-body-secondary" x-text="ik.workDays(p.plan.work_days) + ' z odbiorami etapów'"></small></td></template></tr>
-              <tr><th scope="row">Łącznie roboczogodzin:</th><template x-for="p in plans" :key="p.key"><td class="num" x-text="ik.hours(p.plan.summary.total_work_hours)"></td></template></tr>
-              <tr><th scope="row">Śr. jakość:</th><template x-for="p in plans" :key="p.key"><td><strong class="num" x-text="ik.oneDec(p.plan.summary.avg_quality)"></strong> <small class="text-body-secondary">/10</small></td></template></tr>
-              <tr><th scope="row">Pokrycie:</th><template x-for="p in plans" :key="p.key"><td><div class="progress" role="progressbar" aria-label="Pokrycie" :aria-valuenow="p.plan.summary.coverage_pct" aria-valuemin="0" aria-valuemax="100"><div class="progress-bar" :class="p.plan.summary.coverage_pct === 100 ? 'bg-success' : 'bg-warning text-dark'" :style="'width:' + p.plan.summary.coverage_pct + '%'" x-text="p.plan.summary.coverage_pct + '%'"></div></div></td></template></tr>
-              <tr><th scope="row"><i class="bi bi-calendar3" aria-hidden="true"></i> Harmonogram etapów:</th>
-                <template x-for="p in plans" :key="p.key"><td><ul class="list-unstyled small mb-0"><template x-for="s in p.schedule" :key="s.stage"><li class="d-flex gap-2"><span class="text-truncate me-auto" x-text="s.stage"></span><span class="num text-nowrap" x-text="ik.hours(s.hours) + ' → ' + ik.hours(s.cumulative)"></span></li></template></ul></td></template></tr>
-              <tr><th scope="row">Wykonawcy:</th><template x-for="p in plans" :key="p.key"><td><template x-for="c in p.plan.summary.contractors_used" :key="c"><span class="badge text-bg-light border me-1 mb-1"><i class="bi bi-person" aria-hidden="true"></i> <span x-text="c"></span></span></template>
-                <div class="alert alert-warning py-1 px-2 small mb-0 mt-1" x-show="p.plan.summary.unassigned_job_names.length"><strong>Bez wykonawcy (brak w cenniku ekipy z ceną):</strong> <span x-text="p.plan.summary.unassigned_job_names.join(', ')"></span></div></td></template></tr>
-              <tr><th scope="row"><span class="visually-hidden">Akcja</span></th><template x-for="p in plans" :key="p.key"><td><button type="button" class="btn w-100 btn-main" :class="p.applied ? 'btn-outline-success' : 'btn-primary'" :aria-label="(p.applied ? 'Zastosuj ponownie: ' : 'Zastosuj ten plan: ') + p.plan.label" @click="apply(p)"><i class="bi" :class="p.applied ? 'bi-arrow-clockwise' : 'bi-check-lg'" aria-hidden="true"></i> <span x-text="p.applied ? 'Zastosuj ponownie' : 'Zastosuj ten plan'"></span></button></td></template></tr>
-            </tbody>
-          </table>
-        </div>
+      <!-- Arkusz porównania: plany w kolumnach (od 1100 px) -->
+      <div class="ikpm-table-box k-plans-sheet mb-4" tabindex="0" aria-label="Porównanie planów doboru wykonawców">
+        <table class="table k-plan-table">
+          <caption class="visually-hidden">Porównanie planów doboru wykonawców</caption>
+          <thead>
+            <tr>
+              <th scope="col">Plan</th>
+              <template x-for="p in plans" :key="p.key">
+                <th scope="col"><span class="d-flex flex-wrap align-items-center gap-2" style="font-size: 1rem; color: var(--ikpm-text)"><i class="bi" :class="p.icon" aria-hidden="true"></i><span x-text="p.plan.label"></span><span class="ikpm-chip ikpm-tone-accent" x-show="p.applied"><i class="bi bi-check-lg" aria-hidden="true"></i>Zastosowany</span></span></th>
+              </template>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><th scope="row">Koszt ekip:</th><template x-for="p in plans" :key="p.key"><td class="ikpm-amount" x-text="ik.pln(p.plan.summary.total_cost)"></td></template></tr>
+            <tr><th scope="row">Liczba ekip:</th><template x-for="p in plans" :key="p.key"><td class="fw-semibold" x-text="p.plan.summary.contractor_count"></td></template></tr>
+            <tr><th scope="row">Czas realizacji:</th><template x-for="p in plans" :key="p.key"><td><span class="ikpm-amount" x-text="ik.hours(p.plan.summary.makespan_hours)"></span><span class="ikpm-meta d-block" x-text="ik.workDays(p.plan.work_days) + ' z odbiorami etapów'"></span></td></template></tr>
+            <tr><th scope="row">Łącznie roboczogodzin:</th><template x-for="p in plans" :key="p.key"><td x-text="ik.hours(p.plan.summary.total_work_hours)"></td></template></tr>
+            <tr><th scope="row">Śr. jakość:</th><template x-for="p in plans" :key="p.key"><td><strong x-text="ik.oneDec(p.plan.summary.avg_quality)"></strong> <span class="ikpm-meta">/10</span></td></template></tr>
+            <tr><th scope="row">Pokrycie:</th><template x-for="p in plans" :key="p.key"><td><div class="ikpm-progress"><div class="ikpm-progress-head"><span class="visually-hidden">Pokrycie</span><span x-text="p.plan.summary.coverage_pct + '%'"></span></div><div class="progress" role="progressbar" :aria-label="'Pokrycie: ' + p.plan.label" :aria-valuenow="p.plan.summary.coverage_pct" aria-valuemin="0" aria-valuemax="100"><div class="progress-bar" :class="p.plan.summary.coverage_pct === 100 ? 'bg-success' : 'bg-warning'" :style="'width:' + p.plan.summary.coverage_pct + '%'"></div></div></div></td></template></tr>
+            <tr><th scope="row">Harmonogram etapów:</th>
+              <template x-for="p in plans" :key="p.key"><td><ul class="k-schedule"><template x-for="s in p.schedule" :key="s.stage"><li><span x-text="s.stage"></span><span class="ikpm-num" x-text="ik.hours(s.hours) + ' → ' + ik.hours(s.cumulative)"></span></li></template></ul></td></template></tr>
+            <tr><th scope="row">Wykonawcy:</th><template x-for="p in plans" :key="p.key"><td><span class="d-flex flex-wrap gap-1"><template x-for="c in p.plan.summary.contractors_used" :key="c"><span class="ikpm-chip" x-text="c"></span></template></span>
+              <div class="alert alert-warning small py-1 px-2 mb-0 mt-2" x-show="p.plan.summary.unassigned_job_names.length"><strong>Bez wykonawcy (brak w cenniku ekipy z ceną):</strong> <span x-text="p.plan.summary.unassigned_job_names.join(', ')"></span></div></td></template></tr>
+            <tr><th scope="row"><span class="visually-hidden">Akcja</span></th><template x-for="p in plans" :key="p.key"><td><button type="button" class="btn btn-lg w-100" :class="p.applied ? 'btn-outline-primary' : 'btn-primary'" :aria-label="(p.applied ? 'Zastosuj ponownie: ' : 'Zastosuj ten plan: ') + p.plan.label" @click="apply(p)"><i class="bi" :class="p.applied ? 'bi-arrow-clockwise' : 'bi-check-lg'" aria-hidden="true"></i><span x-text="p.applied ? 'Zastosuj ponownie' : 'Zastosuj ten plan'"></span></button></td></template></tr>
+          </tbody>
+        </table>
       </div>
 
-      <!-- Telefon: plany jeden pod drugim; tablet (768–1199 px): karty 2 × 2 -->
-      <div class="d-xl-none row row-cols-1 row-cols-md-2 g-3 mb-3">
+      <!-- Węziej: plany jako karty (2 × 2 na tablecie, jedna pod drugą na telefonie) -->
+      <div class="k-plans-cards mb-4">
         <template x-for="p in plans" :key="p.key">
-          <div class="col"><section class="card h-100" :class="{ 'border-success': p.applied }" :aria-labelledby="'plan-' + p.key">
-            <div class="card-header d-flex flex-wrap align-items-center gap-2" :class="{ 'bg-success-subtle': p.applied }">
-              <h2 class="h5 mb-0 me-auto" :id="'plan-' + p.key"><i class="bi" :class="p.icon" aria-hidden="true"></i> <span x-text="p.plan.label"></span></h2>
-              <span class="badge text-bg-success" x-show="p.applied"><i class="bi bi-check-lg" aria-hidden="true"></i> Zastosowany</span>
+          <section class="card" :class="{ 'ikpm-selected': p.applied }" :aria-labelledby="'plan-' + p.key">
+            <div class="card-header d-flex flex-wrap align-items-center gap-2">
+              <h2 class="k-card-title me-auto d-flex align-items-center gap-2" :id="'plan-' + p.key"><i class="bi" :class="p.icon" aria-hidden="true"></i><span x-text="p.plan.label"></span></h2>
+              <span class="ikpm-chip ikpm-tone-accent" x-show="p.applied"><i class="bi bi-check-lg" aria-hidden="true"></i>Zastosowany</span>
             </div>
-            <div class="card-body d-flex flex-column">
-              <dl class="row mb-2">
-                <dt class="col-7 fw-normal text-body-secondary">Koszt ekip:</dt><dd class="col-5 text-end fw-bold num" x-text="ik.pln(p.plan.summary.total_cost)"></dd>
-                <dt class="col-7 fw-normal text-body-secondary">Liczba ekip:</dt><dd class="col-5 text-end fw-bold" x-text="p.plan.summary.contractor_count"></dd>
-                <dt class="col-7 fw-normal text-body-secondary">Czas realizacji:</dt><dd class="col-5 text-end"><strong class="num" x-text="ik.hours(p.plan.summary.makespan_hours)"></strong><small class="d-block text-body-secondary" x-text="ik.workDays(p.plan.work_days) + ' z odbiorami etapów'"></small></dd>
-                <dt class="col-7 fw-normal text-body-secondary">Łącznie roboczogodzin:</dt><dd class="col-5 text-end num" x-text="ik.hours(p.plan.summary.total_work_hours)"></dd>
-                <dt class="col-7 fw-normal text-body-secondary">Śr. jakość:</dt><dd class="col-5 text-end"><strong x-text="ik.oneDec(p.plan.summary.avg_quality)"></strong> <small>/10</small></dd>
-                <dt class="col-7 fw-normal text-body-secondary">Pokrycie:</dt><dd class="col-5 text-end" x-text="p.plan.summary.coverage_pct + '%'"></dd>
+            <div class="card-body d-grid gap-3">
+              <dl class="ikpm-dl ikpm-dl-num">
+                <dt>Koszt ekip:</dt><dd class="fw-semibold" x-text="ik.pln(p.plan.summary.total_cost)"></dd>
+                <dt>Liczba ekip:</dt><dd class="fw-semibold" x-text="p.plan.summary.contractor_count"></dd>
+                <dt>Czas realizacji:</dt><dd><strong x-text="ik.hours(p.plan.summary.makespan_hours)"></strong><span class="d-block ikpm-meta" x-text="ik.workDays(p.plan.work_days) + ' z odbiorami etapów'"></span></dd>
+                <dt>Łącznie roboczogodzin:</dt><dd x-text="ik.hours(p.plan.summary.total_work_hours)"></dd>
+                <dt>Śr. jakość:</dt><dd><strong x-text="ik.oneDec(p.plan.summary.avg_quality)"></strong> /10</dd>
+                <dt>Pokrycie:</dt><dd x-text="p.plan.summary.coverage_pct + '%'"></dd>
               </dl>
-              <p class="small fw-semibold mb-1">Wykonawcy:</p>
-              <p class="mb-2"><template x-for="c in p.plan.summary.contractors_used" :key="c"><span class="badge text-bg-light border me-1 mb-1" x-text="c"></span></template></p>
-              <div class="alert alert-warning py-1 px-2 small" x-show="p.plan.summary.unassigned_job_names.length"><strong>Bez wykonawcy (brak w cenniku ekipy z ceną):</strong> <span x-text="p.plan.summary.unassigned_job_names.join(', ')"></span></div>
-              <button type="button" class="btn w-100 btn-main mt-auto" :class="p.applied ? 'btn-outline-success' : 'btn-primary'" :aria-label="(p.applied ? 'Zastosuj ponownie: ' : 'Zastosuj ten plan: ') + p.plan.label" @click="apply(p)"><span x-text="p.applied ? 'Zastosuj ponownie' : 'Zastosuj ten plan'"></span></button>
+              <div><p class="fw-semibold mb-1">Harmonogram etapów:</p>
+                <ul class="k-schedule"><template x-for="s in p.schedule" :key="s.stage"><li><span x-text="s.stage"></span><span class="ikpm-num" x-text="ik.hours(s.hours) + ' → ' + ik.hours(s.cumulative)"></span></li></template></ul></div>
+              <div><p class="fw-semibold mb-1">Wykonawcy:</p>
+                <span class="d-flex flex-wrap gap-1"><template x-for="c in p.plan.summary.contractors_used" :key="c"><span class="ikpm-chip" x-text="c"></span></template></span></div>
+              <div class="alert alert-warning small py-1 px-2 mb-0" x-show="p.plan.summary.unassigned_job_names.length"><strong>Bez wykonawcy (brak w cenniku ekipy z ceną):</strong> <span x-text="p.plan.summary.unassigned_job_names.join(', ')"></span></div>
+              <button type="button" class="btn btn-lg w-100" :class="p.applied ? 'btn-outline-primary' : 'btn-primary'" :aria-label="(p.applied ? 'Zastosuj ponownie: ' : 'Zastosuj ten plan: ') + p.plan.label" @click="apply(p)"><span x-text="p.applied ? 'Zastosuj ponownie' : 'Zastosuj ten plan'"></span></button>
             </div>
-          </section></div>
+          </section>
         </template>
       </div>
 
       <details class="card mb-3">
-        <summary class="card-header tap fw-semibold">Porównanie — kto robi co w każdym planie</summary>
-        <div tabindex="0" class="box-scroll">
-          <table class="table table-sm doc-table mb-0">
+        <summary class="card-header" style="min-height: var(--ikpm-control-h); cursor: pointer">Harmonogram etapów — porównanie planów</summary>
+        <div class="ikpm-table-box border-0 rounded-0" tabindex="0" aria-label="Harmonogram etapów — porównanie planów">
+          <table class="table">
+            <caption class="visually-hidden">Czas etapu (h) i godziny ekip w każdym planie</caption>
+            <thead><tr><th scope="col">Etap</th><template x-for="p in plans" :key="p.key"><th scope="col" x-text="p.plan.label"></th></template></tr></thead>
+            <tbody>
+              <template x-for="(st, si) in stageNames" :key="st">
+                <tr><th scope="row" x-text="st"></th>
+                  <template x-for="p in plans" :key="p.key"><td><template x-if="p.stageBy[st]"><span><strong class="ikpm-num" x-text="ik.hours(p.stageBy[st].duration_hours)"></strong><template x-for="c in p.stageBy[st].crews" :key="c.contractor"><span class="d-block ikpm-meta" x-text="c.contractor + ': ' + ik.hours(c.hours)"></span></template></span></template><template x-if="!p.stageBy[st]"><span class="ikpm-muted">—</span></template></td></template></tr>
+              </template>
+            </tbody>
+            <tfoot><tr><th scope="row">RAZEM</th><template x-for="p in plans" :key="p.key"><td class="ikpm-num text-start" x-text="ik.hours(p.plan.summary.makespan_hours)"></td></template></tr></tfoot>
+          </table>
+        </div>
+      </details>
+
+      <details class="card mb-3">
+        <summary class="card-header" style="min-height: var(--ikpm-control-h); cursor: pointer">Porównanie — kto robi co w każdym planie</summary>
+        <div class="ikpm-table-box border-0 rounded-0" tabindex="0" aria-label="Porównanie — kto robi co w każdym planie">
+          <table class="table table-sm">
             <caption class="visually-hidden">Wykonawca każdej pracy w każdym planie</caption>
-            <thead class="table-light"><tr><th scope="col">Pokój</th><th scope="col">Praca</th><th scope="col" class="text-end">Ilość</th><template x-for="p in plans" :key="p.key"><th scope="col" x-text="p.plan.label"></th></template></tr></thead>
+            <thead><tr><th scope="col">Pokój</th><th scope="col">Praca</th><th scope="col" class="ikpm-num">Ilość</th><template x-for="p in plans" :key="p.key"><th scope="col" x-text="p.plan.label"></th></template></tr></thead>
             <tbody>
               <template x-for="row in rows" :key="row.j.id">
-                <tr><td x-text="row.room"></td><td x-text="row.j.name"></td><td class="num" x-text="ik.dec(row.j.quantity) + ' ' + row.j.unit"></td>
-                  <template x-for="p in plans" :key="p.key"><td class="small"><template x-if="p.byJob[row.j.id]"><span><span x-text="p.byJob[row.j.id].contractor"></span><br><span class="text-body-secondary num" x-text="ik.pln(p.byJob[row.j.id].price) + ' · ' + ik.hours(p.byJob[row.j.id].job_hours)"></span></span></template><template x-if="!p.byJob[row.j.id]"><span class="text-body-secondary">brak</span></template></td></template></tr>
+                <tr><td x-text="row.room"></td><td x-text="row.j.name"></td><td class="ikpm-num" x-text="ik.dec(row.j.quantity) + ' ' + row.j.unit"></td>
+                  <template x-for="p in plans" :key="p.key"><td><template x-if="p.byJob[row.j.id]"><span><span x-text="p.byJob[row.j.id].contractor"></span><span class="d-block ikpm-meta ikpm-num text-start" x-text="ik.pln(p.byJob[row.j.id].price) + ' · ' + ik.hours(p.byJob[row.j.id].job_hours)"></span></span></template><template x-if="!p.byJob[row.j.id]"><span class="ikpm-muted">brak</span></template></td></template></tr>
               </template>
             </tbody>
           </table>
@@ -138,9 +153,11 @@ boot(() => ({
         key, plan, icon: ICONS[key], applied: this.q.applied_profile_name === key,
         schedule: plan.stage_schedule.map((s) => { sum += s.duration_hours; return { stage: s.stage, hours: s.duration_hours, cumulative: sum }; }),
         byJob: Object.fromEntries(plan.assignments.map((a) => [a.quote_job_id, a])),
+        stageBy: Object.fromEntries(plan.stage_schedule.map((s) => [s.stage, s])),
       };
     });
   },
+  get stageNames() { return [...new Set(Object.values(this.src.plans).flatMap((p) => p.stage_schedule.map((s) => s.stage)))]; },
   get rows() { return this.q.rooms.flatMap((room) => ik.sortJobs(room.jobs).map((j) => ({ room: room.name, j }))); },
   async apply(p) {
     const verb = p.applied ? 'Zastosować ponownie' : 'Zastosować';

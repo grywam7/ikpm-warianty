@@ -2,53 +2,61 @@
 <html lang="pl">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:,">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Zmiana cen — IKPM</title>
   <link rel="stylesheet" href="../assets/bootstrap/bootstrap.min.css">
   <link rel="stylesheet" href="../assets/bootstrap-icons/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="../assets/ikpm-ui.css">
   <link rel="stylesheet" href="../assets/app.css">
 </head>
 <body data-section="data">
-  <main id="main"><div id="app" class="container-xxl" x-data="page" x-cloak>
+  <main id="main"><div id="app" class="ikpm-content" x-data="page" x-cloak>
     <template x-if="error">
-      <div><h1 class="page-title">Zmiana cen</h1><div class="alert alert-danger" role="alert" x-text="error"></div>
-        <a class="btn btn-outline-secondary btn-main" :href="backUrl"><i class="bi bi-arrow-left" aria-hidden="true"></i> Wróć</a></div>
+      <div><div class="ikpm-page-head"><a class="ikpm-back" :href="backUrl">Wróć</a><div class="ikpm-page-heading"><h1 class="ikpm-page-title">Zmiana cen</h1></div></div>
+        <div class="alert alert-danger d-flex gap-2" role="alert"><i class="bi bi-exclamation-octagon-fill" aria-hidden="true"></i><span x-text="error"></span></div>
+        <a class="btn btn-outline-secondary btn-lg" :href="backUrl"><i class="bi bi-arrow-left" aria-hidden="true"></i>Wróć</a></div>
     </template>
     <template x-if="!error">
       <div>
-        <h1 class="page-title" x-text="`Zmiana cen ${scopeName} o ${signed(percent)}`"></h1>
-        <p x-text="effect"></p>
-        <p class="small">Wysłane i dopasowane wyceny mają ceny zamrożone — ta zmiana ich nie dotyczy, tak jak realizacji. Nowe ceny są w pełnych złotych (najmniej 1 zł), więc rzeczywista zmiana może różnić się od procentu.</p>
-        <div class="table-wrap" tabindex="0" role="region" aria-label="Podgląd zmiany cen">
-          <table class="table">
-            <thead><tr><th scope="col">Pozycja</th><th scope="col" class="num-cell">Cena teraz</th><th scope="col" class="num-cell">Nowa cena</th><th scope="col" class="num-cell d-none d-sm-table-cell">Zmiana</th></tr></thead>
+        <div class="ikpm-page-head">
+          <a class="ikpm-back" :href="backUrl">Anuluj</a>
+          <div class="ikpm-page-heading"><h1 class="ikpm-page-title" x-text="`Zmiana cen ${scopeName} o ${signed(percent)}`"></h1></div>
+        </div>
+        <div class="ikpm-measure mb-3">
+          <p x-text="effect"></p>
+          <p class="ikpm-meta">Wysłane i dopasowane wyceny mają ceny zamrożone — ta zmiana ich nie dotyczy, tak jak realizacji. Nowe ceny są w pełnych złotych (najmniej 1 zł), więc rzeczywista zmiana może różnić się od procentu.</p>
+        </div>
+        <div class="ikpm-table-box" tabindex="0" role="region" aria-label="Podgląd zmiany cen">
+          <table class="table ikpm-stack">
+            <thead><tr><th scope="col">Pozycja</th><th scope="col" class="ikpm-num">Cena teraz</th><th scope="col" class="ikpm-num">Nowa cena</th><th scope="col" class="ikpm-num">Zmiana</th></tr></thead>
             <tbody>
               <template x-for="r in priced" :key="r.key">
-                <tr><td x-text="r.name"></td><td class="num-cell" x-text="pln(r.price)"></td>
-                  <td class="num-cell"><span x-text="pln(r.newPrice)"></span><span class="d-block d-sm-none small" x-html="changeHtml(r)"></span></td>
-                  <td class="num-cell d-none d-sm-table-cell" x-html="changeHtml(r)"></td></tr>
+                <tr><td class="ikpm-cell-lead" x-text="r.name"></td><td class="ikpm-num" data-label="Cena teraz" x-text="pln(r.price)"></td>
+                  <td class="ikpm-num fw-semibold" data-label="Nowa cena" x-text="pln(r.newPrice)"></td>
+                  <td class="ikpm-num" data-label="Zmiana" x-html="changeHtml(r)"></td></tr>
               </template>
             </tbody>
           </table>
         </div>
         <template x-if="skipped.length">
-          <details class="list-card"><summary x-text="`Pominięte (${skipped.length})`"></summary>
-            <ul class="small mb-0 mt-2"><template x-for="r in skipped" :key="r.key"><li x-text="`${r.name} — ${r.reason}`"></li></template></ul></details>
+          <details class="box mt-3"><summary x-text="`Pominięte (${skipped.length})`"></summary>
+            <ul class="mb-0 mt-2"><template x-for="r in skipped" :key="r.key"><li x-text="`${r.name} — ${r.reason}`"></li></template></ul></details>
         </template>
         <p class="mt-3" x-show="!changed">Żadna cena w tym zakresie się nie zmieni — zaokrąglenie do pełnych złotych daje te same ceny.</p>
         <div class="d-flex flex-wrap gap-2 mt-3">
-          <button type="button" class="btn btn-primary btn-main" x-show="changed" @click="apply()">Zastosuj</button>
-          <a class="btn btn-outline-secondary btn-main" :href="backUrl">Anuluj</a>
+          <button type="button" class="btn btn-primary btn-lg" x-show="changed" @click="apply()">Zastosuj</button>
+          <a class="btn btn-outline-secondary btn-lg" :href="backUrl">Anuluj</a>
         </div>
-        <form class="d-flex gap-2 align-items-end mt-4" @submit.prevent="other()">
-          <div><label class="form-label" for="other-pct">Inny procent</label><input class="form-control qty" id="other-pct" type="number" inputmode="decimal" step="0.1" min="-90" max="200"></div>
+        <form class="form-row mt-4" @submit.prevent="other()">
+          <div class="field-sm"><label class="form-label" for="other-pct">Inny procent</label><input class="form-control ikpm-num" id="other-pct" type="number" inputmode="decimal" step="0.1" min="-90" max="200"></div>
           <button class="btn btn-outline-primary" type="submit">Podgląd</button>
         </form>
       </div>
     </template>
   </div></main>
   <script type="module">
-    import { start, catalogue, contractors, materials, materialUnit, plural, go, link } from '../assets/app.js';
+    import { start, catalogue, contractors, materials, materialUnit, plural, go, link, updateCatalogueJob, saveMaterial } from '../assets/app.js';
     const _p = new URLSearchParams(location.search);
     const _scope = _p.get('scope') ?? 'stage';
     const _text = (_p.get('percent') ?? '').trim();
@@ -68,20 +76,21 @@
       const _s = catalogue().find((s) => s.id === Number(_p.get('id'))) ?? catalogue()[0];
       _scopeName = `etapu „${_s.name}”`; _back = `screens/stages.html?etap=${_s.id}`;
       _effect = 'Średnia cena pracy to cena żywa: zmienia się w szkicach bez doboru i dla ekip bez własnej ceny.';
-      _rows = _s.jobs.map((j) => ({ key: j.id, name: j.name, price: j.average_price === null ? null : Number(j.average_price), reason: 'bez średniej ceny' }));
+      _rows = _s.jobs.map((j) => ({ key: j.id, name: j.name, price: j.average_price === null ? null : Number(j.average_price), reason: 'bez średniej ceny', write: (v) => updateCatalogueJob(j.id, (job) => { job.average_price = String(v); }) }));
     } else if (_scope === 'contractor') {
       const _c = contractors().find((c) => c.name === _p.get('id')) ?? contractors()[0];
       _scopeName = `ekipy „${_c.name}”`; _back = 'screens/contractors.html';
       _effect = 'Nowa cena ekipy działa od następnego doboru wykonawców.';
       if (_c.archived) _error = `Ekipa „${_c.name}” jest w archiwum — przywróć ją, żeby zmienić jej ceny.`;
-      _rows = _c.jobs.map((j) => ({ key: j.job_id, name: j.job, price: j.price === null ? null : Number(j.price), reason: 'bez własnej ceny — idzie za średnią ceną pracy, zmienia ją zmiana cen etapu' }));
+      _rows = _c.jobs.map((j) => ({ key: j.job_id, name: j.job, price: j.price === null ? null : Number(j.price), reason: 'bez własnej ceny — idzie za średnią ceną pracy, zmienia ją zmiana cen etapu',
+        write: (v) => updateCatalogueJob(j.job_id, (job) => { job.crews.find((x) => x.contractor === _c.name).price = String(v); }) }));
     } else {
-      const _ids = (_p.get('ids') ?? '').split(',').filter(Boolean).map(Number);
+      const _ids = (_p.get('ids') ?? '').split(',').filter(Boolean);
       const _all = _p.get('selection') === 'all';
       _scopeName = _all ? 'wszystkich materiałów' : 'zaznaczonych materiałów'; _back = 'screens/materials.html';
       _effect = 'Cena materiału to cena żywa: zmienia się w szkicach bez zamrożonego kosztu. Procent dotyczy ceny opakowania.';
       if (!_all && !_ids.length) _error = 'Zaznacz materiały, których ceny chcesz zmienić, albo wybierz „Wszystkie”.';
-      _rows = materials().map((m, i) => ({ key: i, name: `${m.name} (${m.package})`, price: Number(m.price) || null, reason: 'bez ceny (0 zł)' }))
+      _rows = materials().map((m) => ({ key: m.key, name: `${m.name} (${m.package})`, price: Number(m.price) || null, reason: 'bez ceny (0 zł)', write: (v) => saveMaterial({ ...m, price: v }) }))
         .filter((r) => _all || _ids.includes(r.key)).sort((a, b) => a.name.localeCompare(b.name, 'pl'));
     }
     for (const r of _rows) if (r.price !== null) r.newPrice = newPrice(r.price);
@@ -89,12 +98,13 @@
       error: _error, scopeName: _scopeName, effect: _effect, percent: _percent, backUrl: link(_back), signed,
       priced: _rows.filter((r) => r.price !== null), skipped: _rows.filter((r) => r.price === null),
       get changed() { return this.priced.filter((r) => r.newPrice !== r.price).length; },
-      changeHtml(r) { return r.newPrice === r.price ? '<span class="badge text-bg-light border">bez zmian</span>' : signed(((r.newPrice - r.price) / r.price) * 100); },
+      changeHtml(r) { return r.newPrice === r.price ? '<span class="ikpm-chip">bez zmian</span>' : signed(((r.newPrice - r.price) / r.price) * 100); },
       apply() {
         const _c = this.changed; const _same = this.priced.length - _c; const _skip = this.skipped.length;
         const _parts = [`Zmieniono ${_c} ${plural(_c, 'cenę', 'ceny', 'cen')}`];
         if (_same) _parts.push(`bez zmian po zaokrągleniu: ${_same}`);
         if (_skip) _parts.push(`pominięto ${_skip} ${plural(_skip, 'pozycję', 'pozycje', 'pozycji')}`);
+        for (const r of this.priced) if (r.newPrice !== r.price) r.write(r.newPrice);
         go(_back, `${_parts.join(', ')}.`);
       },
       other() { const _u = new URL(location.href); _u.searchParams.set('percent', document.getElementById('other-pct').value); location.href = _u; },

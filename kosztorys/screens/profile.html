@@ -2,27 +2,27 @@
 <html lang="pl">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Mój profil — IKPM</title>
 <link rel="stylesheet" href="../assets/bootstrap/bootstrap.min.css">
 <link rel="stylesheet" href="../assets/bootstrap-icons/bootstrap-icons.min.css">
+<link rel="stylesheet" href="../assets/ikpm-ui.css">
 <link rel="stylesheet" href="../assets/app.css">
 </head>
 <body data-nav="profile">
 <div id="nav"></div>
-<main x-data="page" x-cloak class="container px-3 pb-5" style="max-width: 640px">
-  <form class="card my-3" @submit.prevent="submit()" novalidate aria-labelledby="p-title">
-    <div class="card-body">
-      <h1 id="p-title" class="h3">Mój profil</h1>
-      <div class="alert alert-danger" role="alert" x-show="error" x-text="error"></div>
-      <label class="form-label" for="p-first">Imię</label><input id="p-first" class="form-control mb-3" x-model="form.first_name">
-      <label class="form-label" for="p-last">Nazwisko</label><input id="p-last" class="form-control mb-3" x-model="form.last_name">
-      <label class="form-label" for="p-phone">Telefon</label><input id="p-phone" type="tel" class="form-control" placeholder="np. +48 600 000 000" title="Numer telefonu: cyfry, spacje oraz + ( ) -" aria-describedby="p-phone-hint" x-model="form.phone">
-      <p id="p-phone-hint" class="small text-body-secondary">Numer telefonu: cyfry, spacje oraz + ( ) -</p>
-      <label class="form-label" for="p-email">Email</label><input id="p-email" type="email" class="form-control" readonly :value="user.email">
-      <p class="small text-body-secondary mt-1">Aby zmienić email lub hasło, przejdź do <a class="tap" :href="ik.href('screens/account-edit.html')">ustawień konta</a>.</p>
-      <div class="d-flex justify-content-end"><button class="btn btn-primary btn-main">Zapisz</button></div>
+<main id="main" x-data="page" x-cloak class="ikpm-content">
+  <div class="ikpm-page-head"><div class="ikpm-page-heading"><h1 class="ikpm-page-title">Mój profil</h1></div></div>
+  <form class="k-form" @submit.prevent="submit()" novalidate aria-label="Mój profil">
+    <div class="alert alert-danger d-flex gap-2" role="alert" x-show="error"><i class="bi bi-exclamation-octagon-fill" aria-hidden="true"></i><span x-text="error"></span></div>
+    <div class="ikpm-grid k-fields">
+      <div><label class="form-label" for="p-first">Imię</label><input id="p-first" class="form-control" autocomplete="given-name" x-model="form.first_name"></div>
+      <div><label class="form-label" for="p-last">Nazwisko</label><input id="p-last" class="form-control" autocomplete="family-name" x-model="form.last_name"></div>
+      <div><label class="form-label" for="p-phone">Telefon</label><input id="p-phone" type="tel" class="form-control" :class="{ 'is-invalid': error }" placeholder="np. +48 600 000 000" title="Numer telefonu: cyfry, spacje oraz + ( ) -" aria-describedby="p-phone-hint" autocomplete="tel" x-model="form.phone"><p id="p-phone-hint" class="form-text mb-0">Numer telefonu: cyfry, spacje oraz + ( ) -</p></div>
+      <div><label class="form-label" for="p-email">Email</label><input id="p-email" type="email" class="form-control" readonly :value="user.email" aria-describedby="p-email-hint"><p id="p-email-hint" class="form-text mb-0">Aby zmienić email lub hasło, przejdź do <a :href="ik.href('screens/account-edit.html')">ustawień konta</a>.</p></div>
     </div>
+    <div class="mt-4"><button class="btn btn-primary btn-lg">Zapisz</button></div>
   </form>
 </main>
 <script type="module">

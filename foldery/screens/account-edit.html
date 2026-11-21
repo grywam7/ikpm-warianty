@@ -2,24 +2,25 @@
 <html lang="pl">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Edytuj konto — IKPM</title>
 <link rel="stylesheet" href="../assets/bootstrap/bootstrap.min.css">
 <link rel="stylesheet" href="../assets/bootstrap-icons/bootstrap-icons.min.css">
+<link rel="stylesheet" href="../assets/ikpm-ui.css">
 <link rel="stylesheet" href="../assets/app.css">
 </head>
 <body data-screen="account-edit" data-nav="profile" data-tab="wiecej">
 <main x-data="page" x-cloak>
-<div class="page"><div class="pane-inner">
-<div class="pane-head"><a class="back-link" :href="link('profile')"><i class="bi bi-chevron-left" aria-hidden="true"></i>Mój profil</a><h1 class="pane-title">Edytuj konto</h1></div>
-<form class="card-plain" style="max-width:560px" @submit.prevent="submit()" novalidate>
+<div class="page"><div class="ikpm-content">
+<div class="pane-head"><a class="ikpm-back" :href="link('profile')">Mój profil</a><h1 class="ikpm-page-title">Edytuj konto</h1></div>
+<form class="card card-body ikpm-measure" data-dirty-watch="Edycja konta" @submit.prevent="submit()" novalidate>
   <div class="alert alert-danger" role="alert" x-show="errors.length"><ul class="mb-0 ps-3"><template x-for="e in errors"><li x-text="e"></li></template></ul></div>
   <label class="form-label" for="a-email">Email</label><input id="a-email" class="form-control mb-2" type="email" autocomplete="email" x-model="form.email">
   <label class="form-label" for="a-pass">Hasło (pozostaw puste, jeśli nie chcesz wprowadzać zmian)</label><input id="a-pass" class="form-control" type="password" autocomplete="new-password" aria-describedby="a-pass-hint" x-model="form.password">
-  <div class="small text-body-secondary mb-2" id="a-pass-hint">(minimum 6 znaków)</div>
+  <div class="ikpm-meta mb-2" id="a-pass-hint">(minimum 6 znaków)</div>
   <label class="form-label" for="a-pass2">Potwierdzenie hasła</label><input id="a-pass2" class="form-control mb-2" type="password" autocomplete="new-password" x-model="form.password2">
   <label class="form-label" for="a-cur">Aktualne hasło (potrzebujemy Twojego bieżącego hasła, aby potwierdzić zmiany)</label><input id="a-cur" class="form-control mb-3" type="password" autocomplete="current-password" x-model="form.current">
-  <div class="d-flex gap-2"><button class="btn btn-primary btn-main px-4" type="submit">Aktualizuj</button><a class="btn btn-outline-secondary btn-main px-4" :href="link('profile')">Powrót</a></div>
+  <div class="d-flex flex-wrap gap-2"><button class="btn btn-primary btn-lg px-4" type="submit">Aktualizuj</button><span class="ikpm-save form-dirty align-self-center" data-state="dirty" hidden>Niezapisane zmiany</span><a class="btn btn-outline-secondary btn-lg px-4" :href="link('profile')">Powrót</a></div>
 </form>
 </div></div>
 </main>

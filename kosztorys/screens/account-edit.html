@@ -2,26 +2,31 @@
 <html lang="pl">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Edytuj konto — IKPM</title>
 <link rel="stylesheet" href="../assets/bootstrap/bootstrap.min.css">
 <link rel="stylesheet" href="../assets/bootstrap-icons/bootstrap-icons.min.css">
+<link rel="stylesheet" href="../assets/ikpm-ui.css">
 <link rel="stylesheet" href="../assets/app.css">
 </head>
 <body data-nav="profile">
 <div id="nav"></div>
-<main x-data="page" x-cloak class="container px-3 pb-5" style="max-width: 640px">
-  <form class="card my-3" @submit.prevent="submit()" novalidate aria-labelledby="a-title">
-    <div class="card-body">
-      <h1 id="a-title" class="h3">Edytuj konto</h1>
-      <div class="alert alert-danger" role="alert" x-show="errors.length"><ul class="mb-0"><template x-for="e in errors" :key="e"><li x-text="e"></li></template></ul></div>
-      <label class="form-label" for="a-email">Email</label><input id="a-email" type="email" class="form-control mb-3" autocomplete="email" x-model="form.email">
-      <label class="form-label" for="a-pass">Hasło <span class="text-body-secondary">(pozostaw puste, jeśli nie chcesz wprowadzać zmian)</span></label>
-      <input id="a-pass" type="password" class="form-control" autocomplete="new-password" aria-describedby="a-pass-hint" x-model="form.password"><p id="a-pass-hint" class="small text-body-secondary">(minimum 6 znaków)</p>
-      <label class="form-label" for="a-pass2">Potwierdzenie hasła</label><input id="a-pass2" type="password" class="form-control mb-3" autocomplete="new-password" x-model="form.password2">
-      <label class="form-label" for="a-current">Aktualne hasło <span class="text-body-secondary">(potrzebujemy Twojego bieżącego hasła, aby potwierdzić zmiany)</span></label><input id="a-current" type="password" class="form-control mb-3" autocomplete="current-password" x-model="form.current">
-      <div class="d-flex justify-content-between gap-2"><a class="btn btn-outline-secondary btn-main" :href="ik.href('screens/profile.html')">Powrót</a><button class="btn btn-primary btn-main">Aktualizuj</button></div>
+<main id="main" x-data="page" x-cloak class="ikpm-content">
+  <div class="ikpm-page-head">
+    <a class="ikpm-back" :href="ik.href('screens/profile.html')">Mój profil</a>
+    <div class="ikpm-page-heading"><h1 class="ikpm-page-title">Edytuj konto</h1></div>
+  </div>
+  <form class="k-form" @submit.prevent="submit()" novalidate aria-label="Edytuj konto">
+    <div class="alert alert-danger" role="alert" x-show="errors.length"><ul class="mb-0"><template x-for="e in errors" :key="e"><li x-text="e"></li></template></ul></div>
+    <div class="ikpm-grid k-fields">
+      <div class="ikpm-span-all"><label class="form-label" for="a-email">Email</label><input id="a-email" type="email" class="form-control" autocomplete="email" x-model="form.email"></div>
+      <div><label class="form-label" for="a-pass">Hasło <span class="fw-normal ikpm-muted">(pozostaw puste, jeśli nie chcesz wprowadzać zmian)</span></label>
+        <input id="a-pass" type="password" class="form-control" autocomplete="new-password" aria-describedby="a-pass-hint" x-model="form.password"><p id="a-pass-hint" class="form-text mb-0">(minimum 6 znaków)</p></div>
+      <div><label class="form-label" for="a-pass2">Potwierdzenie hasła</label><input id="a-pass2" type="password" class="form-control" autocomplete="new-password" x-model="form.password2"></div>
+      <div class="ikpm-span-all"><label class="form-label" for="a-current">Aktualne hasło <span class="fw-normal ikpm-muted">(potrzebujemy Twojego bieżącego hasła, aby potwierdzić zmiany)</span></label><input id="a-current" type="password" class="form-control" autocomplete="current-password" x-model="form.current"></div>
     </div>
+    <div class="d-flex flex-wrap gap-2 mt-4"><button class="btn btn-primary btn-lg">Aktualizuj</button><a class="btn btn-outline-secondary btn-lg" :href="ik.href('screens/profile.html')">Powrót</a></div>
   </form>
 </main>
 <script type="module">

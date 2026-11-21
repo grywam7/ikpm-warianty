@@ -1,134 +1,237 @@
-/* Wariant „Kosztorys” — tylko układ. Kolory, czcionki i komponenty: domyślny Bootstrap 5.3. */
+/* Wariant „Kosztorys” — tylko układ i elementy koncepcji: menu u góry, zakładki arkuszy „Dane”, dokument z przyklejonymi
+   nagłówkami pokoi, spis pokoi obok dokumentu. Wygląd (kolory, typografia, komponenty, gęstość): wspólna warstwa
+   ikpm-ui.css — tu tylko jej tokeny. */
 [x-cloak] { display: none !important; }
-/* x-show (inline display: none) wygrywa z klasami d-block / d-flex Bootstrapa (!important). */
+/* x-show (inline display: none) wygrywa z klasami d-flex / d-grid Bootstrapa (!important). */
 [style*="display: none"] { display: none !important; }
-html { scroll-padding-top: 4.5rem; }
-body { min-height: 100vh; display: flex; flex-direction: column; }
-main { flex: 1 0 auto; min-width: 0; }
-.mw-doc { max-width: 1280px; }
 .text-pre { white-space: pre-line; }
 .min-w-0 { min-width: 0; }
+.flex-none { flex: none; }
+button.ikpm-nav-link { width: 100%; background: none; border: 0; font-family: inherit; text-align: left; }
 
-/* Menu: jeden pasek u góry; od 992 px wszystkie pozycje, niżej pięć pozycji z „Więcej”. */
-.app-nav { position: relative; z-index: 20; }
-.app-nav .nav-row { display: flex; align-items: stretch; }
-.app-nav a, .app-nav .nav-btn {
-  color: #fff; text-decoration: none; display: flex; align-items: center; gap: .4rem; padding: 0 .8rem;
-  min-height: 52px; background: none; border: 0; border-bottom: 3px solid transparent; font-size: 1rem;
-}
-.app-nav a:hover, .app-nav .nav-btn:hover { background: rgba(255, 255, 255, .1); }
-.app-nav a[aria-current], .app-nav .nav-btn.active { border-bottom-color: #fff; background: rgba(255, 255, 255, .15); }
-.app-nav .brand { font-weight: 700; padding-right: 1.25rem; }
-.app-nav .brand small { font-weight: 400; opacity: .85; font-size: .75rem; display: block; line-height: 1; }
-/* Panele „Więcej” i konta rozwijają się pod paskiem i przesuwają stronę (nie zasłaniają przycisków). */
-.app-nav .more-panel { display: flex; flex-wrap: wrap; align-items: center; gap: 0 .5rem; padding: .25rem .5rem; border-radius: 0 !important; }
-.app-nav .more-panel .dropdown-divider { display: none; }
-.app-nav .more-panel a { color: var(--bs-body-color); min-height: 48px; border: 0; padding: 0 1rem; }
-.app-nav .more-panel a[aria-current] { background: var(--bs-secondary-bg); font-weight: 600; }
-@media (max-width: 1099.98px) {
-  .app-nav .nav-wide { display: none !important; }
-  .app-nav .nav-row > a, .app-nav .nav-row > .nav-btn {
-    flex: 1 1 0; flex-direction: column; justify-content: center; gap: 2px; padding: 4px 2px; min-height: 60px;
-    font-size: .8rem; min-width: 0;
-  }
-  .app-nav .nav-row > a .bi, .app-nav .nav-row > .nav-btn .bi { font-size: 1.3rem; line-height: 1; }
-}
+/* ---------- Menu: pasek u góry od 768 px (przyklejony — zawsze widoczny), dolne zakładki na telefonie ---------- */
+:root { --k-nav-h: 3.25rem; }
+@media (min-width: 768px) { :root { --ikpm-sticky-top: var(--k-nav-h); } }
+.app-nav { position: sticky; top: 0; z-index: 1030; height: var(--k-nav-h); padding-inline: calc(var(--ikpm-gutter) - .5rem); }
+.app-nav .ikpm-brand { flex-direction: row; align-items: center; gap: .5rem; min-height: 0; padding: 0 1rem 0 .5rem; align-self: stretch; }
+.app-nav-list { display: flex; align-items: stretch; gap: .125rem; margin: 0; padding: 0; list-style: none; min-width: 0; }
+.app-nav-list > li { position: relative; display: flex; }
+.app-nav .ikpm-nav-link { height: 100%; white-space: nowrap; }
+.app-nav .k-account { margin-left: auto; }
+.app-nav .k-account .ikpm-nav-link span { max-width: 16rem; overflow: hidden; text-overflow: ellipsis; }
+.k-pop { position: absolute; top: 100%; right: 0; left: auto; display: block; min-width: 15rem; margin-top: 1px; }
+.k-pop-label { padding: .375rem .75rem; font-size: var(--ikpm-fs-sm); color: var(--ikpm-text-2); overflow-wrap: anywhere; }
+@media (max-width: 767.98px) { .app-nav { display: none; } }
+@media (max-width: 1099.98px) { .app-nav .nav-wide { display: none !important; } }
+@media (max-width: 1399.98px) { .app-nav .ikpm-brand span { display: none; } }
+.app-nav .k-account { flex: none; }
+.app-nav nav { flex: 0 1 auto; }
 @media (min-width: 1100px) { .app-nav .nav-narrow { display: none !important; } }
-/* Kolumna średniej ceny w arkuszu prac — przy 992–1199 px pole miało 37 px i cena była ucięta. */
-.w-price { min-width: 7.5rem; }
+.k-more-list { padding: .5rem; }
 
-/* Zakładki arkuszy „Dane”. */
-.sheet-tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: .25rem; }
-.sheet-tabs a { display: flex; align-items: center; justify-content: center; gap: .35rem; min-height: 48px; text-align: center; }
-@media (max-width: 575.98px) { .sheet-tabs { grid-template-columns: repeat(2, 1fr); } }
+/* ---------- Zakładki arkuszy „Dane” (jak arkusze w skoroszycie) ---------- */
+.sheet-tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .25rem; margin: 0 0 var(--ikpm-space-6); padding: 0;
+  list-style: none; border-bottom: 1px solid var(--ikpm-border); }
+.sheet-tabs .ikpm-nav-link { justify-content: center; border-radius: var(--ikpm-radius) var(--ikpm-radius) 0 0; text-align: center;
+  box-shadow: inset 0 -3px 0 transparent; }
+.sheet-tabs .ikpm-nav-link[aria-current] { box-shadow: inset 0 -3px 0 var(--ikpm-accent); }
+@media (max-width: 575.98px) { .sheet-tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 
-/* Cele dotyku: telefon i tablet (do 1180 px) — 48 px, główne akcje i statusy 56 px; laptop — zwykłe rozmiary. */
-.btn-main { min-height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: .35rem; }
-@media (max-width: 1199.98px) {
-  .btn, .form-control, .form-select, .input-group-text, textarea.form-control { min-height: 48px; }
-  .btn { display: inline-flex; align-items: center; justify-content: center; gap: .35rem; min-width: 48px; }
-  .btn-main, .status-seg .btn { min-height: 56px; }
-  .form-check-input { width: 1.5em; height: 1.5em; margin-top: .1em; }
-  .form-switch .form-check-input { width: 2.75em; }
-  .form-check { min-height: 48px; display: flex; align-items: center; gap: .5rem; padding-left: 0; }
-  .form-check .form-check-input { float: none; margin-left: 0; flex: none; }
-  .form-switch { padding-left: 0; }
-  .tap { min-height: 48px; min-width: 48px; display: inline-flex; align-items: center; }
-  .btn-close { width: 48px; height: 48px; padding: 0; }
+/* ---------- Strona: nagłówek, pola, karty ---------- */
+.ikpm-page-head { margin-bottom: var(--ikpm-space-5); }
+/* Tytuł z metryką (status, klient, „z wyceny”) dostaje co najmniej 30rem — przy wielu przyciskach (tablet) przyciski
+   przechodzą pod tytuł, zamiast łamać metrykę na trzy linie. */
+.ikpm-page-heading { flex-basis: 30rem; }
+.k-card-title { font-size: var(--ikpm-fs-lg); font-weight: 600; margin: 0; }
+.k-fields { --ikpm-grid-min: 14rem; gap: var(--ikpm-space-3) var(--ikpm-space-4); }
+.k-fields .form-label { margin-bottom: .25rem; }
+.k-form { max-width: 60rem; }
+
+/* ---------- Dokument: spis pokoi | dokument | podsumowanie (od 1600 px) ---------- */
+.ikpm-split { column-gap: var(--ikpm-gutter); }
+@media (min-width: 1100px) { .ikpm-split > .ikpm-pane-list { border-right: 0; } }
+.k-toc { display: none; }
+@media (min-width: 1100px) {
+  .k-toc { display: block; padding-bottom: calc(var(--ikpm-actionbar-h) + 1rem); }
+  .k-chips { display: none !important; }
 }
-@media (min-width: 1200px) { .tap { min-height: 24px; min-width: 24px; display: inline-flex; align-items: center; } .check-cell { min-width: 24px; min-height: 24px; display: flex; align-items: center; justify-content: center; padding-left: 0; } .check-cell .form-check-input { float: none; margin: 0; } }
-.check-cell { min-width: 48px; justify-content: center; margin-bottom: 0; }
+.k-toc-title { font-size: var(--ikpm-fs-sm); font-weight: 600; color: var(--ikpm-text-2); margin: 0 0 .5rem; }
+.k-toc .ikpm-row { min-height: var(--ikpm-control-h); padding-block: .5rem; }
+.k-chips { display: flex; flex-wrap: wrap; gap: var(--ikpm-space-2); margin-bottom: var(--ikpm-space-4); }
+.k-chips .btn { font-weight: 500; }
+.k-aside > * + * { margin-top: var(--ikpm-space-4); }
+@media (min-width: 1600px) { .ikpm-split-3 > .ikpm-pane-aside { padding-bottom: calc(var(--ikpm-actionbar-h) + 1rem); } }
 
-/* Dokument: przyklejone nagłówki pokoi i etapów, pasek sum na dole. */
-.doc-head-sticky { position: sticky; top: 0; z-index: 8; }
-.doc-room > .doc-room-head { position: sticky; top: 0; z-index: 7; }
-.doc-bar { position: sticky; bottom: 0; z-index: 9; box-shadow: 0 -2px 8px rgba(0, 0, 0, .15); }
-.doc-table { margin-bottom: 0; }
-.doc-table > :not(caption) > * > * { vertical-align: middle; }
-.doc-table .col-num { width: 9rem; }
-.doc-table .num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
-.doc-table tr.stage-row > td { background: var(--bs-tertiary-bg); font-weight: 600; font-size: .9rem; }
-.num { font-variant-numeric: tabular-nums; }
-.cell-input { min-width: 6.5rem; }
-.saved-mark { min-height: 1.5rem; }
-
-/* Tabele rejestrów i cennika: poniżej 768 px (rejestry z wieloma kolumnami — poniżej 992 px) wiersz to blok z etykietami pól. */
-legend { float: none; }
+/* Pokój w dokumencie: przyklejony nagłówek; odstęp ≥ 1rem, żeby po skoku do pokoju nagłówek poprzedniego schował się
+   pod menu (scroll-padding-top = menu + 1rem). */
+.doc-room { container: k-room / inline-size; margin-bottom: var(--ikpm-space-6); }
+.doc-room > .doc-room-head { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem .75rem; padding: .5rem 1rem;
+  border-radius: calc(var(--ikpm-radius-lg) - 1px) calc(var(--ikpm-radius-lg) - 1px) 0 0; }
+.doc-room-title { font-size: var(--ikpm-fs-lg); font-weight: 600; margin: 0; overflow-wrap: anywhere; }
+.doc-room-name { flex: 1 1 14rem; min-width: 0; }
+.doc-room-body { padding: var(--ikpm-space-4); }
+.doc-room .ikpm-table-box { border-radius: 0; border-inline: 0; border-bottom: 0; }
+.doc-room .ikpm-table-box > .table > thead > tr:first-child > * { border-radius: 0; }
+.k-group-label { margin: 0; padding: .375rem 1rem; font-size: var(--ikpm-fs-sm); font-weight: 600; background: var(--ikpm-surface-2);
+  border-top: 1px solid var(--ikpm-border-subtle); }
+.k-col-hint { display: block; font-weight: 400; }
+.k-num-col { width: 10.5rem; }
+.k-val-col { width: 9.5rem; }
+.k-act-col { width: 3.75rem; }
+.k-room-edit { border-bottom: 1px solid var(--ikpm-border); }
+.k-room-edit-toggle { display: none; }
 @media (max-width: 767.98px) {
-  .reflow thead { display: none; }
-  .reflow, .reflow tbody, .reflow tr, .reflow td, .reflow tfoot { display: block; width: 100%; }
-  .reflow tr { border: 1px solid var(--bs-border-color); border-radius: .5rem; margin-bottom: .75rem; padding: .5rem .75rem; background: var(--bs-body-bg); }
-  .reflow > :not(caption) > * > * { border: 0; padding: .3rem 0; box-shadow: none; }
-  .reflow td { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: .25rem .75rem; text-align: right; }
-  .reflow td[data-label]::before { content: attr(data-label); font-weight: 600; text-align: left; color: var(--bs-secondary-color); flex: none; max-width: 45%; }
-  .reflow td.reflow-full { display: block; text-align: left; }
-  .reflow td.reflow-full::before { display: block; margin-bottom: .25rem; }
-  .reflow tr.stage-row { border: 0; padding: 0; background: none; }
-  .reflow td:not(.reflow-full) .form-control, .reflow td:not(.reflow-full) .form-select, .reflow td:not(.reflow-full) .input-group { max-width: 60%; }
+  .k-room-edit-toggle { display: flex; }
+  .k-room-edit:not(.is-open) { display: none; }
 }
+.k-results { max-height: 20rem; overflow: auto; }
+@media (max-width: 767.98px) { .k-results { max-height: 45vh; } .add-search { scroll-margin-top: 1rem; } }
+.k-results .list-group-item { display: flex; gap: .5rem; align-items: center; }
+
+/* Pasek sum: suma, VAT i brutto zawsze w jednym bloku; od 1200 px też koszt i marża. */
+.k-bar-extra { display: none; }
+@media (min-width: 1200px) { .k-bar-extra { display: flex; flex-direction: column; justify-content: center; } }
+.k-bar-totals { display: flex; flex-wrap: wrap; align-items: baseline; gap: .125rem 1rem; }
+
+/* ---------- Realizacja: lista kontrolna ---------- */
+.k-job { padding: .75rem 1rem; border-top: 1px solid var(--ikpm-border-subtle); }
+.k-job:first-child { border-top: 0; }
+.k-job-line { display: grid; grid-template-columns: minmax(0, 1fr) 9.5rem 8rem; gap: .5rem 1rem; align-items: center; }
+.k-job-line .ikpm-seg { grid-column: 1 / -1; }
+@container k-room (min-width: 64rem) {
+  .k-job-line { grid-template-columns: minmax(12rem, 1fr) minmax(26rem, 32rem) 9.5rem 8rem; }
+  .k-job-line .ikpm-seg { grid-column: 2; grid-row: 1; }
+}
+.k-job-texts { display: grid; gap: .5rem 1rem; margin-top: .5rem; }
+@container k-room (min-width: 40rem) { .k-job-texts { grid-template-columns: 1fr 1fr; } }
+.k-job-texts .form-label { font-size: var(--ikpm-fs-sm); margin-bottom: .25rem; }
+.k-job-btn { display: flex; gap: .75rem; align-items: flex-start; width: 100%; padding: .75rem 1rem; color: var(--ikpm-text);
+  background: none; border: 0; border-top: 1px solid var(--ikpm-border-subtle); text-align: left; font: inherit; }
+.k-job-btn:first-child { border-top: 0; }
+.k-job-btn:hover { background: var(--ikpm-surface-2); }
+.k-job-btn:focus-visible { outline-offset: -3px; }
+.k-job-btn .ikpm-chevron { margin-top: .25rem; }
+.k-text-line { display: block; margin-top: .25rem; font-size: var(--ikpm-fs-sm); overflow-wrap: anywhere; }
+.k-text-line > b { font-weight: 600; }
+.k-file { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; }
+label.btn:has(.k-file:focus-visible) { outline: 3px solid var(--ikpm-focus); outline-offset: 2px; }
+@media (max-width: 767.98px) {
+  .doc-room-head .k-room-act { flex: 1 1 0; min-width: 0; white-space: normal; line-height: 1.2; text-align: center; }
+}
+.k-seg-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+/* Karta zdjęcia na telefonie: jedna w wierszu, pole „Pokój” na całą szerokość (pełne nazwy pokoi). */
+@media (max-width: 575.98px) {
+  .k-photos { grid-template-columns: minmax(0, 1fr); }
+  .k-photos .ikpm-photo-thumb { aspect-ratio: 16 / 9; }
+}
+.k-photo-name { margin: 0; font-size: var(--ikpm-fs-sm); color: var(--ikpm-text-2); overflow-wrap: anywhere; }
+.k-photo-open { display: block; width: 100%; padding: 0; border: 0; background: none; }
+.k-photo-open img { display: block; }
+.k-photo-view img { display: block; width: 100%; height: auto; }
+
+/* ---------- Arkusze cennika: przyklejony nagłówek etapu i nagłówek kolumn pod nim (od 992 px) ---------- */
+.k-sheet-table { margin-bottom: 0; }
+/* Nagłówek etapu ma stałą wysokość, żeby nagłówek kolumn przykleił się tuż pod nim. */
+.k-stage { --k-stage-head: calc(var(--ikpm-control-h) + 1rem); }
+.k-sheet-table > tbody > tr { scroll-margin-top: calc(var(--k-stage-head) + 1rem); }
+@media (min-width: 992px) {
+  .k-stage > .doc-room-head { height: var(--k-stage-head); flex-wrap: nowrap; padding-block: 0; }
+  .k-sheet-table > thead > tr > th { position: sticky; top: calc(var(--ikpm-sticky-top) + var(--k-stage-head)); z-index: 4; }
+  .k-sheet-table > tbody > tr { scroll-margin-top: calc(var(--k-stage-head) + 3rem); }
+}
+.k-detail-row > td { background: var(--ikpm-surface-2) !important; }
+.k-detail { display: grid; gap: var(--ikpm-space-5); padding: var(--ikpm-space-2) 0; }
+.k-sub-title { font-size: 1rem; font-weight: 600; margin: 0 0 .5rem; }
+.k-add-row > td { background: var(--ikpm-accent-subtle) !important; }
+/* Poniżej 992 px wiersz arkusza to karta z etykietami pól (data-label). */
 @media (max-width: 991.98px) {
-  .reflow-lg thead { display: none; }
-  .reflow-lg, .reflow-lg tbody, .reflow-lg tr, .reflow-lg td, .reflow-lg tfoot { display: block; width: 100%; }
-  .reflow-lg tr { border: 1px solid var(--bs-border-color); border-radius: .5rem; margin-bottom: .75rem; padding: .5rem .75rem; background: var(--bs-body-bg); }
-  .reflow-lg > :not(caption) > * > * { border: 0; padding: .3rem 0; box-shadow: none; }
-  .reflow-lg td { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: .25rem .75rem; text-align: right; }
-  .reflow-lg td[data-label]::before { content: attr(data-label); font-weight: 600; text-align: left; color: var(--bs-secondary-color); flex: none; max-width: 45%; }
-  .reflow-lg td.reflow-full { display: block; text-align: left; }
-  .reflow-lg td.reflow-full::before { display: block; margin-bottom: .25rem; }
-  .reflow-lg tr.stage-row { border: 0; padding: 0; background: none; }
-  .reflow-lg td:not(.reflow-full) .form-control, .reflow-lg td:not(.reflow-full) .form-select, .reflow-lg td:not(.reflow-full) .input-group { max-width: 60%; }
+  .k-reflow > thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .k-reflow, .k-reflow > tbody, .k-reflow > tfoot { display: block; width: 100%; }
+  .k-reflow > tbody > tr:not(.k-detail-row), .k-reflow > tfoot > tr { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 9rem), 1fr));
+    gap: .5rem .75rem; align-items: end; padding: .75rem 1rem; border-bottom: 1px solid var(--ikpm-border-subtle); }
+  .k-reflow.table > tbody > tr > *, .k-reflow.table > tfoot > tr > * { display: block; padding: 0; border: 0; background: transparent; }
+  .k-reflow > tbody > tr > [data-label]::before { content: attr(data-label); display: block; margin-bottom: .25rem; font-size: var(--ikpm-fs-xs);
+    font-weight: 600; color: var(--ikpm-text-2); }
+  .k-reflow .k-full { grid-column: 1 / -1; }
+  .k-reflow > tbody > tr.k-detail-row { display: block; }
+  .k-reflow.table > tbody > tr.k-detail-row > td { display: block; padding: .75rem 1rem; border-bottom: 1px solid var(--ikpm-border-subtle); }
+  .k-reflow .k-cell-actions { display: flex; gap: .5rem; align-items: flex-end; justify-content: flex-end; }
+  .k-reflow.table > tbody > tr > td.ikpm-num { text-align: left; }
+  /* Przycisk szczegółów i kosz na końcu karty, obok siebie. */
+  .k-reflow > tbody > tr:not(.k-detail-row) > td:first-child { order: 98; align-self: end; }
+  .k-reflow > tbody > tr:not(.k-detail-row) > td:last-child { order: 99; align-self: end; text-align: right; }
 }
 
-/* Statusy prac: cztery przyciski. */
-.status-seg { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .25rem; }
-.status-seg .btn { display: flex; align-items: center; justify-content: center; gap: .3rem; font-size: .9rem; line-height: 1.15; padding: .25rem .4rem; }
-@media (max-width: 575.98px) { .status-seg { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+/* ---------- Dobór wykonawców: arkusz planów od 1100 px, węziej karty ---------- */
+.k-plans-sheet { display: none; }
+.k-plans-cards { display: grid; gap: var(--ikpm-space-4); grid-template-columns: repeat(auto-fill, minmax(min(100%, 20rem), 1fr)); }
+@media (min-width: 1100px) { .k-plans-sheet { display: block; } .k-plans-cards { display: none; } }
+.k-plan-table { table-layout: fixed; min-width: 60rem; }
+.k-plan-table th[scope=row], .k-plan-table thead th:first-child { width: 13rem; }
+.k-plan-table td, .k-plan-table th { min-width: 11rem; }
+.k-schedule { list-style: none; margin: 0; padding: 0; display: grid; gap: .125rem; font-size: var(--ikpm-fs-sm); }
+.k-schedule li { display: flex; gap: .5rem; justify-content: space-between; }
 
-/* Okno dolne (telefon) / okno środkowe (szersze ekrany) i okno potwierdzenia — <dialog>. */
-dialog.sheet, dialog.confirm-dialog { border: 0; padding: 0; background: var(--bs-body-bg); color: var(--bs-body-color); }
-dialog.sheet { inset: auto 0 0 0; margin: 0; width: 100%; max-width: 100%; max-height: 92vh; border-radius: 1rem 1rem 0 0; overflow: auto; }
-dialog.sheet::backdrop, dialog.confirm-dialog::backdrop { background: rgba(0, 0, 0, .5); }
-dialog.sheet .sheet-head { position: sticky; top: 0; z-index: 2; background: var(--bs-body-bg); border-bottom: 1px solid var(--bs-border-color); }
-dialog.sheet .sheet-grip { width: 3rem; height: .3rem; border-radius: 1rem; background: var(--bs-secondary-bg); margin: .4rem auto 0; }
-@media (min-width: 768px) {
-  dialog.sheet { inset: 0; margin: auto; max-width: 640px; border-radius: .75rem; }
-  dialog.sheet .sheet-grip { display: none; }
+/* ---------- Strony klienta: na telefonie praca w dwóch liniach, etap jako nagłówek grupy ----------
+   /q: nazwa, pod nią „ilość × cena jedn. netto” i wartość netto z prawej; /r: nazwa ze statusem z prawej, komentarz pod
+   spodem tylko, gdy jest. Od 37,5rem szerokości tabeli — zwykła tabela z kolumną „Etap” (wiersze grup ukryte). */
+.k-compact .k-stage-row, .k-compact .k-only-compact { display: none; }
+@container ikpm-table (max-width: 37.5rem) {
+  .k-compact > thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .k-compact, .k-compact > tbody { display: block; width: 100%; }
+  .k-compact > tbody > tr { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .125rem .75rem; align-items: baseline;
+    padding: .625rem 1rem; border-bottom: 1px solid var(--ikpm-border-subtle); }
+  .k-compact > tbody:last-child > tr:last-child { border-bottom: 0; }
+  .k-compact.table > tbody > tr > * { display: block; padding: 0; border: 0; background: transparent; text-align: left; white-space: normal; }
+  .k-compact.table > tbody > tr > .k-no-compact { display: none; }
+  .k-compact.table > tbody > tr > .k-full { grid-column: 1 / -1; }
+  .k-compact.table > tbody > tr > .k-end { text-align: right; white-space: nowrap; }
+  .k-compact > tbody > tr.k-stage-row { display: block; padding: .375rem 1rem; background: var(--ikpm-surface-2); }
+  .k-compact.table > tbody > tr.k-stage-row > th { font-size: var(--ikpm-fs-sm); font-weight: 600; color: var(--ikpm-text-2); }
+  .k-compact.table > tbody > tr > .k-note { grid-column: 1 / -1; margin-top: .25rem; font-size: var(--ikpm-fs-sm); }
+  .k-compact.table > tbody > tr > .k-note[data-label]::before { content: attr(data-label) ": "; font-weight: 600; }
+  .k-compact.table > tbody > tr > .k-note.k-empty { display: none; }
 }
-dialog.confirm-dialog { width: calc(100% - 32px); max-width: 560px; border-radius: .75rem; }
+.k-legend { display: none; }
+@media (max-width: 649.98px) { .k-legend { display: block; } }
+/* Dane (klient, adres, terminy) na telefonie: etykieta nad wartością — pełny e-mail w jednej linii. */
+@media (max-width: 575.98px) {
+  .k-dl-stack { grid-template-columns: minmax(0, 1fr); row-gap: 0; }
+  .k-dl-stack > dd { margin-bottom: .5rem; }
+  .k-dl-stack > dd:last-child { margin-bottom: 0; }
+}
+.k-public-head { display: grid; gap: .5rem; margin-bottom: var(--ikpm-space-5); }
+.k-public-head h1 { margin: 0; }
 
-/* Komunikaty: błąd w treści do „Zamknij”, potwierdzenie w prawym dolnym rogu (nad paskiem sum) na 4 s. */
-.toast-box { position: fixed; bottom: .75rem; right: .75rem; left: .75rem; z-index: 1080; display: flex; justify-content: flex-end; pointer-events: none; }
-.toast-box > div { pointer-events: auto; max-width: 460px; }
+/* ---------- PDF: arkusz A4 w szerokości druku, na węższym ekranie pomniejszony jak w przeglądarce PDF ---------- */
+.k-pdf-wrap { padding: var(--ikpm-gutter) 0; overflow-x: hidden; }
+.k-pdf-wrap .ikpm-paper { width: 210mm; max-width: none; margin: 0 auto; padding: 15mm; }
+@media (max-width: 575.98px) { .k-pdf-wrap .ikpm-paper { padding: 15mm; border: 1px solid var(--ikpm-border); } }
+.d-contents { display: contents; }
+@media (min-width: 576px) { .k-span2-md { grid-column: span 2; } }
+/* Etap zwinięty: sam nagłówek bez linii pod spodem; przycisk etapu to cały wiersz nagłówka. */
+.k-stage > .doc-room-head:nth-last-child(2) { border-bottom: 0; border-radius: calc(var(--ikpm-radius-lg) - 1px); }
+.k-stage .k-stage-toggle { --bs-btn-border-color: transparent; --bs-btn-hover-border-color: transparent; font-size: var(--ikpm-fs-lg);
+  margin-left: -.5rem; padding-inline: .5rem; }
 
-.photo-thumb { aspect-ratio: 4 / 3; object-fit: cover; width: 100%; background: var(--bs-secondary-bg); display: flex; align-items: center; justify-content: center; flex-direction: column; color: var(--bs-secondary-color); }
-.photo-thumb .bi { font-size: 2rem; }
-.progress { height: 1.25rem; }
-.chip-row { display: flex; flex-wrap: wrap; gap: .5rem; }
-.combo-list { max-height: 320px; overflow: auto; z-index: 10; }
-.combo-list .list-group-item { min-height: 48px; }
+/* ---------- Dotyk: cele ≥ 44 px ---------- */
+/* Tekst schowany w komórce (.visually-hidden) zostaje w przewijanym pudełku tabeli, nie poszerza strony. */
+.ikpm-table-box { position: relative; }
+@media (pointer: coarse), (max-width: 767.98px) {
+  /* Pole wyboru i przełącznik: cały wiersz (48 px) jest celem — etykieta pokrywa też pole i odstęp. */
+  .form-check { position: relative; }
+  .form-check .form-check-input { position: relative; z-index: 1; }
+  .form-check .form-check-label { padding-block: .625rem; }
+  .form-check .form-check-label::after { content: ""; position: absolute; inset: 0; }
+  /* Odnośniki w listach, w danych i w nagłówku strony (rekord, klient, wycena, „Lista …”) — 44 px wysokości. */
+  .ikpm-cell-lead > a, .table td > a:not(.btn), .ikpm-page-meta a, .k-start-head > a, .ikpm-dl dd > a, .ikpm-dl dd > span > a, .alert li > a {
+    display: inline-flex; align-items: center; min-height: 44px; min-width: 44px; }
+}
 
-/* Arkusz A4 (PDF) i podgląd maila. */
-.a4 { max-width: 210mm; margin: 0 auto; background: #fff; color: #222; padding: 15mm; box-shadow: 0 2px 12px rgba(0, 0, 0, .15); }
-@media (max-width: 767.98px) { .a4 { padding: 16px; } }
-.a4 .label-caps { font-size: .7rem; text-transform: uppercase; letter-spacing: .04em; color: #555; }
-.box-scroll { overflow-x: auto; }
+/* ---------- Komunikaty na telefonie: na dole, nad dolnymi zakładkami (i paskiem sum) — „Cofnij” pod kciukiem, przyklejony
+   nagłówek pokoju, tytuł okna i „Gotowe” odsłonięte. W otwartym oknie dolnym komunikat jest w oknie (nad nim, klikalny). */
+@media (max-width: 767.98px) {
+  .ikpm-toast-region { top: auto; bottom: calc(var(--ikpm-tabbar-offset) + var(--ikpm-actionbar-h) + .5rem); }
+  .ikpm-toast { --ikpm-toast-from: 8px; }
+  dialog > .ikpm-toast-region { bottom: calc(env(safe-area-inset-bottom) + .5rem); }
+}

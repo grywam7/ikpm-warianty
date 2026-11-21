@@ -5,7 +5,7 @@ import {
   saveClient, allJobs, newQuoteJob, byStage, totals, roomTotal, quoteCost, marginPercent, vatLabel, quoteJobs,
   hasClientComments, planSource, applyPlan, sendProblems, sendQuote, changedAfterMatching, addWorkDays, roomErrors,
   isIrregular, roomSize, roomSizeParts, DIMENSIONS, OVERRIDES, fieldNumber, jobsText, workDaysText, hoursText, pln,
-  dec, dateText, clone,
+  dec, dateText, clone, clientByName, saveRoomAsTemplate,
 } from './app.js';
 
 const { lineTotal, areaFor, roundHalfUp, laborUnitCost } = ikpm;
@@ -28,7 +28,7 @@ export const wizard = () => ({
   STEPS, DIMENSIONS, OVERRIDES, DIM_LABELS, OVERRIDE_LABELS, PROFILE_ICONS,
   q: null, step: 'klient', roomId: null, fromCheck: false, isNew: false, mode: null, showSteps: false,
   clientSearch: '', laterPicked: false, newClientOpen: false, newClient: { name: '', email: '', phone: '', notes: '' }, newClientError: '',
-  jobSearch: '', stepError: '', savedAt: '',
+  jobSearch: '', stepError: '', savedAt: '', term: { start: '', end: '', address: '' }, termDirty: false,
 
   init() {
     const _p = new URLSearchParams(location.search);
@@ -47,6 +47,7 @@ export const wizard = () => ({
       this.step = 'klient';
     }
     this.roomId = Number(_p.get('pokoj')) || this.q.rooms[0]?.id || null;
+    this.loadTerm();
     this.syncUrl();
     window.addEventListener('popstate', () => this.fromUrl());
   },
@@ -57,6 +58,7 @@ export const wizard = () => ({
     this.step = _p.get('krok') || 'sprawdz';
     this.roomId = Number(_p.get('pokoj')) || this.q.rooms[0]?.id || null;
     this.fromCheck = false; this.showSteps = false; this.stepError = '';
+    this.loadTerm();
     this.syncUrl();
     this.$nextTick(() => { window.scrollTo(0, 0); document.getElementById('wz-h1')?.focus(); });
   },
@@ -75,21 +77,28 @@ export const wizard = () => ({
     return STEPS[this.stepIndex].question;
   },
   get heading() { return this.q.id ? `Wycena #${this.q.id}${this.q.client ? ` · ${this.q.client.name}` : ''}` : 'Nowa wycena'; },
+  // Krok „gotowy” dopiero, gdy każdy pokój go ma (pokój bez wymiarów albo bez prac nie jest skończony).
   stepDone(key) {
     const _q = this.q; const _jobs = quoteJobs(_q);
     return {
       klient: Boolean(_q.client),
       pokoje: _q.rooms.length > 0,
-      wymiary: _q.rooms.length > 0 && _q.rooms.every((r) => roomErrors(r).length === 0),
-      prace: _jobs.length > 0,
+      wymiary: _q.rooms.length > 0 && (this.isWholeObject || _q.rooms.every((r) => roomSize(r) && roomErrors(r).length === 0)),
+      prace: _q.rooms.length > 0 && _q.rooms.every((r) => r.jobs.length > 0),
       wykonawcy: _jobs.length > 0 && _jobs.every((j) => j.contractor) && changedAfterMatching(_q).length === 0,
       termin: Boolean(_q.planned_end_on),
       sprawdz: _q.id && sendProblems(_q).length === 0,
       wyslij: _q.status === 'sent',
     }[key];
   },
+  stepWarn(key) { return key === 'wykonawcy' && changedAfterMatching(this.q).length > 0; },
   stepClass(key) {
-    return { current: this.step === key, done: this.step !== key && this.stepDone(key), warn: key === 'wykonawcy' && changedAfterMatching(this.q).length > 0 && this.step !== key };
+    const _warn = this.step !== key && this.stepWarn(key);
+    return { 'is-warn': _warn, 'is-done': !_warn && this.step !== key && Boolean(this.stepDone(key)) };
+  },
+  stepStateText(key) {
+    if (this.stepWarn(key)) return '(ilość zmieniona po doborze)';
+    return this.stepDone(key) ? '(gotowe)' : '';
   },
   syncUrl(push = false) {
     if (!this.q.id) return;
@@ -101,11 +110,13 @@ export const wizard = () => ({
   },
   go(key, { fromCheck = false, replace = false } = {}) {
     if (this.isNew && key !== 'klient') { this.stepError = 'Najpierw wybierz klienta albo „Wybierz później” i przejdź dalej.'; return; }
+    if (this.step === 'termin' && key !== 'termin' && this.termDirty && !this.saveTerm()) return;
     this.stepError = '';
     this.fromCheck = fromCheck;
     this.step = key;
     this.showSteps = false;
     if (this.perRoom && !this.room) this.roomId = this.q.rooms[0]?.id ?? null;
+    if (key === 'termin') this.loadTerm();
     this.syncUrl(!replace);
     this.$nextTick(() => { window.scrollTo(0, 0); document.getElementById('wz-h1')?.focus(); });
   },
@@ -117,11 +128,14 @@ export const wizard = () => ({
     if (this.step === 'wyslij') return 'Wyślij do klienta';
     return `Dalej: ${STEPS[this.stepIndex + 1].label}`;
   },
+  // Pytanie kroku „Wykonawcy” to wybór planu — „Dalej” nie jest główną akcją, dopóki plan nie jest zastosowany.
+  get nextPrimary() { return !(this.step === 'wykonawcy' && this.plans && !this.stepDone('wykonawcy')); },
   next() {
     this.stepError = '';
     if (this.step === 'klient' && this.isNew) return this.createQuote();
     if (this.step === 'pokoje' && this.q.rooms.length === 0) { this.stepError = 'Dodaj co najmniej jeden pokój — z szablonu albo nowy.'; return; }
     if (this.step === 'wymiary' && this.room && roomErrors(this.room).length) { this.stepError = roomErrors(this.room)[0]; return; }
+    if (this.step === 'termin' && this.termDirty && !this.saveTerm()) return;
     if (this.step === 'wyslij') return this.send();
     if (this.fromCheck) return this.go('sprawdz');
     if (this.perRoom && this.roomIndex < this.q.rooms.length - 1) return this.selectRoom(this.q.rooms[this.roomIndex + 1].id);
@@ -135,6 +149,7 @@ export const wizard = () => ({
     if (this.stepIndex === 0) { location.href = link('index.html'); return; }
     const _prev = STEPS[this.stepIndex - 1].key;
     if (['wymiary', 'prace'].includes(_prev)) this.roomId = this.q.rooms.at(-1)?.id ?? null;
+    if (_prev === 'wymiary' && this.isWholeObject) return this.go('pokoje');
     this.go(_prev);
   },
   get isWholeObject() { return this.q.rooms.length === 1 && this.q.rooms[0].name === 'Cały obiekt' && !roomSize(this.q.rooms[0]); },
@@ -145,6 +160,7 @@ export const wizard = () => ({
   },
 
   // ---------------------------------------------------------- krok 1: klient
+  get clientRecord() { return this.q.client ? clientByName(this.q.client.name) : null; },
   get clientList() {
     const _s = this.clientSearch.trim().toLowerCase();
     return clients().filter((c) => !_s || c.name.toLowerCase().includes(_s) || (c.email ?? '').toLowerCase().includes(_s));
@@ -208,6 +224,12 @@ export const wizard = () => ({
   },
   renameRoom(room, value) { if (value.trim()) { room.name = value.trim().slice(0, 100); this.save(); } },
   roomInfo(room) { return [roomSize(room), jobsText(room.jobs.length)].filter(Boolean).join(' · '); },
+  saveRoomTemplate(room, name) {
+    const _r = saveRoomAsTemplate(room, name);
+    if (_r.error) { this.$store.alert.msg = _r.error; window.scrollTo(0, 0); return; }
+    this.templates = templates();
+    this.$store.toast.show(_r.notice);
+  },
   removeRoom(room) {
     this.$store.confirm.ask({
       title: 'Czy na pewno usunąć ten pokój i wszystkie jego prace?',
@@ -288,10 +310,21 @@ export const wizard = () => ({
     const _open = new Set(this.availableJobs.map((j) => j.stage));
     return [..._have].filter((s) => !_open.has(s));
   },
+  // Nowa praca trafia w kolejność etapów — przewiń do niej; praca ręczna dostaje fokus w „Ilość”.
   addJob(j) {
-    this.room.jobs.push(newQuoteJob(j, this.room));
+    const _job = newQuoteJob(j, this.room);
+    this.room.jobs.push(_job);
     this.save();
     this.$store.toast.show('Praca dodana.');
+    this.$nextTick(() => {
+      const _row = document.getElementById('job-' + _job.id);
+      _row?.scrollIntoView({ block: 'center' });
+      if (!this.isAuto(_job)) document.getElementById('qty-' + _job.id)?.focus({ preventScroll: true });
+    });
+  },
+  toAddJob() {
+    document.getElementById('add-job')?.scrollIntoView({ block: 'start' });
+    document.getElementById('job-search')?.focus({ preventScroll: true });
   },
   removeJob(job) {
     this.$store.confirm.ask({
@@ -312,6 +345,15 @@ export const wizard = () => ({
     return _src ? Object.entries(_src.matching_plans).map(([key, plan]) => ({ key, plan })) : null;
   },
   get changedNames() { return changedAfterMatching(this.q).map((j) => j.name); },
+  get appliedPlan() { return this.plans?.find((p) => p.key === this.q.applied_profile_name) ?? null; },
+  // Po zmianie ilości główną akcją jest ponowne zastosowanie tego samego planu.
+  planButtonClass(key) {
+    if (this.changedNames.length && this.appliedPlan) return key === this.q.applied_profile_name ? 'btn-primary' : 'btn-outline-primary';
+    if (this.q.applied_profile_name && this.stepDone('wykonawcy')) return 'btn-outline-primary';
+    return 'btn-primary';
+  },
+  planButtonText(key) { return this.q.applied_profile_name === key ? 'Zastosuj ponownie' : 'Zastosuj ten plan'; },
+  planColClass(key) { return this.q.applied_profile_name === key ? 'is-applied' : ''; },
   workDays: workDaysText,
   hours: hoursText,
   cumulative(plan) { let _sum = 0; return plan.stage_schedule.map((s) => { _sum += s.duration_hours; return Math.round(_sum * 10) / 10; }); },
@@ -346,15 +388,28 @@ export const wizard = () => ({
   },
 
   // ---------------------------------------------------------- krok 6: termin
-  get suggestedEnd() { return addWorkDays(this.q.planned_start_on, this.q.suggested_work_days); },
-  setField(field, value) { this.q[field] = value || null; this.save(); },
+  // Termin i adres jak wiersz terminu w aplikacji: zmiany czekają na „Zapisz” (albo „Dalej”), „Użyj” zapisuje od razu.
+  loadTerm() {
+    this.term = { start: this.q.planned_start_on || '', end: this.q.planned_end_on || '', address: this.q.site_address || '' };
+    this.termDirty = false;
+  },
+  get suggestedEnd() { return this.term.start === (this.q.planned_start_on || '') ? addWorkDays(this.q.planned_start_on, this.q.suggested_work_days) : null; },
   get dateError() {
-    if (this.q.planned_start_on && this.q.planned_end_on && this.q.planned_end_on < this.q.planned_start_on) return 'Termin zakończenia nie może być wcześniejszy niż planowany start.';
+    if (this.term.start && this.term.end && this.term.end < this.term.start) return 'Termin zakończenia nie może być wcześniejszy niż planowany start.';
     return '';
   },
-  useSuggested() {
-    this.q.planned_end_on = this.suggestedEnd;
+  saveTerm() {
+    if (this.dateError) { this.stepError = ''; return false; }
+    this.q.planned_start_on = this.term.start || null;
+    this.q.planned_end_on = this.term.end || null;
+    this.q.site_address = this.term.address.trim() || null;
+    this.termDirty = false;
     this.save();
+    return true;
+  },
+  useSuggested() {
+    this.term.end = this.suggestedEnd;
+    this.saveTerm();
     this.$store.toast.show(`Termin zakończenia: ${dateText(this.suggestedEnd)}.`);
   },
 
@@ -362,6 +417,14 @@ export const wizard = () => ({
   get problems() { return this.q.id ? sendProblems(this.q) : []; },
   get sums() { const _t = totals(this.q); const _cost = quoteCost(this.q); return { ..._t, cost: _cost, margin: roundHalfUp(_t.net - _cost) }; },
   get marginLine() { return `marża ${dec(marginPercent(this.q.markup_percent))}%`; },
+  // „Wszystkie prace w wycenie”: etap → praca z pokojem, suma etapu, m² łącznie (podłogi).
+  get allStages() {
+    const _rows = this.q.rooms.flatMap((r) => r.jobs.map((j) => ({ ...j, room: r.name })));
+    return byStage(_rows);
+  },
+  unitPrice(job) { return ikpm.clientUnitPrice(job, this.q.markup_percent); },
+  stageSum(g) { return roundHalfUp(g.jobs.reduce((s, j) => s + this.line(j), 0)); },
+  get floorTotal() { return roundHalfUp(this.q.rooms.reduce((s, r) => s + roundHalfUp(areaFor(r, 'floor')), 0)); },
   vatLabel() { return vatLabel(this.q); },
   get appliedLabel() { return this.q.applied_profile_name ? kit.labels.matching_profile[this.q.applied_profile_name] : null; },
   get withoutCrew() { return quoteJobs(this.q).filter((j) => !j.contractor).length; },

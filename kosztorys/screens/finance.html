@@ -2,37 +2,34 @@
 <html lang="pl">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Finanse — IKPM</title>
 <link rel="stylesheet" href="../assets/bootstrap/bootstrap.min.css">
 <link rel="stylesheet" href="../assets/bootstrap-icons/bootstrap-icons.min.css">
+<link rel="stylesheet" href="../assets/ikpm-ui.css">
 <link rel="stylesheet" href="../assets/app.css">
 </head>
 <body data-nav="finance">
 <div id="nav"></div>
-<main x-data="page" x-cloak class="container-xxl px-3 mw-doc pb-5">
-  <h1 class="h3 my-3">Finanse</h1>
-  <div class="alert alert-secondary">
-    Raporty księgowości zostają w badaniu w obecnym wyglądzie — ta strona to tylko pozycja menu. Układ raportów powstanie po wyborze wariantu.
-  </div>
-  <div class="row g-3">
+<main id="main" x-data="page" x-cloak class="ikpm-content">
+  <div class="ikpm-page-head"><div class="ikpm-page-heading"><h1 class="ikpm-page-title">Finanse</h1></div></div>
+  <div class="alert alert-info d-flex gap-2 ikpm-measure"><i class="bi bi-info-circle-fill" aria-hidden="true"></i><span>Raporty księgowości zostają w badaniu w obecnym wyglądzie — ta strona to tylko pozycja menu. Układ raportów powstanie po wyborze wariantu.</span></div>
+  <ul class="ikpm-list">
     <template x-for="r in reports" :key="r[0]">
-      <div class="col-12 col-md-6 col-xl-4"><div class="card h-100"><div class="card-body">
-        <h2 class="h5"><i class="bi" :class="r[1]" aria-hidden="true"></i> <span x-text="r[0]"></span></h2>
-        <p class="small text-body-secondary mb-0" x-text="r[2]"></p>
-      </div></div></div>
+      <li class="ikpm-row"><i class="bi bi-graph-up ikpm-muted" aria-hidden="true"></i><span class="ikpm-row-main"><span class="ikpm-row-title" x-text="r[0]"></span><span class="ikpm-row-meta" x-text="r[1]"></span></span></li>
     </template>
-  </div>
+  </ul>
 </main>
 <script type="module">
 import { boot } from '../assets/app.js';
 boot(() => ({
   reports: [
-    ['Wynik', 'bi-graph-up', 'Wynik finansowy: Przychód, Ekipy, Materiały, Marża — per realizacja; Od, Do, Pokaż, CSV.'],
-    ['Koszty', 'bi-bar-chart-line', 'Koszty — ekipy vs materiały, per miesiąc (ostatnie 12 miesięcy).'],
-    ['Realizacje', 'bi-hammer', 'Realizacje: Wartość, Wykonane, Postęp (wg wartości), Pozostało, Koszt, Marża planowana.'],
-    ['Oferty', 'bi-file-earmark-text', 'Oferty wg statusu: Liczba, Wartość, Koszt, Marża.'],
-    ['Wykonawcy', 'bi-people', 'Wykonawcy: Wykonane w okresie, Do wykonania (stan na dziś).'],
+    ['Wynik', 'Wynik finansowy: Przychód, Ekipy, Materiały, Marża — per realizacja; Od, Do, Pokaż, CSV.'],
+    ['Koszty', 'Koszty — ekipy vs materiały, per miesiąc (ostatnie 12 miesięcy).'],
+    ['Realizacje', 'Realizacje: Wartość, Wykonane, Postęp (wg wartości), Pozostało, Koszt, Marża planowana.'],
+    ['Oferty', 'Oferty wg statusu: Liczba, Wartość, Koszt, Marża.'],
+    ['Wykonawcy', 'Wykonawcy: Wykonane w okresie, Do wykonania (stan na dziś).'],
   ],
 }));
 </script>

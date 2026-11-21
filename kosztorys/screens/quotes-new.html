@@ -2,42 +2,44 @@
 <html lang="pl">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Nowa wycena — IKPM</title>
 <link rel="stylesheet" href="../assets/bootstrap/bootstrap.min.css">
 <link rel="stylesheet" href="../assets/bootstrap-icons/bootstrap-icons.min.css">
+<link rel="stylesheet" href="../assets/ikpm-ui.css">
 <link rel="stylesheet" href="../assets/app.css">
 </head>
 <body data-nav="quotes">
 <div id="nav"></div>
-<main x-data="page" x-cloak class="container px-3 pb-5" style="max-width: 760px">
-  <form class="card my-3" @submit.prevent="create()" aria-labelledby="new-title">
-    <div class="card-body">
-      <h1 id="new-title" class="h3">Nowa wycena</h1>
-      <label class="form-label fw-semibold mt-2" for="client">Klient (opcjonalnie)</label>
-      <select id="client" class="form-select" x-model="client" aria-describedby="client-hint">
-        <option value="">-- wybierz później --</option>
-        <template x-for="c in db.clients" :key="c.id"><option :value="c.name" x-text="c.name"></option></template>
-      </select>
-      <p id="client-hint" class="small text-body-secondary">Możesz przypisać klienta później</p>
-      <label class="form-label fw-semibold" for="notes">Notatki</label>
-      <textarea id="notes" class="form-control" rows="3" placeholder="Dodatkowe informacje o wycenie..." x-model="notes"></textarea>
-
-      <fieldset class="mt-3">
-        <legend class="form-label fw-semibold fs-6">Tryb</legend>
-        <div class="row g-2">
-          <div class="col-md-6"><label class="card h-100 p-3" :class="mode === 'rooms' ? 'border-primary border-2' : ''">
-            <span class="form-check mb-1"><input class="form-check-input" type="radio" name="mode" value="rooms" x-model="mode"> <strong>Tryb z pokojami</strong></span>
-            <span class="small text-body-secondary">Po utworzeniu wyceny zostaniesz przeniesiony do edytora, gdzie możesz dodawać pokoje i prace.</span></label></div>
-          <div class="col-md-6"><label class="card h-100 p-3" :class="mode === 'simple' ? 'border-primary border-2' : ''">
-            <span class="form-check mb-1"><input class="form-check-input" type="radio" name="mode" value="simple" x-model="mode"> <strong>Tryb prosty</strong></span>
-            <span class="small text-body-secondary">Wycena bez podziału na pokoje. Wszystkie prace będą przypisane do jednego "wirtualnego" pokoju.</span></label></div>
-        </div>
-      </fieldset>
-      <div class="d-flex justify-content-end gap-2 mt-4">
-        <a class="btn btn-outline-secondary btn-main" :href="ik.href('screens/quotes-index.html')">Anuluj</a>
-        <button class="btn btn-success btn-main"><i class="bi bi-check-lg" aria-hidden="true"></i> Utwórz wycenę</button>
+<main id="main" x-data="page" x-cloak class="ikpm-content">
+  <div class="ikpm-page-head">
+    <a class="ikpm-back" :href="ik.href('screens/quotes-index.html')">Wyceny</a>
+    <div class="ikpm-page-heading"><h1 class="ikpm-page-title">Nowa wycena</h1></div>
+  </div>
+  <form class="k-form d-grid gap-4" @submit.prevent="create()" aria-label="Nowa wycena">
+    <div class="ikpm-grid k-fields">
+      <div><label class="form-label" for="client">Klient (opcjonalnie)</label>
+        <select id="client" class="form-select" x-model="client" aria-describedby="client-hint">
+          <option value="">-- wybierz później --</option>
+          <template x-for="c in db.clients" :key="c.id"><option :value="c.name" x-text="c.name"></option></template>
+        </select>
+        <p id="client-hint" class="form-text mb-0">Możesz przypisać klienta później</p></div>
+      <div><label class="form-label" for="notes">Notatki</label>
+        <textarea id="notes" class="form-control" rows="2" placeholder="Dodatkowe informacje o wycenie..." x-model="notes"></textarea></div>
+    </div>
+    <fieldset>
+      <legend class="form-label">Tryb</legend>
+      <div class="ikpm-grid" style="--ikpm-grid-min: 18rem">
+        <label class="ikpm-choice"><input type="radio" name="mode" value="rooms" x-model="mode"><i class="bi bi-plus-square" aria-hidden="true"></i>
+          <span><strong class="d-block">Tryb z pokojami</strong><span class="ikpm-meta">Po utworzeniu wyceny zostaniesz przeniesiony do edytora, gdzie możesz dodawać pokoje i prace.</span></span></label>
+        <label class="ikpm-choice"><input type="radio" name="mode" value="simple" x-model="mode"><i class="bi bi-plus-lg" aria-hidden="true"></i>
+          <span><strong class="d-block">Tryb prosty</strong><span class="ikpm-meta">Wycena bez podziału na pokoje. Wszystkie prace będą przypisane do jednego "wirtualnego" pokoju.</span></span></label>
       </div>
+    </fieldset>
+    <div class="d-flex flex-wrap gap-2">
+      <button class="btn btn-primary btn-lg"><i class="bi bi-check-lg" aria-hidden="true"></i>Utwórz wycenę</button>
+      <a class="btn btn-outline-secondary btn-lg" :href="ik.href('screens/quotes-index.html')">Anuluj</a>
     </div>
   </form>
 </main>

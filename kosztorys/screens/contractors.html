@@ -2,97 +2,109 @@
 <html lang="pl">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Wykonawcy — IKPM</title>
 <link rel="stylesheet" href="../assets/bootstrap/bootstrap.min.css">
 <link rel="stylesheet" href="../assets/bootstrap-icons/bootstrap-icons.min.css">
+<link rel="stylesheet" href="../assets/ikpm-ui.css">
 <link rel="stylesheet" href="../assets/app.css">
 <style>tr.detail-row > td { box-shadow: inset 4px 0 0 var(--bs-primary-border-subtle); }</style>
 </head>
 <body data-nav="data">
 <div id="nav"></div>
-<main x-data="page" x-cloak class="container-xxl px-3 mw-doc pb-5">
+<main id="main" x-data="page" x-cloak class="ikpm-content">
   <div id="alerts"></div>
-  <h1 class="h3 mt-3 mb-0">Wykonawcy</h1>
+  <div class="ikpm-page-head mb-3"><div class="ikpm-page-heading"><h1 class="ikpm-page-title">Wykonawcy</h1></div></div>
   <div id="data-tabs" data-active="contractors"></div>
 
-  <form class="card mb-3" @submit.prevent="add()" aria-labelledby="add-title">
-    <div class="card-body row g-2 align-items-end">
-      <h2 id="add-title" class="h6 col-12 mb-0">Dodaj wykonawcę</h2>
-      <div class="col-12 col-md-4"><label class="form-label small mb-1" for="c-name">Nazwa / Imię i nazwisko</label><input id="c-name" class="form-control" maxlength="100" placeholder="np. Jan Kowalski" x-model="draft.name" required></div>
-      <div class="col-12 col-md-3"><label class="form-label small mb-1" for="c-email">Email</label><input id="c-email" type="email" class="form-control" x-model="draft.email"></div>
-      <div class="col-7 col-md-3"><label class="form-label small mb-1" for="c-phone">Telefon</label><input id="c-phone" type="tel" class="form-control" placeholder="+48 123 456 789" title="Numer telefonu: cyfry, spacje oraz + ( ) -" x-model="draft.phone"></div>
-      <div class="col-5 col-md-2"><label class="form-label small mb-1" for="c-par">Prace naraz</label><input id="c-par" type="number" inputmode="decimal" min="1" max="20" class="form-control" x-model="draft.max_parallel_jobs" aria-describedby="par-hint"></div>
-      <p id="par-hint" class="col-12 small text-body-secondary mb-0">Prace naraz: ile prac ekipa prowadzi naraz, każdą w tempie z cennika</p>
-      <div class="col-12 col-md-9"><label class="form-label small mb-1" for="c-notes">Notatki</label><input id="c-notes" class="form-control" placeholder="Opcjonalne notatki..." x-model="draft.notes"></div>
-      <div class="col-12 col-md-3"><button class="btn btn-success w-100">Dodaj</button></div>
+  <form class="card mb-4" @submit.prevent="add()" aria-labelledby="add-title">
+    <div class="card-body">
+      <h2 id="add-title" class="k-sub-title">Dodaj wykonawcę</h2>
+      <div class="ikpm-grid k-fields align-items-end" style="--ikpm-grid-min: 12rem">
+        <div><label class="form-label" for="c-name">Nazwa / Imię i nazwisko</label><input id="c-name" class="form-control" maxlength="100" placeholder="np. Jan Kowalski" x-model="draft.name" required></div>
+        <div><label class="form-label" for="c-email">Email</label><input id="c-email" type="email" class="form-control" autocomplete="off" x-model="draft.email"></div>
+        <div><label class="form-label" for="c-phone">Telefon</label><input id="c-phone" type="tel" class="form-control" placeholder="+48 123 456 789" title="Numer telefonu: cyfry, spacje oraz + ( ) -" x-model="draft.phone"></div>
+        <div><label class="form-label" for="c-par">Prace naraz</label><input id="c-par" type="number" inputmode="decimal" min="1" max="20" class="form-control ikpm-num" x-model="draft.max_parallel_jobs" aria-describedby="par-hint"></div>
+        <div class="k-span2-md"><label class="form-label" for="c-notes">Notatki</label><input id="c-notes" class="form-control" placeholder="Opcjonalne notatki..." x-model="draft.notes"></div>
+        <div><button class="btn btn-primary w-100"><i class="bi bi-plus-lg" aria-hidden="true"></i>Dodaj</button></div>
+      </div>
+      <p id="par-hint" class="form-text mb-0 mt-1">Prace naraz: ile prac ekipa prowadzi naraz, każdą w tempie z cennika</p>
     </div>
   </form>
 
-  <section class="card mb-3" aria-labelledby="list-title">
-    <div class="card-header bg-body"><h2 id="list-title" class="h6 mb-0">Aktywni wykonawcy <span class="badge text-bg-secondary" x-text="active.length"></span></h2></div>
-    <p class="card-body mb-0 text-body-secondary" x-show="!active.length">Brak aktywnych wykonawców. Dodaj wykonawcę powyżej.</p>
-    <table class="table doc-table reflow mb-0">
+  <section aria-labelledby="list-title">
+    <h2 id="list-title" class="ikpm-section-title d-flex align-items-center gap-2">Aktywni wykonawcy <span class="ikpm-chip" x-text="active.length"></span></h2>
+    <div class="ikpm-empty" x-show="!active.length"><i class="bi bi-person-badge" aria-hidden="true"></i><p>Brak aktywnych wykonawców. Dodaj wykonawcę powyżej.</p></div>
+    <div class="card mb-4" x-show="active.length">
+    <table class="table k-sheet-table k-reflow">
       <caption class="visually-hidden">Aktywni wykonawcy</caption>
-      <thead class="table-light"><tr><th scope="col"><span class="visually-hidden">Szczegóły</span></th><th scope="col">Nazwa</th><th scope="col">Email</th><th scope="col">Telefon</th><th scope="col">Prace naraz</th><th scope="col">Cennik</th><th scope="col"><span class="visually-hidden">Archiwizuj</span></th></tr></thead>
+      <thead><tr><th scope="col" class="k-act-col"><span class="visually-hidden">Szczegóły</span></th><th scope="col">Nazwa</th><th scope="col">Email</th><th scope="col">Telefon</th><th scope="col" class="ikpm-num" style="width: 8rem">Prace naraz</th><th scope="col">Cennik</th><th scope="col" class="k-act-col"><span class="visually-hidden">Archiwizuj</span></th></tr></thead>
       <template x-for="c in active" :key="c.id">
         <tbody>
-          <tr>
-            <td><button type="button" class="btn btn-outline-secondary" :aria-expanded="(!!open[c.id]).toString()" :aria-controls="open[c.id] ? 'cd-' + c.id : null" :aria-label="(open[c.id] ? 'Zwiń: ' : 'Rozwiń: ') + c.name" @click="open[c.id] = !open[c.id]"><i class="bi" :class="open[c.id] ? 'bi-chevron-down' : 'bi-chevron-right'" aria-hidden="true"></i></button></td>
-            <td data-label="Nazwa"><input class="form-control" maxlength="100" :value="c.name" :aria-label="'Nazwa: ' + c.name" @change="rename(c, $event.target)"></td>
+          <tr :id="'crew-' + c.id">
+            <td><button type="button" class="btn btn-outline-secondary ikpm-btn-icon" :aria-expanded="(!!open[c.id]).toString()" :aria-controls="open[c.id] ? 'cd-' + c.id : null" :aria-label="(open[c.id] ? 'Zwiń: ' : 'Rozwiń: ') + c.name" @click="open[c.id] = !open[c.id]"><i class="bi" :class="open[c.id] ? 'bi-chevron-down' : 'bi-chevron-right'" aria-hidden="true"></i><span class="d-lg-none">Cennik i notatki</span></button></td>
+            <td data-label="Nazwa" class="k-full"><input class="form-control" maxlength="100" :value="c.name" :aria-label="'Nazwa: ' + c.name" @change="rename(c, $event.target)"></td>
             <td data-label="Email"><input type="email" class="form-control" :value="c.email" :aria-label="'Email: ' + c.name" @change="c.email = $event.target.value.trim(); saved(c)"></td>
             <td data-label="Telefon"><input type="tel" class="form-control" :value="c.phone" :aria-label="'Telefon: ' + c.name" @change="c.phone = $event.target.value.trim(); saved(c)"></td>
-            <td data-label="Prace naraz"><input type="number" inputmode="decimal" min="1" max="20" class="form-control text-end" style="max-width: 6rem" :value="c.max_parallel_jobs" :aria-label="'Prace naraz: ' + c.name" @change="setParallel(c, $event.target)"></td>
-            <td data-label="Cennik" class="small" x-text="ik.jobsCount(pricesOf(c).length)"></td>
-            <td class="text-end"><button type="button" class="btn btn-outline-secondary" :aria-label="'Archiwizuj ' + c.name" title="Archiwizuj" @click="archive(c)"><i class="bi bi-archive" aria-hidden="true"></i></button></td>
+            <td data-label="Prace naraz"><input type="number" inputmode="decimal" min="1" max="20" class="form-control ikpm-num" :value="c.max_parallel_jobs" :aria-label="'Prace naraz: ' + c.name" @change="setParallel(c, $event.target)"></td>
+            <td data-label="Cennik" class="ikpm-meta" x-text="ik.jobsCount(pricesOf(c).length)"></td>
+            <td class="text-end"><button type="button" class="btn btn-outline-secondary ikpm-btn-icon" :aria-label="'Archiwizuj ' + c.name" title="Archiwizuj" @click="archive(c)"><i class="bi bi-archive" aria-hidden="true"></i></button></td>
           </tr>
           <template x-if="open[c.id]">
-          <tr class="detail-row" :id="'cd-' + c.id">
-            <td colspan="7" class="reflow-full">
-              <div class="row g-2 mb-3 align-items-end">
-                <div class="col-12 col-md-6"><label class="form-label small mb-1" :for="'cn-' + c.id">Notatki</label><textarea class="form-control" rows="1" :id="'cn-' + c.id" placeholder="Notatki o wykonawcy..." :value="c.notes" @change="c.notes = $event.target.value; saved(c)"></textarea></div>
-                <form class="col-12 col-md-6 d-flex gap-2 align-items-end" @submit.prevent="go('screens/price-change.html?contractor=' + c.id + '&percent=' + encodeURIComponent($event.target.elements.percent.value))">
-                  <div class="flex-grow-1"><label class="form-label small mb-1" :for="'pc-' + c.id">Zmień ceny o % <span class="visually-hidden" x-text="'ekipy „' + c.name + '”'"></span><span class="text-body-secondary">(od -90 do +200)</span></label><input type="number" inputmode="decimal" step="0.1" min="-90" max="200" name="percent" class="form-control" :id="'pc-' + c.id" required></div>
-                  <button class="btn btn-outline-primary">Podgląd</button>
-                </form>
+          <tr class="k-detail-row" :id="'cd-' + c.id">
+            <td colspan="7">
+              <div class="k-detail">
+                <div class="ikpm-grid k-fields align-items-end" style="--ikpm-grid-min: 16rem">
+                  <div><label class="form-label" :for="'cn-' + c.id">Notatki</label><textarea class="form-control" rows="1" :id="'cn-' + c.id" placeholder="Notatki o wykonawcy..." :value="c.notes" @change="c.notes = $event.target.value; saved(c)"></textarea></div>
+                  <form class="d-flex gap-2 align-items-end" @submit.prevent="go('screens/price-change.html?contractor=' + c.id + '&percent=' + encodeURIComponent($event.target.elements.percent.value))">
+                    <div class="flex-grow-1"><label class="form-label" :for="'pc-' + c.id">Zmień ceny o % <span class="visually-hidden" x-text="'ekipy „' + c.name + '”'"></span><span class="fw-normal ikpm-muted">(od -90 do +200)</span></label><input type="number" inputmode="decimal" step="0.1" min="-90" max="200" name="percent" class="form-control ikpm-num" :id="'pc-' + c.id" required></div>
+                    <button class="btn btn-outline-primary">Podgląd</button>
+                  </form>
+                </div>
+                <section :aria-labelledby="'ph-' + c.id">
+                  <h3 class="k-sub-title" :id="'ph-' + c.id">Prace wykonywane przez tego wykonawcę</h3>
+                  <div class="ikpm-table-box mb-2" x-show="pricesOf(c).length">
+                    <table class="table ikpm-stack">
+                      <caption class="visually-hidden" x-text="'Cennik: ' + c.name"></caption>
+                      <thead><tr><th scope="col">Praca</th><th scope="col">Cena:</th><th scope="col">Tempo:</th><th scope="col">Jakość:</th><th scope="col" class="k-act-col"><span class="visually-hidden">Usuń</span></th></tr></thead>
+                      <tbody>
+                        <template x-for="row in pricesOf(c)" :key="row.job.id">
+                          <tr><td class="ikpm-cell-lead" x-text="row.job.name + ' (' + row.job.unit + ')'"></td>
+                            <td data-label="Cena:"><div class="input-group" style="max-width: 10rem"><input type="number" inputmode="decimal" step="any" min="0" class="form-control ikpm-num" placeholder="średnia" :value="row.crew.price === null ? '' : Number(row.crew.price)" :aria-label="'Cena: ' + row.job.name" @change="setPrice(row, $event.target)"><span class="input-group-text">zł</span></div></td>
+                            <td data-label="Tempo:"><div class="d-flex gap-1 align-items-center"><input type="number" inputmode="decimal" step="any" min="0" class="form-control ikpm-num" style="width: 5rem" :value="row.crew.speed_min === null ? '' : Number(row.crew.speed_min)" :aria-label="'Tempo min: ' + row.job.name" @change="setSpeed(row, 'speed_min', $event.target)"><span aria-hidden="true">–</span><input type="number" inputmode="decimal" step="any" min="0" class="form-control ikpm-num" style="width: 5rem" :value="row.crew.speed_max === null ? '' : Number(row.crew.speed_max)" :aria-label="'Tempo max: ' + row.job.name" @change="setSpeed(row, 'speed_max', $event.target)"></div></td>
+                            <td data-label="Jakość:"><select class="form-select" style="max-width: 14rem" :aria-label="'Jakość: ' + row.job.name" @change="row.crew.quality = $event.target.value ? Number($event.target.value) : null; crewSaved()"><option value="">brak oceny</option><template x-for="[k, label] in qualities" :key="k"><option :value="k" :selected="Number(row.crew.quality) === Number(k)" x-text="label"></option></template></select></td>
+                            <td class="text-end"><button type="button" class="btn btn-outline-danger ikpm-btn-icon" :aria-label="'Usuń pracę ' + row.job.name" title="Usuń pracę" @click="removePrice(row)"><i class="bi bi-trash" aria-hidden="true"></i></button></td></tr>
+                        </template>
+                      </tbody>
+                    </table>
+                  </div>
+                  <form class="ikpm-grid k-fields align-items-end" style="--ikpm-grid-min: 10rem" @submit.prevent="addPrice(c, $event.target)">
+                    <div class="k-span2-md"><label class="form-label" :for="'aj-' + c.id">Praca</label><select class="form-select" name="job" :id="'aj-' + c.id" required><option value="">-- Wybierz pracę --</option><template x-for="s in db.catalogue" :key="s.id"><optgroup :label="s.name"><template x-for="j in s.jobs.filter(j => !j.crews.some(x => x.contractor === c.name))" :key="j.id"><option :value="j.id" x-text="j.name + ' (' + j.unit + ')'"></option></template></optgroup></template></select></div>
+                    <div><label class="form-label" :for="'ap-' + c.id">Cena:</label><input type="number" inputmode="decimal" step="any" min="0" class="form-control ikpm-num" name="price" placeholder="średnia" :id="'ap-' + c.id"></div>
+                    <div><button class="btn btn-primary w-100"><i class="bi bi-plus-lg" aria-hidden="true"></i>Dodaj</button></div>
+                  </form>
+                </section>
               </div>
-              <h3 class="h6">Prace wykonywane przez tego wykonawcę</h3>
-              <table class="table table-sm bg-body reflow mb-2">
-                <caption class="visually-hidden" x-text="'Cennik: ' + c.name"></caption>
-                <thead><tr><th scope="col">Praca</th><th scope="col">Cena:</th><th scope="col">Tempo:</th><th scope="col">Jakość:</th><th scope="col"><span class="visually-hidden">Usuń</span></th></tr></thead>
-                <tbody>
-                  <template x-for="row in pricesOf(c)" :key="row.job.id">
-                    <tr><td data-label="Praca" class="small" x-text="row.job.name + ' (' + row.job.unit + ')'"></td>
-                      <td data-label="Cena:"><div class="input-group"><input type="number" inputmode="decimal" step="any" min="0" class="form-control text-end" placeholder="średnia" :value="row.crew.price === null ? '' : Number(row.crew.price)" :aria-label="'Cena: ' + row.job.name" @change="setPrice(row, $event.target)"><span class="input-group-text">zł</span></div></td>
-                      <td data-label="Tempo:"><div class="d-flex gap-1 align-items-center"><input type="number" inputmode="decimal" step="any" min="0" class="form-control text-end" style="min-width: 4.5rem" :value="row.crew.speed_min === null ? '' : Number(row.crew.speed_min)" :aria-label="'Tempo min: ' + row.job.name" @change="setSpeed(row, 'speed_min', $event.target)"><span aria-hidden="true">–</span><input type="number" inputmode="decimal" step="any" min="0" class="form-control text-end" style="min-width: 4.5rem" :value="row.crew.speed_max === null ? '' : Number(row.crew.speed_max)" :aria-label="'Tempo max: ' + row.job.name" @change="setSpeed(row, 'speed_max', $event.target)"></div></td>
-                      <td data-label="Jakość:"><select class="form-select" :aria-label="'Jakość: ' + row.job.name" @change="row.crew.quality = $event.target.value ? Number($event.target.value) : null; crewSaved()"><option value="">brak oceny</option><template x-for="[k, label] in qualities" :key="k"><option :value="k" :selected="Number(row.crew.quality) === Number(k)" x-text="label"></option></template></select></td>
-                      <td class="text-end"><button type="button" class="btn btn-sm btn-outline-danger" :aria-label="'Usuń pracę ' + row.job.name" @click="removePrice(row)"><i class="bi bi-trash" aria-hidden="true"></i></button></td></tr>
-                  </template>
-                </tbody>
-              </table>
-              <form class="row g-2 align-items-end" @submit.prevent="addPrice(c, $event.target)">
-                <div class="col-12 col-md-7"><label class="form-label small mb-1" :for="'aj-' + c.id">Praca</label><select class="form-select" name="job" :id="'aj-' + c.id" required><option value="">-- Wybierz pracę --</option><template x-for="s in db.catalogue" :key="s.id"><optgroup :label="s.name"><template x-for="j in s.jobs.filter(j => !j.crews.some(x => x.contractor === c.name))" :key="j.id"><option :value="j.id" x-text="j.name + ' (' + j.unit + ')'"></option></template></optgroup></template></select></div>
-                <div class="col-7 col-md-3"><label class="form-label small mb-1" :for="'ap-' + c.id">Cena:</label><input type="number" inputmode="decimal" step="any" min="0" class="form-control text-end" name="price" placeholder="średnia" :id="'ap-' + c.id"></div>
-                <div class="col-5 col-md-2"><button class="btn btn-success w-100">Dodaj</button></div>
-              </form>
             </td>
           </tr>
           </template>
         </tbody>
       </template>
     </table>
+    </div>
   </section>
 
   <details class="card" aria-labelledby="arch-title">
-    <summary class="card-header tap fw-semibold" id="arch-title"><i class="bi bi-archive" aria-hidden="true"></i> Archiwum <span class="badge text-bg-secondary" x-text="archived.length"></span></summary>
+    <summary class="card-header d-flex align-items-center gap-2" id="arch-title" style="min-height: var(--ikpm-control-h); cursor: pointer"><i class="bi bi-archive" aria-hidden="true"></i>Archiwum <span class="ikpm-chip" x-text="archived.length"></span></summary>
     <div class="card-body">
-      <p class="small text-body-secondary">Wykonawcy z archiwum nie biorą udziału w doborze i nie ma ich w cenniku prac. Zostają przy pracach wycen i realizacji — szkic wyceny z takim wykonawcą przed wysyłką wymaga ponownego doboru. Usunąć na stałe można tylko wykonawcę bez prac w wycenach i realizacjach.</p>
-      <ul class="list-group">
+      <p class="ikpm-meta ikpm-measure">Wykonawcy z archiwum nie biorą udziału w doborze i nie ma ich w cenniku prac. Zostają przy pracach wycen i realizacji — szkic wyceny z takim wykonawcą przed wysyłką wymaga ponownego doboru. Usunąć na stałe można tylko wykonawcę bez prac w wycenach i realizacjach.</p>
+      <ul class="ikpm-list">
         <template x-for="c in archived" :key="c.id">
-          <li class="list-group-item d-flex flex-wrap align-items-center gap-2">
-            <span class="me-auto"><strong x-text="c.name"></strong><small class="d-block text-body-secondary" x-text="[c.email, c.phone, 'w archiwum'].filter(Boolean).join(' · ')"></small></span>
-            <button type="button" class="btn btn-outline-primary" @click="restore(c)"><i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i> Przywróć</button>
-            <button type="button" class="btn btn-outline-danger" :aria-label="'Usuń wykonawcę ' + c.name" @click="destroy(c)"><i class="bi bi-trash" aria-hidden="true"></i></button>
+          <li class="ikpm-row">
+            <span class="ikpm-row-main"><span class="ikpm-row-title" x-text="c.name"></span><span class="ikpm-row-meta" x-text="[c.email, c.phone, 'w archiwum'].filter(Boolean).join(' · ')"></span></span>
+            <span class="d-flex gap-2"><button type="button" class="btn btn-outline-primary" @click="restore(c)"><i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i>Przywróć</button>
+            <button type="button" class="btn btn-outline-danger ikpm-btn-icon" :aria-label="'Usuń wykonawcę ' + c.name" title="Usuń na stałe" @click="destroy(c)"><i class="bi bi-trash" aria-hidden="true"></i></button></span>
           </li>
         </template>
       </ul>
@@ -100,10 +112,15 @@
   </details>
 </main>
 <script type="module">
-import { boot, db, save, nextId, toast, alertError, ask, go, resetCatIndex } from '../assets/app.js';
+import { boot, db, save, nextId, toast, alertError, ask, go, resetCatIndex, param } from '../assets/app.js';
 
 boot(() => ({
   open: {}, draft: { name: '', email: '', phone: '', max_parallel_jobs: 1, notes: '' }, go,
+  init() {
+    // Powrót z podglądu zmiany cen: karta tej ekipy rozwinięta i widoczna.
+    const open = Number(param('open'));
+    if (open && db.contractors.some((c) => c.id === open)) { this.open[open] = true; this.$nextTick(() => document.getElementById(`crew-${open}`)?.scrollIntoView({ block: 'start' })); }
+  },
   get active() { return db.contractors.filter((c) => !c.archived).sort((a, b) => a.name.localeCompare(b.name, 'pl') || a.id - b.id); },
   get archived() { return db.contractors.filter((c) => c.archived).sort((a, b) => a.name.localeCompare(b.name, 'pl')); },
   pricesOf(c) { return db.catalogue.flatMap((s) => s.jobs.flatMap((job) => job.crews.filter((x) => x.contractor === c.name).map((crew) => ({ job, crew })))); },
@@ -145,7 +162,7 @@ boot(() => ({
   },
   setArchived(c, on) { c.archived = on; this.pricesOf(c).forEach((row) => { row.crew.archived = on; }); resetCatIndex(); save(); },
   async archive(c) {
-    if (!(await ask({ title: 'Archiwizuj', text: `Przenieść wykonawcę '${c.name}' do archiwum? Zniknie z doboru i z cennika prac. Szkice wycen, w których ma prace, przed wysyłką wymagają ponownego doboru.`, ok: 'Archiwizuj', okClass: 'warning' }))) return;
+    if (!(await ask({ title: 'Archiwizuj', text: `Przenieść wykonawcę '${c.name}' do archiwum? Zniknie z doboru i z cennika prac. Szkice wycen, w których ma prace, przed wysyłką wymagają ponownego doboru.`, ok: 'Archiwizuj' }))) return;
     this.setArchived(c, true); toast(`Wykonawca '${c.name}' trafił do archiwum.`);
   },
   restore(c) { this.setArchived(c, false); toast(`Wykonawca '${c.name}' wrócił z archiwum.`); },

@@ -2,10 +2,11 @@
 <html lang="pl">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Prace i Etapy — IKPM</title>
 <link rel="stylesheet" href="../assets/bootstrap/bootstrap.min.css">
 <link rel="stylesheet" href="../assets/bootstrap-icons/bootstrap-icons.min.css">
+<link rel="stylesheet" href="../assets/ikpm-ui.css">
 <link rel="stylesheet" href="../assets/app.css">
 </head>
 <body data-screen="stages" data-nav="stages" data-tab="dane">
@@ -13,33 +14,33 @@
 <div class="panes" :data-level="level">
   <!-- Poziom 1: etapy -->
   <section class="pane pane-list" aria-label="Etapy">
-    <div class="pane-inner">
-      <div class="pane-head"><a class="back-link back-only-phone" :href="link('data')"><i class="bi bi-chevron-left" aria-hidden="true"></i>Dane</a>
-        <h1 class="pane-title">Prace i Etapy</h1></div>
+    <div class="ikpm-content">
+      <div class="pane-head"><a class="ikpm-back back-only-phone" :href="link('data')">Dane</a>
+        <h1 class="ikpm-page-title">Prace i Etapy</h1></div>
       <label class="form-label" for="cat-search">Szukaj pracy</label>
-      <input id="cat-search" class="form-control" type="search" x-model="search" autocomplete="off">
+      <input id="cat-search" class="form-control mb-4" type="search" x-model="search" autocomplete="off">
       <template x-if="search.trim()">
-        <div><h2 class="group-title" x-text="'Wyniki (' + searchResults().length + ')'"></h2>
-          <ul class="group"><template x-for="cj in searchResults()" :key="cj.id">
-            <li><a class="row-link" :href="link('stages', {stage: stageOfJob(cj.id).id, job: cj.id})"><span class="row-main"><div class="fw-semibold" x-text="cj.name"></div>
-              <div class="small text-body-secondary" x-text="stageOfJob(cj.id).name + ' · ' + cj.unit"></div></span><i class="bi bi-chevron-right chev" aria-hidden="true"></i></a></li>
+        <div><h2 class="ikpm-section-title" x-text="'Wyniki (' + searchResults().length + ')'"></h2>
+          <ul class="ikpm-list list-cols"><template x-for="cj in searchResults()" :key="cj.id">
+            <li><a class="ikpm-row" :href="link('stages', {stage: stageOfJob(cj.id).id, job: cj.id})"><span class="ikpm-row-main"><div class="ikpm-row-title" x-text="cj.name"></div>
+              <div class="ikpm-meta" x-text="stageOfJob(cj.id).name + ' · ' + cj.unit"></div></span><i class="bi bi-chevron-right ikpm-chevron" aria-hidden="true"></i></a></li>
           </template></ul></div>
       </template>
       <template x-if="!search.trim()">
         <div>
-          <h2 class="group-title">Etapy</h2>
+          <h2 class="ikpm-section-title">Etapy</h2>
           <p class="text-body-secondary" x-show="!db.stages.length">Brak etapów. Dodaj pierwszy etap powyżej.</p>
-          <ul class="group">
+          <ul class="ikpm-list list-cols">
             <template x-for="s in stagesSorted()" :key="s.id">
-              <li><a class="row-link" :href="link('stages', {stage: s.id})" :aria-current="stage && stage.id === s.id ? 'page' : null">
-                <span class="row-main"><div class="fw-semibold" x-text="s.name"></div><div class="small text-body-secondary" x-text="'Kolejność: ' + s.order"></div></span>
-                <span class="badge text-bg-light border" title="Liczba prac" x-text="jobsNom(s.jobs.length)"></span><i class="bi bi-chevron-right chev" aria-hidden="true"></i></a></li>
+              <li><a class="ikpm-row" :href="link('stages', {stage: s.id})" :aria-current="stage && stage.id === s.id ? 'page' : null">
+                <span class="ikpm-row-main"><div class="ikpm-row-title" x-text="s.name"></div><div class="ikpm-meta" x-text="'Kolejność: ' + s.order"></div></span>
+                <span class="ikpm-row-end"><span class="ikpm-chip" title="Liczba prac" x-text="jobsNom(s.jobs.length)"></span></span><i class="bi bi-chevron-right ikpm-chevron" aria-hidden="true"></i></a></li>
             </template>
-            <li><button type="button" class="row-link row-add" @click="stageFormOpen = !stageFormOpen" :aria-expanded="stageFormOpen"><span class="row-icon"><i class="bi bi-plus-lg" aria-hidden="true"></i></span>Dodaj etap</button></li>
+            <li><button type="button" class="ikpm-row ikpm-row-add" @click="stageFormOpen = !stageFormOpen" :aria-expanded="stageFormOpen"><span class="row-icon"><i class="bi bi-plus-lg" aria-hidden="true"></i></span>Dodaj etap</button></li>
           </ul>
-          <form class="card-plain mt-2" x-show="stageFormOpen" @submit.prevent="addStage()">
+          <form class="card card-body mt-2" x-show="stageFormOpen" @submit.prevent="addStage()">
             <label class="form-label" for="ns-name">Nazwa etapu</label><input id="ns-name" class="form-control mb-2" maxlength="100" placeholder="np. Przygotowanie podłoża" x-model="newStage.name">
-            <label class="form-label" for="ns-order">Kolejność</label><input id="ns-order" class="form-control mb-3" type="number" inputmode="decimal" min="0" max="10000" x-model="newStage.order">
+            <label class="form-label" for="ns-order">Kolejność</label><input id="ns-order" class="form-control ikpm-num mb-3" type="number" inputmode="decimal" min="0" max="10000" x-model="newStage.order">
             <button class="btn btn-primary" type="submit">Dodaj etap</button></form>
         </div>
       </template>
@@ -49,31 +50,30 @@
   <!-- Poziom 2: etap -->
   <section class="pane pane-folder" aria-label="Etap">
     <template x-if="stage">
-      <div class="pane-inner">
-        <div class="pane-head"><a class="back-link" :href="link('stages')"><i class="bi bi-chevron-left" aria-hidden="true"></i>Prace i Etapy</a>
-          <h1 class="pane-title" x-text="stage.name"></h1><div class="pane-sub" x-text="jobsNom(stage.jobs.length)"></div></div>
-        <h2 class="group-title">Prace</h2>
-        <ul class="group">
-          <li><a class="row-link row-add" :href="link('stages', {stage: stage.id, job: 'new'})" :aria-current="jobId === 'new' ? 'page' : null"><span class="row-icon"><i class="bi bi-plus-lg" aria-hidden="true"></i></span>Dodaj pracę do tego etapu<i class="bi bi-chevron-right chev" aria-hidden="true"></i></a></li>
+      <div class="ikpm-content">
+        <div class="pane-head"><a class="ikpm-back" :href="link('stages')">Prace i Etapy</a>
+          <h1 class="ikpm-page-title" x-text="stage.name"></h1><div class="pane-sub" x-text="jobsNom(stage.jobs.length)"></div></div>
+        <h2 class="ikpm-section-title">Prace</h2>
+        <ul class="ikpm-list">
+          <li><a class="ikpm-row ikpm-row-add" :href="link('stages', {stage: stage.id, job: 'new'})" :aria-current="jobId === 'new' ? 'page' : null"><span class="row-icon"><i class="bi bi-plus-lg" aria-hidden="true"></i></span><span class="ikpm-row-main">Dodaj pracę do tego etapu</span><i class="bi bi-chevron-right ikpm-chevron" aria-hidden="true"></i></a></li>
           <template x-for="cj in jobsOf(stage)" :key="cj.id">
-            <li><a class="row-link" :href="link('stages', {stage: stage.id, job: cj.id})" :aria-current="job && job.id === cj.id ? 'page' : null">
-              <span class="row-main"><div class="fw-semibold" x-text="cj.name"></div>
-                <div class="small d-flex flex-wrap gap-1 mt-1"><span class="badge text-bg-light border" x-text="cj.unit"></span><span class="badge text-bg-light border" x-text="AREA_LABELS[cj.area_type]"></span>
-                  <span class="text-body-secondary" x-text="'Śr. cena: ' + (cj.average_price ? pln(cj.average_price) : '-')"></span></div></span>
-              <i class="bi bi-chevron-right chev" aria-hidden="true"></i></a></li>
+            <li><a class="ikpm-row" :href="link('stages', {stage: stage.id, job: cj.id})" :aria-current="job && job.id === cj.id ? 'page' : null">
+              <span class="ikpm-row-main"><div class="ikpm-row-title" x-text="cj.name"></div>
+                <div class="ikpm-row-meta" x-text="cj.unit + ' · ' + AREA_LABELS[cj.area_type] + ' · Śr. cena: ' + (cj.average_price ? pln(cj.average_price) : '-')"></div></span>
+              <i class="bi bi-chevron-right ikpm-chevron" aria-hidden="true"></i></a></li>
           </template>
         </ul>
-        <p class="small text-body-secondary mt-2" x-show="!stage.jobs.length">Brak prac w tym etapie. Dodaj pierwszą pracę powyżej.</p>
-        <h2 class="group-title">Zmień ceny o %</h2>
-        <form class="card-plain" @submit.prevent="go('price-change', {scope: 'stage', id: stage.id, percent: stagePercent})">
+        <p class="ikpm-meta mt-2" x-show="!stage.jobs.length">Brak prac w tym etapie. Dodaj pierwszą pracę powyżej.</p>
+        <h2 class="ikpm-section-title">Zmień ceny o %</h2>
+        <form class="card card-body" @submit.prevent="go('price-change', {scope: 'stage', id: stage.id, percent: stagePercent})">
           <label class="form-label" for="stage-pct">Zmień ceny o % <span class="visually-hidden" x-text="'etapu „' + stage.name + '”'"></span> (od -90 do 200)</label>
-          <div class="d-flex gap-2"><input id="stage-pct" class="form-control" type="number" inputmode="decimal" step="0.1" min="-90" max="200" required x-model="stagePercent">
+          <div class="d-flex gap-2"><input id="stage-pct" class="form-control ikpm-num" type="number" inputmode="decimal" step="0.1" min="-90" max="200" required x-model="stagePercent">
             <button type="submit" class="btn btn-outline-primary">Podgląd</button></div></form>
-        <h2 class="group-title">Etap</h2>
-        <form class="card-plain" @submit.prevent="saveStage()">
+        <h2 class="ikpm-section-title">Etap</h2>
+        <form class="card card-body" data-dirty-watch="Etap" @submit.prevent="saveStage()">
           <label class="form-label" for="st-name">Nazwa etapu</label><input id="st-name" class="form-control mb-2" maxlength="100" x-model="stageEdit.name">
-          <label class="form-label" for="st-order">Kolejność</label><input id="st-order" class="form-control mb-3" type="number" inputmode="decimal" min="0" max="10000" x-model="stageEdit.order">
-          <div class="d-flex gap-2"><button type="submit" class="btn btn-primary">Zapisz etap</button>
+          <label class="form-label" for="st-order">Kolejność</label><input id="st-order" class="form-control ikpm-num mb-3" type="number" inputmode="decimal" min="0" max="10000" x-model="stageEdit.order">
+          <div class="d-flex flex-wrap gap-2"><button type="submit" class="btn btn-primary">Zapisz etap</button><span class="ikpm-save form-dirty align-self-center" data-state="dirty" hidden>Niezapisane zmiany</span>
             <button type="button" class="btn btn-outline-danger" @click="deleteStage()"><i class="bi bi-trash" aria-hidden="true"></i> Usuń etap</button></div></form>
       </div>
     </template>
@@ -82,107 +82,107 @@
   <!-- Poziom 3: praca -->
   <section class="pane pane-detail" aria-label="Praca">
     <template x-if="stage && jobId === 'new'">
-      <div class="pane-inner">
-        <div class="pane-head"><a class="back-link" :href="link('stages', {stage: stage.id})"><i class="bi bi-chevron-left" aria-hidden="true"></i><span x-text="stage.name"></span></a>
-          <h1 class="pane-title">Dodaj pracę do tego etapu</h1><div class="pane-sub" x-text="'Etap: ' + stage.name"></div></div>
-        <form class="card-plain" @submit.prevent="addJob()">
+      <div class="ikpm-content">
+        <div class="pane-head"><a class="ikpm-back" :href="link('stages', {stage: stage.id})"><span x-text="stage.name"></span></a>
+          <h1 class="ikpm-page-title">Dodaj pracę do tego etapu</h1><div class="pane-sub" x-text="'Etap: ' + stage.name"></div></div>
+        <form class="card card-body" @submit.prevent="addJob()">
           <div role="alert" x-show="jobErrors.length"><ul class="text-danger"><template x-for="e in jobErrors"><li x-text="e"></li></template></ul></div>
           <label class="form-label" for="nj-name">Nazwa pracy</label><input id="nj-name" class="form-control mb-3" maxlength="100" placeholder="np. Malowanie ścian" x-model="newJob.name">
-          <div class="row g-2">
-            <div class="col-6"><label class="form-label" for="nj-unit">Jednostka</label>
+          <div class="dim-grid">
+            <div><label class="form-label" for="nj-unit">Jednostka</label>
               <select id="nj-unit" class="form-select" x-model="newJob.unit" @change="if (!areaOptions(newJob.unit).includes(newJob.area_type)) newJob.area_type = 'manual'">
                 <template x-for="u in UNITS" :key="u"><option :value="u" x-text="u" :selected="u === newJob.unit"></option></template></select></div>
-            <div class="col-6"><label class="form-label" for="nj-area">Wymiar (auto-ilość)</label>
+            <div><label class="form-label" for="nj-area">Wymiar (auto-ilość)</label>
               <select id="nj-area" class="form-select" x-model="newJob.area_type">
                 <template x-for="a in areaOptions(newJob.unit)" :key="a"><option :value="a" x-text="AREA_LABELS[a]" :selected="a === newJob.area_type"></option></template></select></div>
-            <div class="col-6"><label class="form-label" for="nj-price">Śr. cena (zł)</label><input id="nj-price" class="form-control" type="number" inputmode="decimal" step="any" min="0" placeholder="np. 35" x-model="newJob.price"></div>
-            <div class="col-6"><label class="form-label" for="nj-order">Kolejność</label><input id="nj-order" class="form-control" type="number" inputmode="decimal" min="0" max="10000" x-model="newJob.order"></div>
+            <div><label class="form-label" for="nj-price">Śr. cena (zł)</label><input id="nj-price" class="form-control ikpm-num" type="number" inputmode="decimal" step="any" min="0" placeholder="np. 35" x-model="newJob.price"></div>
+            <div><label class="form-label" for="nj-order">Kolejność</label><input id="nj-order" class="form-control ikpm-num" type="number" inputmode="decimal" min="0" max="10000" x-model="newJob.order"></div>
           </div>
           <label class="form-label mt-2" for="nj-desc">Opis</label><textarea id="nj-desc" class="form-control mb-3" rows="2" placeholder="Krótki opis..." x-model="newJob.description"></textarea>
-          <button type="submit" class="btn btn-primary btn-main px-4"><i class="bi bi-plus-lg" aria-hidden="true"></i> Dodaj pracę</button>
+          <button type="submit" class="btn btn-primary btn-lg px-4"><i class="bi bi-plus-lg" aria-hidden="true"></i> Dodaj pracę</button>
         </form>
       </div>
     </template>
     <template x-if="stage && job">
-      <div class="pane-inner">
-        <div class="pane-head"><a class="back-link" :href="link('stages', {stage: stage.id})"><i class="bi bi-chevron-left" aria-hidden="true"></i><span x-text="stage.name"></span></a>
-          <h1 class="pane-title" x-text="job.name"></h1>
-          <div class="d-flex flex-wrap gap-1"><span class="badge text-bg-light border" x-text="job.unit"></span><span class="badge text-bg-light border" x-text="AREA_LABELS[job.area_type]"></span>
-            <span class="small text-body-secondary" x-text="'Śr. tempo: ' + (job.average_speed ? measure(job.average_speed) + ' h/' + job.unit : '-')"></span></div></div>
+      <div class="ikpm-content">
+        <div class="pane-head"><a class="ikpm-back" :href="link('stages', {stage: stage.id})"><span x-text="stage.name"></span></a>
+          <h1 class="ikpm-page-title" x-text="job.name"></h1>
+          <div class="d-flex flex-wrap gap-1"><span class="ikpm-chip" x-text="job.unit"></span><span class="ikpm-chip" x-text="AREA_LABELS[job.area_type]"></span>
+            <span class="ikpm-meta" x-text="'Śr. tempo: ' + (job.average_speed ? measure(job.average_speed) + ' h/' + job.unit : '-')"></span></div></div>
 
-        <form class="card-plain" @submit.prevent="saveJob()">
+        <form class="card card-body" data-dirty-watch="Praca" @submit.prevent="saveJob()">
           <label class="form-label" for="ej-name">Nazwa pracy</label><input id="ej-name" class="form-control mb-2" maxlength="100" x-model="jobEdit.name">
-          <div class="row g-2">
-            <div class="col-6"><label class="form-label" for="ej-unit">Jednostka</label><select id="ej-unit" class="form-select" disabled aria-describedby="locked-hint"><option x-text="job.unit"></option></select></div>
-            <div class="col-6"><label class="form-label" for="ej-area">Wymiar (auto-ilość)</label><select id="ej-area" class="form-select" disabled aria-describedby="locked-hint"><option x-text="AREA_LABELS[job.area_type]"></option></select></div>
+          <div class="dim-grid">
+            <div><label class="form-label" for="ej-unit">Jednostka</label><select id="ej-unit" class="form-select" disabled aria-describedby="locked-hint"><option x-text="job.unit"></option></select></div>
+            <div><label class="form-label" for="ej-area">Wymiar (auto-ilość)</label><select id="ej-area" class="form-select" disabled aria-describedby="locked-hint"><option x-text="AREA_LABELS[job.area_type]"></option></select></div>
           </div>
-          <div class="small text-body-secondary mb-2" id="locked-hint"><i class="bi bi-lock" aria-hidden="true"></i> Inna jednostka albo wymiar to nowa praca</div>
-          <div class="row g-2">
-            <div class="col-6"><label class="form-label" for="ej-price">Śr. cena (zł)</label><input id="ej-price" class="form-control" type="number" inputmode="decimal" step="any" min="0" x-model="jobEdit.price"></div>
-            <div class="col-6"><label class="form-label" for="ej-order">Kolejność</label><input id="ej-order" class="form-control" type="number" inputmode="decimal" min="0" max="10000" x-model="jobEdit.order"></div>
+          <div class="ikpm-meta mb-2" id="locked-hint"><i class="bi bi-lock" aria-hidden="true"></i> Inna jednostka albo wymiar to nowa praca</div>
+          <div class="dim-grid">
+            <div><label class="form-label" for="ej-price">Śr. cena (zł)</label><input id="ej-price" class="form-control ikpm-num" type="number" inputmode="decimal" step="any" min="0" x-model="jobEdit.price"></div>
+            <div><label class="form-label" for="ej-order">Kolejność</label><input id="ej-order" class="form-control ikpm-num" type="number" inputmode="decimal" min="0" max="10000" x-model="jobEdit.order"></div>
           </div>
           <label class="form-label mt-2" for="ej-stage">Etap</label>
           <select id="ej-stage" class="form-select mb-2" x-model="jobEdit.stage_id"><template x-for="s in stagesSorted()" :key="s.id"><option :value="String(s.id)" x-text="s.name" :selected="String(s.id) === jobEdit.stage_id"></option></template></select>
           <label class="form-label" for="ej-desc">Opis</label><textarea id="ej-desc" class="form-control mb-3" rows="2" placeholder="Szczegółowy opis pracy..." x-model="jobEdit.description"></textarea>
-          <div class="d-flex flex-wrap gap-2"><button type="submit" class="btn btn-primary">Zapisz pracę</button>
+          <div class="d-flex flex-wrap gap-2"><button type="submit" class="btn btn-primary">Zapisz pracę</button><span class="ikpm-save form-dirty align-self-center" data-state="dirty" hidden>Niezapisane zmiany</span>
             <button type="button" class="btn btn-outline-danger" @click="deleteJob()"><i class="bi bi-trash" aria-hidden="true"></i> Usuń pracę</button></div>
         </form>
 
-        <h2 class="group-title">Materiały potrzebne do pracy</h2>
-        <ul class="group">
+        <h2 class="ikpm-section-title">Materiały potrzebne do pracy</h2>
+        <ul class="ikpm-list">
           <template x-for="(m, i) in job.materials" :key="m.material_id">
-            <li class="row-item flex-wrap">
-              <span class="row-main"><div class="fw-semibold" x-text="material(m.material_id)?.name"></div>
-                <div class="small text-body-secondary" x-text="materialLine(material(m.material_id))"></div></span>
-              <span class="d-flex align-items-end gap-2"><span><label class="form-label small mb-1" :for="'mq-' + m.material_id" x-text="material(m.material_id)?.unit + ' na ' + job.unit + ':'"></label>
-                <input class="form-control" style="width:7.5rem" :id="'mq-' + m.material_id" type="number" inputmode="decimal" step="any" min="0" :value="m.quantity_per_unit" @change="setMaterialQty(m, $event.target)"></span>
-                <button type="button" class="btn btn-outline-danger btn-icon" :aria-label="'Usuń materiał: ' + material(m.material_id)?.name" @click="removeMaterial(m)"><i class="bi bi-trash" aria-hidden="true"></i></button></span>
-              <span class="saved w-100 text-end" x-show="savedKey === 'm' + m.material_id"><i class="bi bi-check2" aria-hidden="true"></i> Zapisano</span>
+            <li class="ikpm-row flex-wrap">
+              <span class="ikpm-row-main"><div class="ikpm-row-title" x-text="material(m.material_id)?.name"></div>
+                <div class="ikpm-meta" x-text="materialLine(material(m.material_id))"></div></span>
+              <span class="d-flex align-items-end gap-2"><span><label class="form-label small" :for="'mq-' + m.material_id" x-text="material(m.material_id)?.unit + ' na ' + job.unit + ':'"></label>
+                <input class="form-control ikpm-num" style="width:7.5rem" :id="'mq-' + m.material_id" type="number" inputmode="decimal" step="any" min="0" :value="m.quantity_per_unit" @change="setMaterialQty(m, $event.target)"></span>
+                <button type="button" class="btn btn-outline-danger ikpm-btn-icon" :aria-label="'Usuń materiał: ' + material(m.material_id)?.name" @click="removeMaterial(m)"><i class="bi bi-trash" aria-hidden="true"></i></button></span>
+              <span class="ikpm-save w-100 text-end" data-state="saved" x-show="savedKey === 'm' + m.material_id">Zapisano</span>
             </li>
           </template>
-          <li><button type="button" class="row-link row-add" @click="matFormOpen = !matFormOpen" :aria-expanded="matFormOpen"><span class="row-icon"><i class="bi bi-plus-lg" aria-hidden="true"></i></span>Dodaj materiał</button></li>
+          <li><button type="button" class="ikpm-row ikpm-row-add" @click="matFormOpen = !matFormOpen" :aria-expanded="matFormOpen"><span class="row-icon"><i class="bi bi-plus-lg" aria-hidden="true"></i></span>Dodaj materiał</button></li>
         </ul>
-        <form class="card-plain mt-2" x-show="matFormOpen" @submit.prevent="addMaterial()">
+        <form class="card card-body mt-2" x-show="matFormOpen" @submit.prevent="addMaterial()">
           <label class="form-label" for="mat-pick">Materiał</label>
           <select id="mat-pick" class="form-select mb-2" x-model="matPick">
             <option value="">-- Wybierz materiał --</option>
             <template x-for="mm in materialOptions()" :key="mm.id"><option :value="String(mm.id)" x-text="mm.name"></option></template></select>
           <label class="form-label" for="mat-qty" x-text="'Ilość na jednostkę:' + (matPick ? ' (' + material(Number(matPick)).unit + ' na ' + job.unit + ')' : '')"></label>
-          <input id="mat-qty" class="form-control mb-3" type="number" inputmode="decimal" step="any" min="0" x-model="matQty">
+          <input id="mat-qty" class="form-control ikpm-num mb-3" type="number" inputmode="decimal" step="any" min="0" x-model="matQty">
           <div class="d-flex gap-2"><button type="submit" class="btn btn-primary">Dodaj</button><button type="button" class="btn btn-outline-secondary" @click="matFormOpen = false">Anuluj</button></div>
         </form>
 
-        <h2 class="group-title">Wykonawcy mogący wykonać tę pracę</h2>
-        <ul class="group">
+        <h2 class="ikpm-section-title">Wykonawcy mogący wykonać tę pracę</h2>
+        <ul class="ikpm-list">
           <template x-for="c in activeCrews()" :key="c.contractor_id">
             <li class="p-3">
-              <div class="d-flex justify-content-between align-items-start gap-2"><div class="fw-semibold" x-text="contractorName(c.contractor_id)"></div>
-                <button type="button" class="btn btn-outline-danger btn-icon" :aria-label="'Usuń wykonawcę: ' + contractorName(c.contractor_id)" @click="removeCrew(c)"><i class="bi bi-trash" aria-hidden="true"></i></button></div>
-              <div class="row g-2">
-                <div class="col-6 col-xl-3"><label class="form-label small mb-1" :for="'cp-' + c.contractor_id">Cena: (zł)</label>
-                  <input class="form-control" :id="'cp-' + c.contractor_id" type="number" inputmode="decimal" step="any" min="0" placeholder="średnia" :value="c.price ?? ''" @change="setCrew(c, 'price', $event.target)"></div>
-                <div class="col-6 col-xl-3"><label class="form-label small mb-1" :for="'cmin-' + c.contractor_id">Tempo: min (h)</label>
-                  <input class="form-control" :id="'cmin-' + c.contractor_id" type="number" inputmode="decimal" step="any" min="0" :value="c.speed_min ?? ''" @change="setCrew(c, 'speed_min', $event.target)"></div>
-                <div class="col-6 col-xl-3"><label class="form-label small mb-1" :for="'cmax-' + c.contractor_id">Tempo: max (h)</label>
-                  <input class="form-control" :id="'cmax-' + c.contractor_id" type="number" inputmode="decimal" step="any" min="0" :value="c.speed_max ?? ''" @change="setCrew(c, 'speed_max', $event.target)"></div>
-                <div class="col-6 col-xl-3"><label class="form-label small mb-1" :for="'cq-' + c.contractor_id">Jakość:</label>
+              <div class="d-flex justify-content-between align-items-start gap-2"><div class="ikpm-row-title" x-text="contractorName(c.contractor_id)"></div>
+                <button type="button" class="btn btn-outline-danger ikpm-btn-icon" :aria-label="'Usuń wykonawcę: ' + contractorName(c.contractor_id)" @click="removeCrew(c)"><i class="bi bi-trash" aria-hidden="true"></i></button></div>
+              <div class="dim-grid">
+                <div><label class="form-label small" :for="'cp-' + c.contractor_id">Cena: (zł)</label>
+                  <input class="form-control ikpm-num" :id="'cp-' + c.contractor_id" type="number" inputmode="decimal" step="any" min="0" placeholder="średnia" :value="c.price ?? ''" @change="setCrew(c, 'price', $event.target)"></div>
+                <div><label class="form-label small" :for="'cmin-' + c.contractor_id">Tempo: min (h)</label>
+                  <input class="form-control ikpm-num" :id="'cmin-' + c.contractor_id" type="number" inputmode="decimal" step="any" min="0" :value="c.speed_min ?? ''" @change="setCrew(c, 'speed_min', $event.target)"></div>
+                <div><label class="form-label small" :for="'cmax-' + c.contractor_id">Tempo: max (h)</label>
+                  <input class="form-control ikpm-num" :id="'cmax-' + c.contractor_id" type="number" inputmode="decimal" step="any" min="0" :value="c.speed_max ?? ''" @change="setCrew(c, 'speed_max', $event.target)"></div>
+                <div><label class="form-label small" :for="'cq-' + c.contractor_id">Jakość:</label>
                   <select class="form-select" :id="'cq-' + c.contractor_id" @change="c.quality = $event.target.value ? Number($event.target.value) : null; saveCat(); markSaved('c' + c.contractor_id)">
                     <option value="" :selected="c.quality == null">brak oceny</option><template x-for="[k, l] in Object.entries(QUALITY)" :key="k"><option :value="k" x-text="l" :selected="Number(k) === c.quality"></option></template></select></div>
               </div>
-              <span class="saved" x-show="savedKey === 'c' + c.contractor_id"><i class="bi bi-check2" aria-hidden="true"></i> Zapisano</span>
+              <span class="ikpm-save" data-state="saved" x-show="savedKey === 'c' + c.contractor_id">Zapisano</span>
             </li>
           </template>
-          <li><button type="button" class="row-link row-add" @click="crewFormOpen = !crewFormOpen" :aria-expanded="crewFormOpen"><span class="row-icon"><i class="bi bi-plus-lg" aria-hidden="true"></i></span>Dodaj wykonawcę</button></li>
+          <li><button type="button" class="ikpm-row ikpm-row-add" @click="crewFormOpen = !crewFormOpen" :aria-expanded="crewFormOpen"><span class="row-icon"><i class="bi bi-plus-lg" aria-hidden="true"></i></span>Dodaj wykonawcę</button></li>
         </ul>
-        <form class="card-plain mt-2" x-show="crewFormOpen" @submit.prevent="addCrew()">
+        <form class="card card-body mt-2" x-show="crewFormOpen" @submit.prevent="addCrew()">
           <label class="form-label" for="crew-pick">Wykonawca</label>
           <select id="crew-pick" class="form-select mb-2" x-model="crew.contractor_id"><option value="">-- Wykonawca --</option>
             <template x-for="cc in activeContractors()" :key="cc.id"><option :value="String(cc.id)" x-text="cc.name"></option></template></select>
-          <div class="row g-2 mb-3">
-            <div class="col-6 col-xl-3"><label class="form-label small mb-1" for="crew-price">Cena: (zł)</label><input id="crew-price" class="form-control" type="number" inputmode="decimal" step="any" min="0" placeholder="średnia" x-model="crew.price"></div>
-            <div class="col-6 col-xl-3"><label class="form-label small mb-1" for="crew-min">Tempo: min (h)</label><input id="crew-min" class="form-control" type="number" inputmode="decimal" step="any" min="0" x-model="crew.speed_min"></div>
-            <div class="col-6 col-xl-3"><label class="form-label small mb-1" for="crew-max">Tempo: max (h)</label><input id="crew-max" class="form-control" type="number" inputmode="decimal" step="any" min="0" x-model="crew.speed_max"></div>
-            <div class="col-6 col-xl-3"><label class="form-label small mb-1" for="crew-q">Jakość:</label><select id="crew-q" class="form-select" x-model="crew.quality"><option value="">brak oceny</option>
+          <div class="dim-grid mb-3">
+            <div><label class="form-label small" for="crew-price">Cena: (zł)</label><input id="crew-price" class="form-control ikpm-num" type="number" inputmode="decimal" step="any" min="0" placeholder="średnia" x-model="crew.price"></div>
+            <div><label class="form-label small" for="crew-min">Tempo: min (h)</label><input id="crew-min" class="form-control ikpm-num" type="number" inputmode="decimal" step="any" min="0" x-model="crew.speed_min"></div>
+            <div><label class="form-label small" for="crew-max">Tempo: max (h)</label><input id="crew-max" class="form-control ikpm-num" type="number" inputmode="decimal" step="any" min="0" x-model="crew.speed_max"></div>
+            <div><label class="form-label small" for="crew-q">Jakość:</label><select id="crew-q" class="form-select" x-model="crew.quality"><option value="">brak oceny</option>
               <template x-for="[k, l] in Object.entries(QUALITY)" :key="k"><option :value="k" x-text="l"></option></template></select></div>
           </div>
           <div class="d-flex gap-2"><button type="submit" class="btn btn-primary">Dodaj</button><button type="button" class="btn btn-outline-secondary" @click="crewFormOpen = false">Anuluj</button></div>
@@ -235,7 +235,7 @@ boot(() => ({
     const _ok = await confirmBox({ title: `Usunąć etap '${this.stage.name}'? Etapu z pracami nie da się usunąć.`, consequences: ['Etap zniknie z cennika.'], ok: 'Usuń', okClass: 'btn-danger' });
     if (!_ok) return;
     if (this.stage.jobs.length) { alertBox('Nie można usunąć, gdyż istnieją zależne od niego prace'); return; }
-    db.stages.splice(db.stages.indexOf(this.stage), 1); save('stages'); flashNext('notice', `Etap '${this.stage.name}' został usunięty.`); go('stages');
+    const _i = db.stages.findIndex((x) => x.id === this.stage.id); if (_i < 0) return; db.stages.splice(_i, 1); save('stages'); flashNext('notice', `Etap '${this.stage.name}' został usunięty.`); go('stages');
   },
   addJob() {
     const _j = this.newJob; const _e = [];

@@ -2,58 +2,59 @@
 <html lang="pl">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Materiały — IKPM</title>
 <link rel="stylesheet" href="../assets/bootstrap/bootstrap.min.css">
 <link rel="stylesheet" href="../assets/bootstrap-icons/bootstrap-icons.min.css">
+<link rel="stylesheet" href="../assets/ikpm-ui.css">
 <link rel="stylesheet" href="../assets/app.css">
 </head>
 <body data-screen="materials" data-nav="materials" data-tab="dane">
 <main x-data="page" x-cloak>
 <div class="panes" :data-level="level">
   <section class="pane pane-list" aria-label="Materiały">
-    <div class="pane-inner">
-      <div class="pane-head"><a class="back-link back-only-phone" :href="link('data')"><i class="bi bi-chevron-left" aria-hidden="true"></i>Dane</a><h1 class="pane-title">Materiały</h1></div>
-      <div class="group"><a class="row-link row-add" :href="link('materials', {id: 'new'})" :aria-current="isNew ? 'page' : null"><span class="row-icon"><i class="bi bi-plus-lg" aria-hidden="true"></i></span>Dodaj materiał</a></div>
-      <h2 class="group-title">Zmiana cen</h2>
-      <form class="card-plain" id="materials-price-change" @submit.prevent="previewChange()">
+    <div class="ikpm-content">
+      <div class="pane-head"><a class="ikpm-back back-only-phone" :href="link('data')">Dane</a><h1 class="ikpm-page-title">Materiały</h1></div>
+      <ul class="ikpm-list list-tiles"><li><a class="ikpm-row ikpm-row-add" :href="link('materials', {id: 'new'})" :aria-current="isNew ? 'page' : null"><span class="row-icon"><i class="bi bi-plus-lg" aria-hidden="true"></i></span>Dodaj materiał</a></li></ul>
+      <h2 class="ikpm-section-title">Zmiana cen</h2>
+      <form class="card card-body" id="materials-price-change" @submit.prevent="previewChange()">
         <fieldset><legend class="form-label fs-6">Zakres</legend>
-          <div class="form-check big"><input class="form-check-input" type="radio" name="scope" id="sc-all" value="all" x-model="scope" required><label class="form-check-label" for="sc-all">Wszystkie materiały</label></div>
-          <div class="form-check big"><input class="form-check-input" type="radio" name="scope" id="sc-sel" value="selected" x-model="scope"><label class="form-check-label" for="sc-sel" x-text="'Zaznaczone na liście (' + selected.length + ')'"></label></div></fieldset>
+          <div class="form-check"><input class="form-check-input" type="radio" name="scope" id="sc-all" value="all" x-model="scope" required><label class="form-check-label" for="sc-all">Wszystkie materiały</label></div>
+          <div class="form-check"><input class="form-check-input" type="radio" name="scope" id="sc-sel" value="selected" x-model="scope"><label class="form-check-label" for="sc-sel" x-text="'Zaznaczone na liście (' + selected.length + ')'"></label></div></fieldset>
         <label class="form-label" for="m-pct">Zmień ceny o % <span class="visually-hidden">materiałów</span> (od -90 do 200)</label>
-        <div class="d-flex gap-2"><input id="m-pct" class="form-control" type="number" inputmode="decimal" step="0.1" min="-90" max="200" required x-model="percent"><button type="submit" class="btn btn-outline-primary">Podgląd</button></div>
+        <div class="d-flex gap-2"><input id="m-pct" class="form-control ikpm-num" type="number" inputmode="decimal" step="0.1" min="-90" max="200" required x-model="percent"><button type="submit" class="btn btn-outline-primary">Podgląd</button></div>
       </form>
-      <h2 class="group-title">Lista materiałów</h2>
+      <h2 class="ikpm-section-title">Lista materiałów</h2>
       <p class="text-body-secondary" x-show="!db.materials.length">Brak materiałów. Dodaj pierwszy materiał powyżej.</p>
-      <ul class="group">
+      <ul class="ikpm-list list-cols">
         <template x-for="m in filtered()" :key="m.id">
           <li class="d-flex align-items-center">
             <label class="d-flex align-items-center justify-content-center flex-shrink-0" style="width:52px;min-height:56px" :for="'sel-' + m.id">
               <input class="form-check-input m-0" style="width:1.4rem;height:1.4rem" type="checkbox" :id="'sel-' + m.id" :value="m.id" x-model.number="selected" :aria-label="m.name + ' (' + materialPackage(m) + ')'"></label>
-            <a class="row-link ps-1" :href="link('materials', {id: m.id})" :aria-current="cur && cur.id === m.id ? 'page' : null">
-              <span class="row-main"><div class="fw-semibold" x-text="m.name"></div><div class="small text-body-secondary" x-text="'opak. ' + materialPackage(m) + ' · ' + pln(m.price)"></div></span>
-              <i class="bi bi-chevron-right chev" aria-hidden="true"></i></a></li>
+            <a class="ikpm-row ps-1" :href="link('materials', {id: m.id})" :aria-current="cur && cur.id === m.id ? 'page' : null">
+              <span class="ikpm-row-main"><div class="ikpm-row-title" x-text="m.name"></div><div class="ikpm-meta" x-text="'opak. ' + materialPackage(m) + ' · ' + pln(m.price)"></div></span>
+              <i class="bi bi-chevron-right ikpm-chevron" aria-hidden="true"></i></a></li>
         </template>
       </ul>
     </div>
   </section>
   <section class="pane pane-folder" aria-label="Materiał">
     <template x-if="cur || isNew">
-      <div class="pane-inner">
-        <div class="pane-head"><a class="back-link" :href="link('materials')"><i class="bi bi-chevron-left" aria-hidden="true"></i>Materiały</a>
-          <h1 class="pane-title" x-text="isNew ? 'Dodaj materiał' : cur.name"></h1>
+      <div class="ikpm-content">
+        <div class="pane-head"><a class="ikpm-back" :href="link('materials')">Materiały</a>
+          <h1 class="ikpm-page-title" x-text="isNew ? 'Dodaj materiał' : cur.name"></h1>
           <div class="pane-sub" x-show="cur" x-text="cur ? pln(materialUnitPrice(cur)) + '/' + cur.unit : ''"></div></div>
-        <form class="card-plain" @submit.prevent="submit()">
+        <form class="card card-body" :data-dirty-watch="isNew ? null : 'Materiał'" @submit.prevent="submit()">
           <label class="form-label" for="mf-name">Nazwa materiału</label><input id="mf-name" class="form-control mb-2" maxlength="100" placeholder="np. Farba lateksowa biała" x-model="form.name">
-          <div class="row g-2">
-            <div class="col-4"><label class="form-label" for="mf-price">Cena (zł)</label><input id="mf-price" class="form-control" type="number" inputmode="decimal" step="any" min="0" x-model="form.price"></div>
-            <div class="col-4"><label class="form-label" for="mf-qty">Ilość</label><input id="mf-qty" class="form-control" type="number" inputmode="decimal" step="any" min="0" x-model="form.quantity"></div>
-            <div class="col-4"><label class="form-label" for="mf-unit">Jedn.</label><select id="mf-unit" class="form-select" x-model="form.unit"><template x-for="u in UNITS" :key="u"><option :value="u" x-text="u" :selected="u === form.unit"></option></template></select></div>
+          <div class="dim-grid">
+            <div><label class="form-label" for="mf-price">Cena (zł)</label><input id="mf-price" class="form-control ikpm-num" type="number" inputmode="decimal" step="any" min="0" x-model="form.price"></div>
+            <div><label class="form-label" for="mf-qty">Ilość</label><input id="mf-qty" class="form-control ikpm-num" type="number" inputmode="decimal" step="any" min="0" x-model="form.quantity"></div>
+            <div><label class="form-label" for="mf-unit">Jedn.</label><select id="mf-unit" class="form-select" x-model="form.unit"><template x-for="u in UNITS" :key="u"><option :value="u" x-text="u" :selected="u === form.unit"></option></template></select></div>
           </div>
           <label class="form-label mt-2" for="mf-link">Link do sklepu</label>
           <div class="d-flex gap-2 mb-3"><input id="mf-link" class="form-control" type="url" placeholder="https://..." x-model="form.link">
-            <template x-if="/^https?:\/\//.test(form.link || '')"><a class="btn btn-outline-secondary btn-icon" :href="form.link" target="_blank" rel="noopener" aria-label="Otwórz link do sklepu"><i class="bi bi-box-arrow-up-right" aria-hidden="true"></i></a></template></div>
-          <div class="d-flex gap-2"><button class="btn btn-primary" type="submit" x-text="isNew ? 'Dodaj' : 'Zapisz'"></button>
+            <template x-if="/^https?:\/\//.test(form.link || '')"><a class="btn btn-outline-secondary ikpm-btn-icon" :href="form.link" target="_blank" rel="noopener" aria-label="Otwórz link do sklepu"><i class="bi bi-box-arrow-up-right" aria-hidden="true"></i></a></template></div>
+          <div class="d-flex flex-wrap gap-2"><button class="btn btn-primary" type="submit" x-text="isNew ? 'Dodaj' : 'Zapisz'"></button><span class="ikpm-save form-dirty align-self-center" data-state="dirty" hidden>Niezapisane zmiany</span>
             <template x-if="cur"><button type="button" class="btn btn-outline-danger" @click="destroy()"><i class="bi bi-trash" aria-hidden="true"></i> Usuń</button></template></div>
         </form>
       </div>
@@ -94,7 +95,7 @@ boot(() => ({
   async destroy() {
     const _ok = await confirmBox({ title: `Usunąć materiał '${this.cur.name}'?`, consequences: ['Materiał zniknie z listy.'], ok: 'Usuń', okClass: 'btn-danger' }); if (!_ok) return;
     if (this.usedIn().length) { alertBox('Nie można usunąć, gdyż istnieją zależne od niego materiały prac'); return; }
-    db.materials.splice(db.materials.indexOf(this.cur), 1); save('materials'); flashNext('notice', `Materiał '${this.cur.name}' został usunięty.`); go('materials');
+    const _i = db.materials.findIndex((x) => x.id === this.cur.id); if (_i < 0) return; db.materials.splice(_i, 1); save('materials'); flashNext('notice', `Materiał '${this.cur.name}' został usunięty.`); go('materials');
   },
 }));
 </script>

@@ -2,35 +2,43 @@
 <html lang="pl">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:,">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Klient — formularz — IKPM</title>
   <link rel="stylesheet" href="../assets/bootstrap/bootstrap.min.css">
   <link rel="stylesheet" href="../assets/bootstrap-icons/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="../assets/ikpm-ui.css">
   <link rel="stylesheet" href="../assets/app.css">
 </head>
 <body data-section="clients">
-  <main id="main"><div id="app" class="container-xxl" x-data="page" x-cloak>
-    <h1 class="page-title" x-text="c.id ? 'Edycja klienta ' + original : 'Nowy klient'"></h1>
-    <div class="alert alert-danger" role="alert" x-show="errors.length"><ul class="mb-0"><template x-for="e in errors"><li x-text="e"></li></template></ul></div>
-    <form class="list-card" style="max-width: 44rem" @submit.prevent="save()" novalidate>
+  <main id="main"><div id="app" class="ikpm-content" x-data="page" x-cloak>
+    <div class="ikpm-page-head">
+      <a class="ikpm-back" :href="cancelUrl">Anuluj</a>
+      <div class="ikpm-page-heading"><h1 class="ikpm-page-title" x-text="c.id ? 'Edycja klienta ' + original : 'Nowy klient'"></h1></div>
+    </div>
+    <div class="alert alert-danger d-flex gap-2 narrow-form" role="alert" x-show="errors.length"><i class="bi bi-exclamation-octagon-fill" aria-hidden="true"></i><ul class="mb-0 ps-3"><template x-for="e in errors"><li x-text="e"></li></template></ul></div>
+    <form class="box narrow-form" @submit.prevent="save()" novalidate>
       <div class="row g-3">
         <div class="col-12"><label class="form-label" for="c-name">Nazwa *</label><input class="form-control" id="c-name" maxlength="100" required x-model="c.name"></div>
-        <div class="col-md-6"><label class="form-label" for="c-email">Email</label><input class="form-control" id="c-email" type="email" maxlength="254" x-model="c.email"></div>
+        <div class="col-md-6"><label class="form-label" for="c-email">Email</label><input class="form-control" id="c-email" type="email" maxlength="254" autocomplete="off" x-model="c.email"></div>
         <div class="col-md-6"><label class="form-label" for="c-phone">Telefon</label><input class="form-control" id="c-phone" type="tel" placeholder="+48 600 000 000" title="Numer telefonu: cyfry, spacje oraz + ( ) -" x-model="c.phone"></div>
         <div class="col-12"><label class="form-label" for="c-notes">Notatki</label><textarea class="form-control" id="c-notes" x-model="c.notes"></textarea></div>
       </div>
-      <div class="d-flex gap-2 justify-content-end mt-3">
-        <a class="btn btn-outline-secondary btn-main" :href="c.id ? link('screens/client-show.html?id=' + c.id) : link('screens/clients.html')">Anuluj</a>
-        <button class="btn btn-primary btn-main" type="submit">Zapisz</button>
+      <div class="d-flex flex-wrap gap-2 justify-content-end mt-3">
+        <a class="btn btn-outline-secondary btn-lg" :href="cancelUrl">Anuluj</a>
+        <button class="btn btn-primary btn-lg" type="submit">Zapisz</button>
       </div>
     </form>
   </div></main>
   <script type="module">
-    import { start, clientById, saveClient, go } from '../assets/app.js';
+    import { start, clientById, saveClient, go, link } from '../assets/app.js';
     const _c = clientById(new URLSearchParams(location.search).get('id'));
     start(() => ({
       c: _c ? { ..._c, notes: _c.notes ?? '' } : { id: null, name: '', email: '', phone: '', notes: '' },
       original: _c?.name, errors: [],
+      // „Aktualny klient:” w kreatorze wyceny wraca tu z adresem kroku (powrot) — po zapisie wraca do kreatora.
+      back: (() => { const _b = new URLSearchParams(location.search).get('powrot'); return _b && _b.startsWith(location.origin) ? _b : null; })(),
+      get cancelUrl() { return this.back ?? (this.c.id ? link('screens/client-show.html?id=' + this.c.id) : link('screens/clients.html')); },
       save() {
         this.errors = [];
         if (!this.c.name.trim()) this.errors.push('Nazwa nie może być pusta');
@@ -39,7 +47,7 @@
         if (this.errors.length) return;
         const _new = !this.c.id;
         const _saved = saveClient({ ...this.c, name: this.c.name.trim() });
-        go(`screens/client-show.html?id=${_saved.id}`, _new ? 'Klient utworzony.' : 'Klient zaktualizowany.');
+        go(this.back ?? `screens/client-show.html?id=${_saved.id}`, _new ? 'Klient utworzony.' : 'Klient zaktualizowany.');
       },
     }));
   </script>

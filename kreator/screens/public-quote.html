@@ -2,99 +2,108 @@
 <html lang="pl">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:,">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Oferta — IKPM</title>
   <link rel="stylesheet" href="../assets/bootstrap/bootstrap.min.css">
   <link rel="stylesheet" href="../assets/bootstrap-icons/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="../assets/ikpm-ui.css">
   <link rel="stylesheet" href="../assets/app.css">
 </head>
 <body data-section="public">
   <!-- Strona klienta /q/:token — bez logowania; klient nigdy nie widzi kosztu, narzutu, ekip ani notatek. -->
-  <header class="public-bar"><div class="container-xxl"><strong class="fs-4">IKPM</strong></div></header>
-  <main id="main"><div id="app" class="container-xxl" x-data="page" x-cloak style="max-width: 960px">
+  <header class="ikpm-public-bar"><strong>IKPM</strong><span class="ikpm-meta">Oferta</span></header>
+  <main id="main" class="ikpm-public"><div id="app" x-data="page" x-cloak>
     <template x-if="q && q.status === 'draft'">
-      <div class="list-card mt-4"><h1 class="h3">Oferta jest aktualizowana</h1><p class="mb-0">Otrzymają Państwo nową wiadomość, gdy będzie gotowa.</p></div>
+      <div class="ikpm-empty"><i class="bi bi-hourglass-split" aria-hidden="true"></i><h1 class="ikpm-empty-title">Oferta jest aktualizowana</h1><p>Otrzymają Państwo nową wiadomość, gdy będzie gotowa.</p></div>
     </template>
     <template x-if="q && q.status !== 'draft'">
       <div>
-        <div class="alert alert-success mt-3" role="status" x-show="message" x-text="message"></div>
-        <h1 class="page-title mb-1">Wycena #<span x-text="q.id"></span></h1>
-        <p class="mb-3">Wysłana: <span x-text="dateTimeText(q.sent_at)"></span></p>
-        <div class="row g-3">
-          <div class="col-md-6"><div class="list-card h-100">
-            <p class="mb-0"><strong x-text="from?.display_name || 'Zespół IKPM'"></strong><span class="d-block" x-show="from" x-text="from?.email"></span></p>
-          </div></div>
-          <div class="col-md-6"><div class="list-card h-100">
-            <h2 class="h6">Klient</h2>
-            <p class="mb-2"><span x-text="q.client?.name"></span><span class="d-block" x-text="q.client?.email"></span></p>
-            <h2 class="h6 mb-1">Status</h2>
-            <span x-html="badge('quote', q.status, kit.labels.quote_client_status[q.status])"></span>
-          </div></div>
+        <div class="alert alert-success d-flex gap-2" role="status" x-show="message"><i class="bi bi-check-circle-fill" aria-hidden="true"></i><span x-text="message"></span></div>
+        <h1 class="mb-1">Wycena #<span x-text="q.id"></span></h1>
+        <p class="ikpm-meta mb-2">Wysłana: <span x-text="dateTimeText(q.sent_at)"></span></p>
+        <div class="ikpm-contact mb-4"><strong x-text="from?.display_name || 'Zespół IKPM'"></strong><template x-if="from"><a :href="'mailto:' + from.email"><i class="bi bi-envelope" aria-hidden="true"></i><span x-text="from.email"></span></a></template></div>
+
+        <div class="public-intro">
+          <dl class="ikpm-dl">
+            <dt>Status</dt><dd><span x-html="badge('quote', q.status, kit.labels.quote_client_status[q.status])"></span></dd>
+            <dt>Klient</dt><dd><span x-text="q.client?.name"></span><span class="d-block ikpm-meta" x-text="q.client?.email"></span></dd>
+            <template x-if="q.site_address"><dt>Adres inwestycji</dt></template><template x-if="q.site_address"><dd x-text="q.site_address"></dd></template>
+            <template x-if="q.planned_start_on"><dt>Planowany start</dt></template><template x-if="q.planned_start_on"><dd x-text="dateText(q.planned_start_on)"></dd></template>
+            <template x-if="q.planned_end_on"><dt>Termin zakończenia</dt></template><template x-if="q.planned_end_on"><dd x-text="dateText(q.planned_end_on)"></dd></template>
+          </dl>
+          <section class="card" aria-labelledby="h-sum-top"><div class="card-body">
+            <h2 class="card-title h3" id="h-sum-top">Podsumowanie</h2>
+            <dl class="ikpm-totals">
+              <div><dt>Razem netto</dt><dd x-text="pln(sums.net)"></dd></div>
+              <div><dt x-text="'VAT ' + Number(q.vat_rate) + '%'"></dt><dd x-text="pln(sums.vat)"></dd></div>
+              <div class="ikpm-totals-grand"><dt>Razem brutto</dt><dd x-text="pln(sums.gross)"></dd></div>
+            </dl>
+          </div></section>
         </div>
-        <div class="list-card mt-3" x-show="q.site_address || q.planned_start_on || q.planned_end_on">
-          <div class="row g-2">
-            <div class="col-sm-4" x-show="q.site_address"><div class="small">Adres inwestycji</div><div x-text="q.site_address"></div></div>
-            <div class="col-sm-4" x-show="q.planned_start_on"><div class="small">Planowany start</div><div x-text="dateText(q.planned_start_on)"></div></div>
-            <div class="col-sm-4" x-show="q.planned_end_on"><div class="small">Termin zakończenia</div><div x-text="dateText(q.planned_end_on)"></div></div>
-          </div>
-        </div>
+
         <template x-if="realization">
-          <div class="alert alert-info mt-3"><span x-text="realization.status === 'done' ? 'Prace z tej wyceny zostały zakończone —' : 'Prace z tej wyceny są w realizacji —'"></span>
-            <a class="btn btn-primary ms-sm-2 mt-2 mt-sm-0" :href="link('screens/public-realization.html?id=' + realization.id)">Śledź postęp prac</a></div>
+          <div class="alert alert-info d-flex flex-wrap align-items-center gap-2 mt-4"><span x-text="realization.status === 'done' ? 'Prace z tej wyceny zostały zakończone —' : 'Prace z tej wyceny są w realizacji —'"></span>
+            <a class="btn btn-primary" :href="link('screens/public-realization.html?id=' + realization.id)">Śledź postęp prac</a></div>
         </template>
         <template x-if="answered">
-          <div class="alert alert-secondary mt-3">Wycena ma już zapisaną odpowiedź<span x-show="q.responded_at" x-text="' z dnia ' + dateText(q.responded_at)"></span>. Dziękujemy.</div>
+          <div class="alert alert-secondary d-flex gap-2 mt-4"><i class="bi bi-info-circle" aria-hidden="true"></i><span>Wycena ma już zapisaną odpowiedź<span x-show="q.responded_at" x-text="' z dnia ' + dateText(q.responded_at)"></span>. Dziękujemy.</span></div>
         </template>
 
+        <h2 class="ikpm-section-title">Zakres prac</h2>
         <template x-for="room in q.rooms" :key="room.id">
-          <section class="list-card mt-3" :aria-labelledby="'room-' + room.id">
-            <h2 class="h5 mb-0" :id="'room-' + room.id" x-text="room.name"></h2>
-            <p class="small mb-2" x-show="roomSize(room)" x-text="roomSize(room)"></p>
-            <table class="table stack-table mb-2">
-              <thead><tr><th scope="col">Praca</th><th scope="col">Etap</th><th scope="col" class="num-cell">Ilość</th><th scope="col" class="num-cell">Cena jedn. netto</th><th scope="col" class="num-cell">Wartość netto</th></tr></thead>
-              <tbody>
-                <template x-for="job in sorted(room.jobs)" :key="job.id">
-                  <tr><td class="lead-cell" x-text="job.name"></td><td data-label="Etap" x-text="job.stage"></td>
-                    <td class="num-cell" data-label="Ilość" x-text="qtyText(job.quantity, job.unit)"></td>
-                    <td class="num-cell" data-label="Cena jedn. netto" x-text="pln(unitPrice(job))"></td>
-                    <td class="num-cell" data-label="Wartość netto" x-text="pln(line(job))"></td></tr>
-                </template>
-                <tr x-show="!room.jobs.length"><td colspan="5">(brak prac w tym pokoju)</td></tr>
-              </tbody>
-            </table>
+          <section class="public-room" :aria-labelledby="'room-' + room.id">
+            <div class="public-room-head"><h2 :id="'room-' + room.id" x-text="room.name"></h2><span class="ikpm-meta" x-show="roomSize(room)" x-text="roomSize(room)"></span></div>
+            <div class="ikpm-table-box">
+              <table class="table ikpm-stack compact">
+                <thead><tr><th scope="col">Praca</th><th scope="col">Etap</th><th scope="col" class="ikpm-num">Ilość</th><th scope="col" class="ikpm-num">Cena jedn. netto</th><th scope="col" class="ikpm-num">Wartość netto</th></tr></thead>
+                <tbody>
+                  <template x-for="job in sorted(room.jobs)" :key="job.id">
+                    <tr><td class="ikpm-cell-lead" x-text="job.name"></td><td class="cell-meta" data-label="Etap" x-text="job.stage"></td>
+                      <td class="ikpm-num cell-meta" data-label="Ilość" x-text="qtyText(job.quantity, job.unit)"></td>
+                      <td class="ikpm-num cell-meta cell-times" data-label="Cena jedn. netto" x-text="pln(unitPrice(job))"></td>
+                      <td class="ikpm-num cell-end" data-label="Wartość netto" x-text="pln(line(job))"></td></tr>
+                  </template>
+                  <tr x-show="!room.jobs.length"><td colspan="5" class="ikpm-colspan">(brak prac w tym pokoju)</td></tr>
+                </tbody>
+              </table>
+            </div>
             <template x-if="respondable">
-              <div><label class="form-label" :for="'rc-' + room.id">Komentarz do pokoju</label>
-                <textarea class="form-control" :id="'rc-' + room.id" maxlength="5000" placeholder="Opcjonalnie..." x-model="roomComments[room.id]"></textarea></div>
+              <div class="mt-2"><label class="form-label" :for="'rc-' + room.id">Komentarz do pokoju</label>
+                <textarea class="form-control" rows="2" :id="'rc-' + room.id" maxlength="5000" placeholder="Opcjonalnie..." x-model="roomComments[room.id]"></textarea></div>
             </template>
-            <template x-if="!respondable && answered"><p class="mb-0 small">Komentarz do pokoju: <span x-text="room.client_comment || '—'"></span></p></template>
+            <template x-if="!respondable && answered"><p class="mt-2 mb-0 ikpm-meta">Komentarz do pokoju: <span x-text="room.client_comment || '—'"></span></p></template>
           </section>
         </template>
 
         <template x-if="respondable">
-          <div class="mt-3"><label class="form-label" for="general">Komentarz ogólny</label>
+          <div class="mt-4"><label class="form-label" for="general">Komentarz ogólny</label>
             <textarea class="form-control" id="general" maxlength="5000" placeholder="Uwagi do całej wyceny..." x-model="general"></textarea></div>
         </template>
-        <template x-if="!respondable && answered"><p class="mt-3">Komentarz ogólny: <span x-text="q.client_general_comment || '—'"></span></p></template>
+        <template x-if="!respondable && answered"><p class="mt-4">Komentarz ogólny: <span x-text="q.client_general_comment || '—'"></span></p></template>
 
-        <section class="list-card summary-card mt-3" aria-labelledby="h-sum" style="max-width: 26rem; margin-left: auto">
-          <h2 class="h5" id="h-sum">Podsumowanie</h2>
-          <dl>
-            <dt>Razem netto</dt><dd x-text="pln(sums.net)"></dd>
-            <dt x-text="'VAT ' + Number(q.vat_rate) + '%'"></dt><dd x-text="pln(sums.vat)"></dd>
-            <dt>Razem brutto</dt><dd class="fw-bold fs-5" x-text="pln(sums.gross)"></dd>
+        <section class="card mt-4" aria-labelledby="h-sum"><div class="card-body">
+          <h2 class="card-title h3" id="h-sum">Podsumowanie</h2>
+          <dl class="ikpm-totals">
+            <div><dt>Razem netto</dt><dd x-text="pln(sums.net)"></dd></div>
+            <div><dt x-text="'VAT ' + Number(q.vat_rate) + '%'"></dt><dd x-text="pln(sums.vat)"></dd></div>
+            <div class="ikpm-totals-grand"><dt>Razem brutto</dt><dd x-text="pln(sums.gross)"></dd></div>
           </dl>
-        </section>
+        </div></section>
 
         <template x-if="respondable">
-          <div class="d-flex flex-wrap gap-2 justify-content-end mt-3">
-            <button type="button" class="btn btn-outline-primary btn-main" @click="answer('changes_requested')"><i class="bi bi-chat-left-dots" aria-hidden="true"></i> Oczekuję zmiany</button>
-            <button type="button" class="btn btn-success btn-main" @click="answer('accepted')"><i class="bi bi-check-circle" aria-hidden="true"></i> Akceptuję wycenę</button>
+          <div class="ikpm-actionbar">
+            <div class="ikpm-actionbar-total"><span>Razem brutto</span><span class="ikpm-amount-lg" x-text="pln(sums.gross)"></span></div>
+            <div class="ikpm-actionbar-actions">
+              <button type="button" class="btn btn-outline-secondary btn-lg" @click="answer('changes_requested')"><i class="bi bi-chat-left-text" aria-hidden="true"></i>Oczekuję zmiany</button>
+              <button type="button" class="btn btn-success btn-lg" @click="answer('accepted')"><i class="bi bi-check-circle" aria-hidden="true"></i>Akceptuję wycenę</button>
+            </div>
           </div>
         </template>
       </div>
     </template>
   </div></main>
-  <footer class="app-footer"><div class="container-xxl">Wygenerowane przez system IKPM.</div></footer>
+  <footer class="ikpm-public-footer">Wygenerowane przez system IKPM.</footer>
   <script type="module">
     import { start, getQuote, lastSentQuote, saveQuote, totals, sortJobs, realizations, sender, ikpm } from '../assets/app.js';
     const _id = new URLSearchParams(location.search).get('id');

@@ -2,10 +2,11 @@
 <html lang="pl">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Użytkownik — IKPM</title>
 <link rel="stylesheet" href="../assets/bootstrap/bootstrap.min.css">
 <link rel="stylesheet" href="../assets/bootstrap-icons/bootstrap-icons.min.css">
+<link rel="stylesheet" href="../assets/ikpm-ui.css">
 <link rel="stylesheet" href="../assets/app.css">
 </head>
 <body data-screen="user-form" data-nav="users" data-tab="wiecej">
@@ -13,22 +14,22 @@
 <div class="panes" data-level="2">
   <section class="pane pane-list" aria-label="Użytkownicy" data-partial="user-list"></section>
   <section class="pane pane-folder" aria-label="Formularz użytkownika">
-    <div class="pane-inner">
-      <div class="pane-head"><a class="back-link" :href="link('users')"><i class="bi bi-chevron-left" aria-hidden="true"></i>Użytkownicy</a>
-        <h1 class="pane-title overflow-anywhere" x-text="u ? 'Edycja użytkownika ' + u.email : 'Nowy użytkownik'"></h1></div>
-      <form class="card-plain" @submit.prevent="submit()" novalidate>
+    <div class="ikpm-content">
+      <div class="pane-head"><a class="ikpm-back" :href="link('users')">Użytkownicy</a>
+        <h1 class="ikpm-page-title overflow-anywhere" x-text="u ? 'Edycja użytkownika ' + u.email : 'Nowy użytkownik'"></h1></div>
+      <form class="card card-body" data-dirty-watch="Użytkownik" @submit.prevent="submit()" novalidate>
         <div class="alert alert-danger" role="alert" x-show="errors.length"><ul class="mb-0 ps-3"><template x-for="e in errors"><li x-text="e"></li></template></ul></div>
         <label class="form-label" for="uf-email">Email</label><input id="uf-email" class="form-control mb-2" type="email" autocomplete="off" x-model="form.email">
-        <div class="row g-2"><div class="col-sm-6"><label class="form-label" for="uf-first">Imię</label><input id="uf-first" class="form-control" x-model="form.first_name"></div>
-          <div class="col-sm-6"><label class="form-label" for="uf-last">Nazwisko</label><input id="uf-last" class="form-control" x-model="form.last_name"></div></div>
+        <div class="dim-grid"><div><label class="form-label" for="uf-first">Imię</label><input id="uf-first" class="form-control" x-model="form.first_name"></div>
+          <div><label class="form-label" for="uf-last">Nazwisko</label><input id="uf-last" class="form-control" x-model="form.last_name"></div></div>
         <label class="form-label mt-2" for="uf-phone">Telefon</label><input id="uf-phone" class="form-control mb-2" type="tel" title="Numer telefonu: cyfry, spacje oraz + ( ) -" x-model="form.phone">
         <label class="form-label" for="uf-pass" x-text="u ? 'Nowe hasło (puste = bez zmiany)' : 'Hasło'"></label><input id="uf-pass" class="form-control mb-2" type="password" autocomplete="new-password" x-model="form.password">
         <label class="form-label" for="uf-pass2">Powtórz hasło</label><input id="uf-pass2" class="form-control mb-2" type="password" autocomplete="new-password" x-model="form.password2">
         <fieldset class="mb-2"><legend class="form-label fs-6">Role</legend>
-          <template x-for="[k, l] in Object.entries(ROLES)" :key="k"><div class="form-check big"><input class="form-check-input" type="checkbox" :id="'role-' + k" :value="k" x-model="form.roles"><label class="form-check-label" :for="'role-' + k" x-text="l"></label></div></template></fieldset>
-        <template x-if="u"><div class="mb-3"><div class="form-check form-switch big"><input class="form-check-input" type="checkbox" role="switch" id="uf-active" x-model="form.active" aria-describedby="uf-active-hint"><label class="form-check-label" for="uf-active">Konto aktywne</label></div>
-          <div class="small text-body-secondary" id="uf-active-hint">Nieaktywne konto nie zaloguje się — jego wyceny i realizacje zostają.</div></div></template>
-        <div class="d-flex gap-2"><button class="btn btn-primary btn-main px-4" type="submit">Zapisz</button><a class="btn btn-outline-secondary btn-main px-4" :href="link('users')">Anuluj</a></div>
+          <template x-for="[k, l] in Object.entries(ROLES)" :key="k"><div class="form-check"><input class="form-check-input" type="checkbox" :id="'role-' + k" :value="k" x-model="form.roles"><label class="form-check-label" :for="'role-' + k" x-text="l"></label></div></template></fieldset>
+        <template x-if="u"><div class="mb-3"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" role="switch" id="uf-active" x-model="form.active" aria-describedby="uf-active-hint"><label class="form-check-label" for="uf-active">Konto aktywne</label></div>
+          <div class="ikpm-meta" id="uf-active-hint">Nieaktywne konto nie zaloguje się — jego wyceny i realizacje zostają.</div></div></template>
+        <div class="d-flex flex-wrap gap-2"><button class="btn btn-primary btn-lg px-4" type="submit">Zapisz</button><span class="ikpm-save form-dirty align-self-center" data-state="dirty" hidden>Niezapisane zmiany</span><a class="btn btn-outline-secondary btn-lg px-4" :href="link('users')">Anuluj</a></div>
       </form>
     </div>
   </section>

@@ -2,25 +2,26 @@
 <html lang="pl">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Mój profil — IKPM</title>
 <link rel="stylesheet" href="../assets/bootstrap/bootstrap.min.css">
 <link rel="stylesheet" href="../assets/bootstrap-icons/bootstrap-icons.min.css">
+<link rel="stylesheet" href="../assets/ikpm-ui.css">
 <link rel="stylesheet" href="../assets/app.css">
 </head>
 <body data-screen="profile" data-nav="profile" data-tab="wiecej">
 <main x-data="page" x-cloak>
-<div class="page"><div class="pane-inner">
-<div class="pane-head"><a class="back-link back-only-phone" :href="link('more')"><i class="bi bi-chevron-left" aria-hidden="true"></i>Więcej</a><h1 class="pane-title">Mój profil</h1></div>
-<form class="card-plain" style="max-width:560px" @submit.prevent="submit()" novalidate>
+<div class="page"><div class="ikpm-content">
+<div class="pane-head"><a class="ikpm-back back-only-phone" :href="link('more')">Więcej</a><h1 class="ikpm-page-title">Mój profil</h1></div>
+<form class="card card-body ikpm-measure" data-dirty-watch="Mój profil" @submit.prevent="submit()" novalidate>
   <div class="alert alert-danger" role="alert" x-show="errors.length"><ul class="mb-0 ps-3"><template x-for="e in errors"><li x-text="e"></li></template></ul></div>
   <label class="form-label" for="p-first">Imię</label><input id="p-first" class="form-control mb-2" x-model="form.first_name">
   <label class="form-label" for="p-last">Nazwisko</label><input id="p-last" class="form-control mb-2" x-model="form.last_name">
   <label class="form-label" for="p-phone">Telefon</label><input id="p-phone" class="form-control" type="tel" placeholder="np. +48 600 000 000" aria-describedby="p-phone-hint" x-model="form.phone">
-  <div class="small text-body-secondary mb-2" id="p-phone-hint">Numer telefonu: cyfry, spacje oraz + ( ) -</div>
+  <div class="ikpm-meta mb-2" id="p-phone-hint">Numer telefonu: cyfry, spacje oraz + ( ) -</div>
   <label class="form-label" for="p-email">Email</label><input id="p-email" class="form-control" type="email" readonly :value="db.me.email">
   <div class="small mb-3">Aby zmienić email lub hasło, przejdź do <a :href="link('account-edit')">ustawień konta</a>.</div>
-  <button class="btn btn-primary btn-main px-4" type="submit">Zapisz</button>
+  <div class="d-flex flex-wrap gap-2"><button class="btn btn-primary btn-lg px-4" type="submit">Zapisz</button><span class="ikpm-save form-dirty align-self-center" data-state="dirty" hidden>Niezapisane zmiany</span></div>
 </form>
 </div></div>
 </main>

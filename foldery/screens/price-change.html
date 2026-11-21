@@ -2,40 +2,41 @@
 <html lang="pl">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Zmiana cen — podgląd — IKPM</title>
 <link rel="stylesheet" href="../assets/bootstrap/bootstrap.min.css">
 <link rel="stylesheet" href="../assets/bootstrap-icons/bootstrap-icons.min.css">
+<link rel="stylesheet" href="../assets/ikpm-ui.css">
 <link rel="stylesheet" href="../assets/app.css">
 </head>
 <body data-screen="price-change" data-nav="stages" data-tab="dane">
 <main x-data="page" x-cloak>
-<div class="page"><div class="pane-inner">
-  <div class="pane-head"><a class="back-link keep" :href="scopeUrl()"><i class="bi bi-chevron-left" aria-hidden="true"></i><span x-text="scopeBack()"></span></a>
-    <h1 class="pane-title" x-text="'Zmiana cen ' + scopeName() + ' o ' + signed(percent)"></h1></div>
-  <template x-if="error"><div class="alert alert-danger" role="alert" x-text="error"></div></template>
+<div class="page"><div class="ikpm-content">
+  <div class="pane-head"><a class="ikpm-back keep" :href="scopeUrl()"><span x-text="scopeBack()"></span></a>
+    <h1 class="ikpm-page-title" x-text="'Zmiana cen ' + scopeName() + ' o ' + signed(percent)"></h1></div>
+  <template x-if="error"><div class="alert alert-danger d-flex gap-2" role="alert"><i class="bi bi-exclamation-octagon-fill" aria-hidden="true"></i><span x-text="error"></span></div></template>
   <template x-if="!error">
     <div>
-      <div class="alert alert-info small">
+      <div class="alert alert-info ikpm-measure">
         <p class="mb-1" x-text="effect()"></p>
         <p class="mb-0">Wysłane i dopasowane wyceny mają ceny zamrożone — ta zmiana ich nie dotyczy, tak jak realizacji. Nowe ceny są w pełnych złotych (najmniej 1 zł), więc zmiana ceny różni się od wpisanego procentu; gdy po zaokrągleniu cena zostaje taka sama albo zmienia się w przeciwną stronę, pozycja jest bez zmian.</p>
       </div>
-      <div class="table-box" tabindex="0" x-show="priced().length"><table class="table table-sm align-middle mb-0">
-        <thead><tr><th scope="col">Pozycja</th><th scope="col" class="num">Cena teraz</th><th scope="col" class="num">Nowa cena</th><th scope="col" class="num d-none d-sm-table-cell">Zmiana</th></tr></thead>
+      <div class="ikpm-table-box" tabindex="0" x-show="priced().length"><table class="table mb-0">
+        <thead><tr><th scope="col">Pozycja</th><th scope="col" class="ikpm-num">Cena teraz</th><th scope="col" class="ikpm-num">Nowa cena</th><th scope="col" class="ikpm-num d-none d-sm-table-cell">Zmiana</th></tr></thead>
         <tbody><template x-for="row in priced()" :key="row.key"><tr :class="row.unchanged && 'text-body-secondary'">
-          <td style="overflow-wrap:anywhere" x-text="row.name"></td><td class="num" x-text="pln(row.price)"></td>
-          <td class="num"><span x-text="pln(row.newPrice)"></span><span class="d-block d-sm-none" x-html="changeHtml(row)"></span></td>
-          <td class="num d-none d-sm-table-cell" x-html="changeHtml(row)"></td></tr></template></tbody></table></div>
+          <td style="overflow-wrap:anywhere" x-text="row.name"></td><td class="ikpm-num" x-text="pln(row.price)"></td>
+          <td class="ikpm-num"><span x-text="pln(row.newPrice)"></span><span class="d-block d-sm-none" x-html="changeHtml(row)"></span></td>
+          <td class="ikpm-num d-none d-sm-table-cell" x-html="changeHtml(row)"></td></tr></template></tbody></table></div>
       <p class="alert alert-secondary mt-3" x-show="!priced().some(r => !r.unchanged)">Żadna cena w tym zakresie się nie zmieni — po zaokrągleniu do pełnych złotych ceny zostają takie same albo pozycje nie mają ceny.</p>
       <template x-if="skipped().length"><div class="mt-3"><h2 class="h6" x-text="'Pominięte (' + skipped().length + ')'"></h2>
-        <ul class="small text-body-secondary"><template x-for="row in skipped()" :key="row.key"><li x-text="row.name + ' — ' + row.reason"></li></template></ul></div></template>
+        <ul class="ikpm-meta"><template x-for="row in skipped()" :key="row.key"><li x-text="row.name + ' — ' + row.reason"></li></template></ul></div></template>
       <div class="d-flex flex-wrap gap-2 my-3">
-        <button type="button" class="btn btn-primary btn-main px-4" x-show="priced().some(r => !r.unchanged)" @click="apply()">Zastosuj</button>
-        <a class="btn btn-outline-secondary btn-main px-4" :href="scopeUrl()">Anuluj</a></div>
-      <form class="card-plain" @submit.prevent="go('price-change', {scope, id: param('id'), ids: param('ids'), percent: again})">
+        <button type="button" class="btn btn-primary btn-lg px-4" x-show="priced().some(r => !r.unchanged)" @click="apply()">Zastosuj</button>
+        <a class="btn btn-outline-secondary btn-lg px-4" :href="scopeUrl()">Anuluj</a></div>
+      <form class="card card-body" @submit.prevent="go('price-change', {scope, id: param('id'), ids: param('ids'), percent: again})">
         <h2 class="h6">Inny procent</h2>
         <label class="form-label" for="again">Zmień ceny o % (od -90 do 200)</label>
-        <div class="d-flex gap-2"><input id="again" class="form-control" type="number" inputmode="decimal" step="0.1" min="-90" max="200" required x-model="again"><button type="submit" class="btn btn-outline-primary">Podgląd</button></div>
+        <div class="d-flex gap-2"><input id="again" class="form-control ikpm-num" type="number" inputmode="decimal" step="0.1" min="-90" max="200" required x-model="again"><button type="submit" class="btn btn-outline-primary">Podgląd</button></div>
       </form>
     </div>
   </template>
@@ -96,7 +97,7 @@ boot(() => ({
   priced() { return this.rows().filter((r) => !r.reason); },
   skipped() { return this.rows().filter((r) => r.reason); },
   changeHtml(row) {
-    if (row.unchanged) return '<span class="badge text-bg-secondary">bez zmian</span>';
+    if (row.unchanged) return '<span class="ikpm-chip">bez zmian</span>';
     const _c = (row.newPrice / row.price - 1) * 100;
     return Math.abs(_c) < 0.05 ? `${_c > 0 ? '+' : ''}${new Intl.NumberFormat('pl-PL', { maximumSignificantDigits: 1 }).format(_c)}%` : this.signed(_c);
   },

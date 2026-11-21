@@ -2,47 +2,74 @@
 <html lang="pl">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:,">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Użytkownik — IKPM</title>
   <link rel="stylesheet" href="../assets/bootstrap/bootstrap.min.css">
   <link rel="stylesheet" href="../assets/bootstrap-icons/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="../assets/ikpm-ui.css">
   <link rel="stylesheet" href="../assets/app.css">
 </head>
 <body data-section="users">
-  <main id="main"><div id="app" class="container-xxl" x-data="page" x-cloak>
-    <h1 class="page-title" x-text="u ? 'Edycja użytkownika ' + u.email : 'Nowy użytkownik'"></h1>
-    <form class="list-card" style="max-width: 44rem" @submit.prevent="save()">
+  <main id="main"><div id="app" class="ikpm-content" x-data="page" x-cloak>
+    <div class="ikpm-page-head">
+      <a class="ikpm-back" :href="link('screens/users.html')">Użytkownicy</a>
+      <div class="ikpm-page-heading"><h1 class="ikpm-page-title" x-text="u ? 'Edycja użytkownika ' + u.email : 'Nowy użytkownik'"></h1></div>
+    </div>
+    <div class="alert alert-danger d-flex gap-2 narrow-form" role="alert" x-show="errors.length"><i class="bi bi-exclamation-octagon-fill" aria-hidden="true"></i><ul class="mb-0 ps-3"><template x-for="e in errors"><li x-text="e"></li></template></ul></div>
+    <form class="box narrow-form" @submit.prevent="save()" novalidate>
       <div class="row g-3">
-        <div class="col-12"><label class="form-label" for="u-email">Email</label><input class="form-control" id="u-email" type="email" :value="u?.email ?? ''" required></div>
+        <div class="col-12"><label class="form-label" for="u-email">Email</label><input class="form-control" id="u-email" type="email" autocomplete="off" :value="u?.email ?? ''" required></div>
         <div class="col-md-6"><label class="form-label" for="u-first">Imię</label><input class="form-control" id="u-first" :value="u?.first_name ?? ''"></div>
         <div class="col-md-6"><label class="form-label" for="u-last">Nazwisko</label><input class="form-control" id="u-last" :value="u?.last_name ?? ''"></div>
-        <div class="col-md-6"><label class="form-label" for="u-phone">Telefon</label><input class="form-control" id="u-phone" type="tel" placeholder="+48 600 000 000"></div>
+        <div class="col-md-6"><label class="form-label" for="u-phone">Telefon</label><input class="form-control" id="u-phone" type="tel" placeholder="+48 600 000 000" :value="u?.phone ?? ''"></div>
+        <div class="col-md-6"></div>
         <div class="col-md-6"><label class="form-label" for="u-pass" x-text="u ? 'Nowe hasło (puste = bez zmiany)' : 'Hasło'"></label><input class="form-control" id="u-pass" type="password" autocomplete="new-password"></div>
         <div class="col-md-6"><label class="form-label" for="u-pass2">Powtórz hasło</label><input class="form-control" id="u-pass2" type="password" autocomplete="new-password"></div>
         <fieldset class="col-12"><legend class="form-label fs-6">Role</legend>
           <template x-for="[k, v] in Object.entries(kit.labels.role)" :key="k">
-            <label class="check-row"><input class="form-check-input" type="checkbox" :checked="u?.roles.includes(k)"> <span x-text="v"></span></label>
+            <div class="form-check"><input class="form-check-input" type="checkbox" :id="'role-' + k" :value="k" :checked="u?.roles.includes(k)"><label class="form-check-label" :for="'role-' + k" x-text="v"></label></div>
           </template>
         </fieldset>
         <template x-if="u">
           <div class="col-12">
-            <div class="form-check form-switch check-row"><input class="form-check-input" type="checkbox" role="switch" id="u-active" :checked="u.active" aria-describedby="u-active-hint"><label class="form-check-label" for="u-active">Konto aktywne</label></div>
+            <div class="form-check form-switch"><input class="form-check-input" type="checkbox" role="switch" id="u-active" :checked="u.active" aria-describedby="u-active-hint"><label class="form-check-label" for="u-active">Konto aktywne</label></div>
             <p class="form-text" id="u-active-hint">Nieaktywne konto nie zaloguje się — jego wyceny i realizacje zostają.</p>
           </div>
         </template>
       </div>
-      <div class="d-flex gap-2 justify-content-end mt-3">
-        <a class="btn btn-outline-secondary btn-main" :href="link('screens/users.html')">Anuluj</a>
-        <button class="btn btn-primary btn-main" type="submit">Zapisz</button>
+      <div class="d-flex flex-wrap gap-2 justify-content-end mt-3">
+        <a class="btn btn-outline-secondary btn-lg" :href="link('screens/users.html')">Anuluj</a>
+        <button class="btn btn-primary btn-lg" type="submit">Zapisz</button>
       </div>
     </form>
   </div></main>
   <script type="module">
-    import { start, kit, go } from '../assets/app.js';
+    import { start, kit, go, users, state, persist } from '../assets/app.js';
     const _email = new URLSearchParams(location.search).get('email');
     start(() => ({
-      u: kit.users.find((x) => x.email === _email) ?? null,
-      save() { go('screens/users.html', this.u ? 'Użytkownik zaktualizowany.' : 'Użytkownik utworzony.'); },
+      u: users().find((x) => x.email === _email) ?? null, errors: [],
+      val(id) { return document.getElementById(id)?.value.trim() ?? ''; },
+      save() {
+        this.errors = [];
+        const _email2 = this.val('u-email');
+        const _roles = Object.keys(kit.labels.role).filter((k) => document.getElementById('role-' + k).checked);
+        const _active = this.u ? document.getElementById('u-active').checked : true;
+        if (!/^[^@\s]+@[^@\s]+$/.test(_email2)) this.errors.push('Email jest nieprawidłowy');
+        if (!this.u && this.val('u-pass').length < 6) this.errors.push('Hasło jest za krótkie (minimum 6 znaków)');
+        if (this.val('u-pass') !== this.val('u-pass2')) this.errors.push('Powtórz hasło musi być takie samo jak hasło');
+        if (this.u?.email === kit.users[0].email && !_roles.includes('admin')) this.errors.push('Nie możesz odebrać sobie roli administratora.');
+        if (this.u?.email === kit.users[0].email && !_active) this.errors.push('Nie możesz dezaktywować własnego konta.');
+        if (this.errors.length) { window.scrollTo(0, 0); return; }
+        const _first = this.val('u-first'); const _last = this.val('u-last');
+        const _rec = { email: _email2, first_name: _first, last_name: _last, display_name: [_first, _last].filter(Boolean).join(' ') || _email2,
+          phone: this.val('u-phone') || null, roles: _roles, role_labels: _roles.map((r) => kit.labels.role[r]), active: _active };
+        const _orig = this.u ? (this.u.orig ?? kit.users.find((x) => x.email === this.u.email)?.email ?? null) : null;
+        state.users = state.users.filter((x) => !(this.u && (x.orig ? x.orig === _orig : x.email === this.u.email)));
+        state.users.push(_orig ? { ..._rec, orig: _orig } : _rec);
+        persist();
+        go('screens/users.html', this.u ? 'Użytkownik zaktualizowany.' : 'Użytkownik utworzony.');
+      },
     }));
   </script>
 </body>

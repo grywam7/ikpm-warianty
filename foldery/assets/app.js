@@ -82,10 +82,11 @@ export const JOB_STATUS = {
   done: ['Zrobione', 'text-bg-success', 'bi-check-circle-fill'], remake: ['Do poprawy', 'text-bg-warning', 'bi-exclamation-triangle-fill'],
 };
 export const JOB_STATUS_KEYS = ['to_do', 'in_progress', 'done', 'remake'];
-const badgeHtml = (def) => (def ? `<span class="badge ${def[1]}"><i class="bi ${def[2]}" aria-hidden="true"></i>${esc(def[0])}</span>` : '');
-export const quoteBadge = (q) => badgeHtml(QUOTE_STATUS[q.status]);
-export const realBadge = (r) => badgeHtml(REAL_STATUS[r.status]);
-export const jobBadge = (status) => badgeHtml(JOB_STATUS[status]);
+// Status = kolor + ikona + tekst: ikona z klasy wspólnej warstwy (ikpm-ui.css), tekst z etykiet aplikacji.
+export const statusChip = (kind, key, label, extra = '') => (label ? `<span class="ikpm-status ikpm-st-${kind}-${key}${extra ? ` ${extra}` : ''}">${esc(label)}</span>` : '');
+export const quoteBadge = (q) => statusChip('quote', q.status, QUOTE_STATUS[q.status]?.[0]);
+export const realBadge = (r) => statusChip('real', r.status, REAL_STATUS[r.status]?.[0]);
+export const jobBadge = (status, text) => statusChip('job', status, text ?? JOB_STATUS[status]?.[0]);
 export const AREA_LABELS = { floor: 'Podłoga (m²)', wall: 'Ściany (m²)', ceiling: 'Sufit (m²)', wall_ceiling: 'Ściany + sufit (m²)', perimeter: 'Obwód (mb)', manual: 'Ręcznie' };
 export const AREA_BY_UNIT = { 'm²': ['floor', 'wall', 'ceiling', 'wall_ceiling'], mb: ['perimeter'] };
 export const UNITS = ['m²', 'szt', 'mb', 'kg', 'l', 'h'];
@@ -277,6 +278,11 @@ export const roomTotal = (room, q) => roundHalfUp(room.jobs.reduce((s, j) => s +
 export const marginOfMarkup = (m) => (Number(m) / (100 + Number(m))) * 100;
 export const suggestedEnd = (q) => addWorkDays(q.planned_start_on, q.suggested_work_days);
 export const quotesSorted = () => [...db.quotes].sort((a, b) => b.id - a.id);
+// Daty w wierszu listy wycen: wysłana i odpowiedź klienta („—” = bez odpowiedzi, np. odrzucona po wygaśnięciu linku).
+export const quoteDates = (q) => (q.status === 'draft' ? (q.created_on ? `Utworzona: ${date(q.created_on)}` : '')
+  : `Wysłana: ${date(q.sent_at)} · Odpowiedź: ${date(q.responded_at)}`);
+export const realEndText = (r) => (r.status === 'cancelled' ? '' : r.status === 'done' ? `Zakończono ${date(r.completed_on)}`
+  : `Termin: ${date(r.expected_end_on || r.promised_end_on)}`);
 export const quoteHref = (q) => (q.status === 'draft' ? link('builder', { id: q.id }) : link('quote-show', { id: q.id }));
 export const realizationOf = (q) => db.realizations.find((r) => r.quote_id === q.id);
 export const hasClientComments = (q) => !!q.client_general_comment || q.rooms.some((r) => r.client_comment);
@@ -291,35 +297,52 @@ export function nextRoomName(q) {
 }
 
 // ---------- komunikaty i okno potwierdzenia ----------
-let flashArea;
-const ensureFlash = () => {
-  if (!flashArea) {
-    flashArea = document.createElement('div'); flashArea.className = 'flash-area';
-    flashArea.setAttribute('aria-live', 'polite'); document.body.append(flashArea);
+// Sukces: jeden komunikat naraz (telefon — u góry, tablet / laptop — prawy dolny róg), „Cofnij” tylko tam, gdzie działa.
+let toastRegion;
+const ensureToastRegion = () => {
+  if (!toastRegion) {
+    toastRegion = document.createElement('div'); toastRegion.className = 'ikpm-toast-region';
+    toastRegion.setAttribute('role', 'status'); toastRegion.setAttribute('aria-live', 'polite'); document.body.append(toastRegion);
   }
-  return flashArea;
+  return toastRegion;
 };
 export function toast(message, { undo } = {}) {
-  const _el = document.createElement('div'); _el.className = 'toast-ok'; _el.setAttribute('role', 'status');
-  _el.innerHTML = `<i class="bi bi-check-circle-fill" aria-hidden="true"></i><span class="flex-grow-1">${esc(message)}</span>`;
-  if (undo) {
-    const _b = document.createElement('button'); _b.type = 'button'; _b.className = 'btn btn-sm btn-outline-dark'; _b.textContent = 'Cofnij';
-    _b.addEventListener('click', () => { undo(); _el.remove(); }); _el.append(_b);
-  }
-  ensureFlash().append(_el);
+  const _region = ensureToastRegion();
+  const _el = document.createElement('div'); _el.className = 'ikpm-toast';
+  _el.innerHTML = `<span class="ikpm-toast-msg">${esc(message)}</span>`;
   let _t;
-  const _arm = () => { _t = setTimeout(() => _el.remove(), undo ? 7000 : 4000); };
+  const _close = () => { clearTimeout(_t); _el.remove(); };
+  if (undo) {
+    const _b = document.createElement('button'); _b.type = 'button'; _b.className = 'btn ikpm-toast-action'; _b.textContent = 'Cofnij';
+    _b.addEventListener('click', () => { undo(); _close(); }); _el.append(_b);
+  }
+  const _x = document.createElement('button'); _x.type = 'button'; _x.className = 'btn-close'; _x.setAttribute('aria-label', 'Zamknij');
+  _x.addEventListener('click', _close); _el.append(_x);
+  _region.replaceChildren(_el);
+  const _arm = () => { clearTimeout(_t); _t = setTimeout(_close, undo ? 8000 : 4000); };
   _el.addEventListener('mouseenter', () => clearTimeout(_t)); _el.addEventListener('focusin', () => clearTimeout(_t));
   _el.addEventListener('mouseleave', _arm); _el.addEventListener('focusout', _arm);
   _arm();
 }
+// Błąd: w treści otwartego poziomu (kolumny), pod jego nagłówkiem, aż do „Zamknij”.
+function alertHost() {
+  const _visible = (el) => el && getComputedStyle(el).display !== 'none';
+  const _active = document.activeElement && document.activeElement !== document.body ? document.activeElement.closest('.pane') : null;
+  const _pane = (_visible(_active) && _active) || [...document.querySelectorAll('.pane')].reverse().find(_visible) || document.querySelector('main');
+  return _pane?.querySelector('.ikpm-content, .ikpm-public') ?? _pane ?? document.body;
+}
 export function alertBox(message) {
-  const _el = document.createElement('div'); _el.className = 'alert alert-danger alert-top'; _el.setAttribute('role', 'alert');
-  _el.innerHTML = `<i class="bi bi-exclamation-octagon-fill mt-1" aria-hidden="true"></i><span class="flex-grow-1">${esc(message)}</span>
+  const _host = alertHost();
+  _host.querySelectorAll(':scope > .page-alert').forEach((e) => { if (e.dataset.message === message) e.remove(); });
+  const _el = document.createElement('div'); _el.className = 'alert alert-danger alert-dismissible d-flex gap-2 page-alert';
+  _el.setAttribute('role', 'alert'); _el.dataset.message = message;
+  _el.innerHTML = `<i class="bi bi-exclamation-octagon-fill" aria-hidden="true"></i><div>${esc(message)}</div>
     <button type="button" class="btn-close" aria-label="Zamknij"></button>`;
   _el.querySelector('.btn-close').addEventListener('click', () => _el.remove());
-  _el.querySelector('.btn-close').style.cssText = 'min-width:44px;min-height:44px;';
-  ensureFlash().append(_el);
+  const _head = _host.querySelector(':scope > .pane-head, :scope > .ikpm-page-head');
+  if (_head) _head.after(_el); else _host.prepend(_el);
+  const _r = _el.getBoundingClientRect();
+  if (_r.top < 0 || _r.bottom > innerHeight) _el.scrollIntoView({ block: 'nearest' });
 }
 export function flashNext(type, message) { try { sessionStorage.setItem(`${KEY}flash`, JSON.stringify({ type, message })); } catch { /* bez pamięci */ } }
 function showFlash() {
@@ -328,17 +351,41 @@ function showFlash() {
   if (_f) (_f.type === 'alert' ? alertBox : toast)(_f.message);
 }
 // Okno potwierdzenia ze skutkami (nie okno przeglądarki): Promise<boolean>.
-export function confirmBox({ title, consequences = [], ok, okClass = 'btn-primary', cancel = 'Anuluj' }) {
+export function confirmBox({ title, consequences = [], ok, okClass = 'btn-primary', cancel = 'Anuluj', concept = false }) {
   return new Promise((resolve) => {
-    const _d = document.createElement('dialog'); _d.className = 'confirm'; _d.setAttribute('aria-labelledby', 'confirm-title');
-    _d.innerHTML = `<form method="dialog"><div class="c-body"><h2 id="confirm-title" class="fw-bold">${esc(title)}</h2>
-      ${consequences.length ? `<ul class="mb-1 ps-3">${consequences.map((c) => `<li class="mb-1">${esc(c)}</li>`).join('')}</ul>` : ''}</div>
-      <div class="c-actions"><button value="cancel" class="btn btn-outline-secondary">${esc(cancel)}</button>
+    const _d = document.createElement('dialog'); _d.className = 'ikpm-dialog'; _d.setAttribute('aria-labelledby', 'confirm-title');
+    _d.innerHTML = `<form method="dialog"><div class="ikpm-dialog-body"><h2 id="confirm-title" class="ikpm-dialog-title">${esc(title)}</h2>
+      ${concept ? '<p class="mb-0"><span class="ikpm-koncepcja">koncepcja</span></p>' : ''}
+      ${consequences.length ? `<ul class="ikpm-dialog-consequences">${consequences.map((c) => `<li>${esc(c)}</li>`).join('')}</ul>` : ''}</div>
+      <div class="ikpm-dialog-actions"><button value="cancel" class="btn btn-outline-secondary">${esc(cancel)}</button>
       <button value="ok" class="btn ${okClass}" data-confirm-ok>${esc(ok)}</button></div></form>`;
     document.body.append(_d);
     _d.addEventListener('close', () => { resolve(_d.returnValue === 'ok'); _d.remove(); });
     _d.showModal();
   });
+}
+// Formularze z przyciskiem „Zapisz” (data-dirty-watch): po zmianie pola „Niezapisane zmiany” przy przycisku; wyjście
+// linkiem z niezapisanymi zmianami pyta o potwierdzenie (koncepcja — w aplikacji zmiany przepadają bez pytania).
+function setDirty(form, on) {
+  form.dataset.dirty = on ? 'true' : 'false';
+  form.querySelectorAll('.form-dirty').forEach((m) => { m.hidden = !on; });
+}
+function guardDirtyForms() {
+  const _mark = (e) => { const _f = e.target.closest?.('form[data-dirty-watch]'); if (_f && !e.target.matches('[type="search"]')) setDirty(_f, true); };
+  document.addEventListener('input', _mark, true);
+  document.addEventListener('change', _mark, true);
+  document.addEventListener('submit', (e) => { const _f = e.target.closest?.('form[data-dirty-watch]'); if (_f) setDirty(_f, false); }, true);
+  document.addEventListener('click', async (e) => {
+    const _a = e.target.closest?.('a[href]');
+    if (!_a || _a.target === '_blank' || e.defaultPrevented || e.ctrlKey || e.metaKey || e.shiftKey) return;
+    const _dirty = document.querySelector('[data-dirty="true"]');
+    if (!_dirty || _a.closest('[data-dirty="true"]')) return;
+    e.preventDefault();
+    const _name = _dirty.dataset.dirtyWatch || _dirty.dataset.dirtyName || 'formularz';
+    const _ok = await confirmBox({ title: 'Wyjść bez zapisywania zmian?', concept: true,
+      consequences: [`Zmiany w części „${_name}” nie zostały zapisane — po wyjściu przepadną.`], ok: 'Wyjdź bez zapisu', okClass: 'btn-danger', cancel: 'Zostań' });
+    if (_ok) { setDirty(_dirty, false); location.href = _a.href; }
+  }, true);
 }
 
 // ---------- operacje na wycenie ----------
@@ -596,9 +643,8 @@ const NAV = [
     ['finance-crews', 'Wykonawcy', 'bi-people', 'finance', { raport: 'wykonawcy' }]]],
   ['Administracja', [['users', 'Użytkownicy', 'bi-person-gear']]],
 ];
-const TABS = [['wyceny', 'Wyceny', 'bi-file-earmark-text', 'quotes-index'], ['realizacje', 'Realizacje', 'bi-cone-striped', 'realizations-index'],
-  ['dane', 'Dane', 'bi-database', 'data'], ['wiecej', 'Więcej', 'bi-three-dots', 'more']];
-const RAIL = [['start', 'Start', 'bi-house', 'start'], ...TABS];
+const TABS = [['start', 'Start', 'bi-house', 'start'], ['wyceny', 'Wyceny', 'bi-file-earmark-text', 'quotes-index'],
+  ['realizacje', 'Realizacje', 'bi-cone-striped', 'realizations-index'], ['dane', 'Dane', 'bi-database', 'data'], ['wiecej', 'Więcej', 'bi-three-dots', 'more']];
 function renderShell() {
   const _b = document.body;
   let _nav = _b.dataset.nav;
@@ -606,17 +652,17 @@ function renderShell() {
   if (_nav === 'finance') _nav = { koszty: 'finance-costs', realizacje: 'finance-real', oferty: 'finance-offers', wykonawcy: 'finance-crews' }[param('raport')] ?? 'finance-result';
   const _tab = _b.dataset.tab;
   const _cur = (on) => (on ? ' aria-current="page"' : '');
-  const _full = NAV.map(([section, items]) => `${section ? `<li><p class="nav-section">${section}</p></li>` : ''}${items.map(([key, label, icon, screen, p]) =>
-    `<li><a href="${link(screen ?? key, p)}"${_cur(key === _nav)}><i class="bi ${icon}" aria-hidden="true"></i>${label}</a></li>`).join('')}`).join('');
+  const _item = (href, icon, label, on) => `<li><a class="ikpm-nav-link" href="${href}"${_cur(on)}><i class="bi ${icon}" aria-hidden="true"></i>${label}</a></li>`;
+  const _full = NAV.map(([section, items]) => `${section ? `<li><p class="ikpm-sidenav-label">${section}</p></li>` : ''}${items.map(([key, label, icon, screen, p]) =>
+    _item(link(screen ?? key, p), icon, label, key === _nav)).join('')}`).join('');
   const _me = db.me;
-  const _side = document.createElement('nav'); _side.className = 'side'; _side.setAttribute('aria-label', 'Menu główne');
-  _side.innerHTML = `<div class="nav-brand"><a href="${link('start')}"><strong>IKPM</strong><span class="small text-body-secondary nav-brand-sub">System kosztorysów</span></a></div>
+  const _side = document.createElement('nav'); _side.className = 'side ikpm-sidebar'; _side.setAttribute('aria-label', 'Menu główne');
+  _side.innerHTML = `<a class="ikpm-brand" href="${link('start')}"><strong>IKPM</strong><span class="nav-brand-sub">System kosztorysów</span></a>
     <button type="button" class="nav-toggle"></button>
-    <ul class="nav-rail">${RAIL.map(([key, label, icon, screen]) => `<li><a href="${link(screen)}"${_cur(key === _tab)}><i class="bi ${icon}" aria-hidden="true"></i>${label}</a></li>`).join('')}</ul>
-    <ul class="nav-full">${_full}<li><p class="nav-section">Konto</p></li><li><div class="nav-user">${esc(_me?.email)}</div></li>
-      <li><a href="${link('profile')}"${_cur(_nav === 'profile')}><i class="bi bi-person-circle" aria-hidden="true"></i>Mój profil</a></li>
-      <li><a href="${link('login')}"><i class="bi bi-box-arrow-right" aria-hidden="true"></i>Wyloguj się</a></li></ul>`;
-  // Od 1200 px menu da się zwinąć do wąskiego paska jak na tablecie (więcej miejsca na kolumny); stan zostaje między ekranami.
+    <ul class="ikpm-sidenav ikpm-rail nav-rail">${TABS.map(([key, label, icon, screen]) => _item(link(screen), icon, label, key === _tab)).join('')}</ul>
+    <ul class="ikpm-sidenav nav-full">${_full}<li><p class="ikpm-sidenav-label">Konto</p></li><li><div class="nav-user">${esc(_me?.email)}</div></li>
+      ${_item(link('profile'), 'bi-person-circle', 'Mój profil', _nav === 'profile')}${_item(link('login'), 'bi-box-arrow-right', 'Wyloguj się', false)}</ul>`;
+  // Od 1200 px menu da się zwinąć do paska z podpisami jak na tablecie (więcej miejsca na kolumny); stan zostaje między ekranami.
   const _toggle = _side.querySelector('.nav-toggle');
   const _paint = () => {
     const _c = _b.classList.contains('menu-collapsed');
@@ -630,151 +676,161 @@ function renderShell() {
     _paint();
   });
   _paint();
-  const _tabs = document.createElement('nav'); _tabs.className = 'tabbar'; _tabs.setAttribute('aria-label', 'Zakładki');
-  _tabs.innerHTML = TABS.map(([key, label, icon, screen]) => `<a href="${link(screen)}"${_cur(key === _tab)}><i class="bi ${icon}" aria-hidden="true"></i>${label}</a>`).join('');
+  const _tabs = document.createElement('nav'); _tabs.className = 'ikpm-tabbar'; _tabs.setAttribute('aria-label', 'Zakładki');
+  _tabs.innerHTML = TABS.map(([key, label, icon, screen]) => `<a class="ikpm-nav-link" href="${link(screen)}"${_cur(key === _tab)}><i class="bi ${icon}" aria-hidden="true"></i>${label}</a>`).join('');
   const _main = document.querySelector('main');
   const _app = document.createElement('div'); _app.className = 'app';
-  _main.classList.add('main'); _main.id = 'main';
+  _main.classList.add('main'); _main.id = 'main'; _main.tabIndex = -1;
   _main.before(_app); _app.append(_side, _main);
-  _b.prepend(Object.assign(document.createElement('a'), { className: 'skip-link', href: '#main', textContent: 'Przejdź do treści' }));
+  _b.prepend(Object.assign(document.createElement('a'), { className: 'ikpm-skip', href: '#main', textContent: 'Przejdź do treści' }));
   _b.append(_tabs);
 }
 
 // ---------- wspólne kolumny (wstawiane do [data-partial] przed startem Alpine) ----------
-const back = (href, label, extra = '') => `<a class="back-link ${extra}" href="${href}"><i class="bi bi-chevron-left" aria-hidden="true"></i>${label}</a>`;
+const back = (href, label, extra = '') => `<a class="ikpm-back ${extra}" href="${href}">${label}</a>`;
+const CHEV = '<i class="bi bi-chevron-right ikpm-chevron" aria-hidden="true"></i>';
+const ICON = (icon) => `<span class="row-icon"><i class="bi ${icon}" aria-hidden="true"></i></span>`;
 const PARTIALS = {
   'quote-list': () => `
-    <div class="pane-inner">
-      <div class="pane-head">${back(link('start'), 'Start', 'back-only-phone')}<h1 class="pane-title">Wyceny</h1></div>
-      <div class="group">
-        <a class="row-link" :href="link('quotes-new', {mode: 'rooms'})"><span class="row-icon"><i class="bi bi-plus-square" aria-hidden="true"></i></span><span class="row-main row-add">Nowa wycena (pokoje)</span></a>
-        <a class="row-link" :href="link('quotes-new', {mode: 'simple'})"><span class="row-icon"><i class="bi bi-plus-lg" aria-hidden="true"></i></span><span class="row-main row-add">Nowa wycena (prosta)</span></a>
-        <a class="row-link" :href="link('clients')"><span class="row-icon"><i class="bi bi-people" aria-hidden="true"></i></span><span class="row-main">Klienci</span><i class="bi bi-chevron-right chev" aria-hidden="true"></i></a>
-      </div>
-      <h2 class="group-title">Lista wycen</h2>
-      <p x-show="!db.quotes.length" class="text-body-secondary">Brak wycen. Utwórz pierwszą wycenę.</p>
-      <ul class="group">
+    <div class="ikpm-content">
+      <div class="pane-head">${back(link('start'), 'Start', 'back-only-phone')}<h1 class="ikpm-page-title">Wyceny</h1></div>
+      <ul class="ikpm-list list-tiles">
+        <li><a class="ikpm-row ikpm-row-add" :href="link('quotes-new', {mode: 'rooms'})">${ICON('bi-plus-square')}<span class="ikpm-row-main">Nowa wycena (pokoje)</span></a></li>
+        <li><a class="ikpm-row ikpm-row-add" :href="link('quotes-new', {mode: 'simple'})">${ICON('bi-plus-lg')}<span class="ikpm-row-main">Nowa wycena (prosta)</span></a></li>
+        <li><a class="ikpm-row" :href="link('clients')">${ICON('bi-people')}<span class="ikpm-row-main">Klienci</span>${CHEV}</a></li>
+      </ul>
+      <h2 class="ikpm-section-title">Lista wycen</h2>
+      <div class="ikpm-empty" x-show="!db.quotes.length"><i class="bi bi-file-earmark-text" aria-hidden="true"></i><p class="ikpm-empty-title">Brak wycen</p><p>Utwórz pierwszą wycenę.</p></div>
+      <ul class="ikpm-list list-cols" x-show="db.quotes.length">
         <template x-for="lq in quotesSorted()" :key="lq.id">
-          <li><a class="row-link" :href="quoteHref(lq)" :aria-current="lq.id === currentQuoteId ? 'page' : null">
-            <span class="row-main"><div class="fw-semibold">Wycena #<span x-text="lq.id"></span></div>
-              <div x-text="clientName(lq)"></div><div class="small text-body-secondary" x-text="lq.site_address"></div></span>
-            <span class="row-end"><span x-html="quoteBadge(lq)"></span><div class="small mt-1" x-text="pln(netTotal(lq))"></div></span>
-          </a></li>
+          <li><a class="ikpm-row" :href="quoteHref(lq)" :aria-current="lq.id === currentQuoteId ? 'page' : null">
+            <span class="ikpm-row-main"><span class="ikpm-row-title">Wycena #<span x-text="lq.id"></span> · <span x-text="clientName(lq)"></span></span>
+              <span class="ikpm-row-meta" x-show="lq.site_address" x-text="lq.site_address"></span>
+              <span class="ikpm-row-meta row-extra" x-show="quoteDates(lq)" x-text="quoteDates(lq)"></span></span>
+            <span class="ikpm-row-end"><span x-html="quoteBadge(lq)"></span><span class="ikpm-amount" x-text="pln(netTotal(lq))"></span></span>
+            ${CHEV}</a></li>
         </template>
       </ul>
     </div>`,
   'quote-folder': () => `
-    <div class="pane-inner" x-show="q">
+    <div class="ikpm-content" x-show="q">
       <div class="pane-head">${back(link('quotes-index'), 'Wyceny')}
-        <h1 class="pane-title">Wycena #<span x-text="q.id"></span></h1>
-        <div class="d-flex flex-wrap gap-2 align-items-center"><span x-html="quoteBadge(q)"></span><span class="pane-sub" x-text="clientName(q)"></span></div>
-        <div class="small text-body-secondary" x-show="q.site_address" x-text="q.site_address"></div>
+        <h1 class="ikpm-page-title">Wycena #<span x-text="q.id"></span></h1>
+        <div class="ikpm-page-meta"><span x-html="quoteBadge(q)"></span><span x-text="clientName(q)"></span></div>
+        <div class="pane-sub" x-show="q.site_address" x-text="q.site_address"></div>
       </div>
       <template x-if="hasClientComments(q)">
-        <div class="alert alert-warning" role="note"><div class="fw-bold"><i class="bi bi-chat-left-text" aria-hidden="true"></i> Uwagi klienta</div>
+        <div class="alert alert-warning d-flex gap-2" role="note"><i class="bi bi-chat-left-text" aria-hidden="true"></i><div><div class="fw-bold">Uwagi klienta</div>
           <div x-text="q.client_general_comment || '(brak komentarza ogólnego — sprawdź komentarze przy pokojach)'"></div>
-          <template x-for="cr in q.rooms.filter(r => r.client_comment)" :key="cr.id"><div class="mt-1"><a class="alert-link" :href="link('builder', {id: q.id, room: cr.id})" x-text="cr.name"></a>: <span x-text="cr.client_comment"></span></div></template>
+          <template x-for="cr in q.rooms.filter(r => r.client_comment)" :key="cr.id"><div class="mt-1"><a class="alert-link" :href="link('builder', {id: q.id, room: cr.id})" x-text="cr.name"></a>: <span x-text="cr.client_comment"></span></div></template></div>
         </div>
       </template>
-      <div class="card-plain sum-sticky" aria-label="Podsumowanie wyceny" role="group">
-        <div class="d-flex justify-content-between align-items-baseline"><span class="fw-semibold">Suma:</span><span class="fs-4 fw-bold" data-total-net x-text="pln(totals(liveQ()).net)"></span></div>
-        <div class="d-flex justify-content-between small"><span>Brutto:</span><span x-text="pln(totals(liveQ()).gross)"></span></div>
-      </div>
-      <div class="card-plain mt-2">
-        <div class="d-flex justify-content-between small"><span>Prace: <b x-text="qJobs(q).length"></b> · Pokoje: <b x-text="q.rooms.length"></b></span></div>
-        <div class="d-flex justify-content-between small"><span>Koszt:</span><b x-text="pln(quoteCost(liveQ()))"></b></div>
-        <div class="d-flex justify-content-between small"><span>Marża:</span><b x-text="pln(totals(liveQ()).net - quoteCost(liveQ()))"></b></div>
-        <div class="row g-2 mt-1">
-          <div class="col-6"><label class="form-label small mb-1" for="qf-markup">Narzut:</label>
-            <div class="input-group"><input id="qf-markup" class="form-control" type="number" inputmode="decimal" min="0" max="1000" step="0.01" :value="q.markup_percent" :disabled="q.status !== 'draft'" @change="setMarkup($event.target)"><span class="input-group-text">%</span></div>
-            <div class="small text-body-secondary" title="Marża jako % ceny dla klienta — wynika z narzutu" x-text="'marża ' + dec(marginOfMarkup(q.markup_percent)) + '%'"></div></div>
-          <div class="col-6"><label class="form-label small mb-1" for="qf-vat">VAT:</label>
-            <select id="qf-vat" class="form-select" :disabled="q.status !== 'draft'" @change="q.vat_rate = Number($event.target.value); saveQuote('Wycena zaktualizowana.')">
-              <option value="8" :selected="Number(q.vat_rate) === 8">8%</option><option value="23" :selected="Number(q.vat_rate) === 23">23%</option></select></div>
+      <div class="fold-grid">
+        <div>
+          <div class="card card-body sum-card sum-sticky" aria-label="Podsumowanie wyceny" role="group">
+            <div class="sum-line"><span class="fw-semibold">Suma:</span><span class="ikpm-amount-lg" data-total-net x-text="pln(totals(liveQ()).net)"></span></div>
+            <div class="sum-line ikpm-meta"><span>Brutto:</span><span class="ikpm-num" x-text="pln(totals(liveQ()).gross)"></span></div>
+          </div>
+          <div class="d-grid mt-3" x-show="q.status === 'draft'"><button type="button" class="btn btn-primary btn-lg" @click="trySend()"><i class="bi bi-send" aria-hidden="true"></i>Wyślij do klienta</button></div>
+          <h2 class="ikpm-section-title">Pokoje</h2>
+          <ul class="ikpm-list">
+            <li><a class="ikpm-row" :href="link('builder', {id: q.id, view: 'all'})" :aria-current="view === 'all' ? 'page' : null">${ICON('bi-collection')}
+              <span class="ikpm-row-main"><span class="ikpm-row-title">Wszystkie prace</span><span class="ikpm-row-meta" x-text="jobsNom(qJobs(q).length)"></span></span>${CHEV}</a></li>
+            <template x-for="fr in q.rooms" :key="fr.id">
+              <li><a class="ikpm-row" :href="link('builder', {id: q.id, room: fr.id})" :aria-current="room && room.id === fr.id ? 'page' : null">${ICON('bi-door-open')}
+                <span class="ikpm-row-main"><span class="ikpm-row-title" x-text="fr.name"></span>
+                  <span class="ikpm-row-meta" x-text="[sizeLine(fr), jobsNom(fr.jobs.length)].filter(Boolean).join(' · ')"></span>
+                  <template x-if="fr.client_comment"><span class="row-tags"><span class="ikpm-chip ikpm-tone-warning"><i class="bi bi-chat-left-text" aria-hidden="true"></i>Komentarz klienta</span></span></template></span>
+                <span class="ikpm-row-end"><span class="ikpm-amount" x-text="pln(roomTotal(liveRoomOf(fr), q))"></span></span>${CHEV}</a></li>
+            </template>
+            <li x-show="q.status === 'draft'"><button type="button" class="ikpm-row ikpm-row-add" @click="addRoomAndOpen()">${ICON('bi-plus-lg')}Dodaj pokój</button></li>
+          </ul>
         </div>
-      </div>
-      <h2 class="group-title">Pokoje</h2>
-      <ul class="group">
-        <li><a class="row-link" :href="link('builder', {id: q.id, view: 'all'})" :aria-current="view === 'all' ? 'page' : null">
-          <span class="row-icon"><i class="bi bi-collection" aria-hidden="true"></i></span><span class="row-main">Wszystkie prace</span>
-          <span class="row-end small" x-text="jobsNom(qJobs(q).length)"></span><i class="bi bi-chevron-right chev" aria-hidden="true"></i></a></li>
-        <template x-for="fr in q.rooms" :key="fr.id">
-          <li><a class="row-link" :href="link('builder', {id: q.id, room: fr.id})" :aria-current="room && room.id === fr.id ? 'page' : null">
-            <span class="row-icon"><i class="bi bi-door-open" aria-hidden="true"></i></span>
-            <span class="row-main"><div class="fw-semibold"><span x-text="fr.name"></span>
-              <template x-if="fr.client_comment"><span class="badge text-bg-warning ms-1"><i class="bi bi-chat-left-text" aria-hidden="true"></i>Komentarz klienta</span></template></div>
-              <div class="small text-body-secondary" x-text="[sizeLine(fr), jobsNom(fr.jobs.length)].filter(Boolean).join(' · ')"></div></span>
-            <span class="row-end small fw-semibold" x-text="pln(roomTotal(liveRoomOf(fr), q))"></span><i class="bi bi-chevron-right chev" aria-hidden="true"></i></a></li>
-        </template>
-        <li x-show="q.status === 'draft'"><button type="button" class="row-link row-add" @click="addRoomAndOpen()"><span class="row-icon"><i class="bi bi-plus-lg" aria-hidden="true"></i></span>Dodaj pokój</button></li>
-      </ul>
-      <h2 class="group-title">Wycena</h2>
-      <ul class="group">
-        <li><a class="row-link" :href="link('builder', {id: q.id, view: 'client'})" :aria-current="view === 'client' ? 'page' : null"><span class="row-icon"><i class="bi bi-person" aria-hidden="true"></i></span>
-          <span class="row-main">Klient<div class="small text-body-secondary" x-text="client(q.client_id)?.name ?? 'Wybierz klienta'"></div></span><i class="bi bi-chevron-right chev" aria-hidden="true"></i></a></li>
-        <li><a class="row-link" :href="link('builder', {id: q.id, view: 'term'})" :aria-current="view === 'term' ? 'page' : null"><span class="row-icon"><i class="bi bi-calendar-event" aria-hidden="true"></i></span>
-          <span class="row-main">Termin i adres<div class="small" :class="q.planned_end_on ? 'text-body-secondary' : 'text-danger-emphasis fw-semibold'" x-text="q.planned_end_on ? 'Termin: ' + date(q.planned_end_on) : 'brak terminu zakończenia'"></div></span><i class="bi bi-chevron-right chev" aria-hidden="true"></i></a></li>
-        <li><a class="row-link" :href="link('builder', {id: q.id, view: 'notes'})" :aria-current="view === 'notes' ? 'page' : null"><span class="row-icon"><i class="bi bi-journal-text" aria-hidden="true"></i></span>
-          <span class="row-main">Notatki <span class="small text-body-secondary">(klient ich nie widzi)</span><div class="small text-body-secondary text-truncate" x-text="q.notes"></div></span><i class="bi bi-chevron-right chev" aria-hidden="true"></i></a></li>
-        <li><a class="row-link" :href="link('match-contractors', {id: q.id})" :aria-current="screen === 'match-contractors' ? 'page' : null"><span class="row-icon"><i class="bi bi-people" aria-hidden="true"></i></span>
-          <span class="row-main">Dobierz wykonawców
-            <div class="small text-body-secondary" x-text="q.applied_profile_name ? 'Plan: ' + PROFILES[q.applied_profile_name] : 'bez wykonawców'"></div>
-            <div class="small text-danger-emphasis fw-semibold" x-show="changedAfterMatching(q).length"><i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i> Uruchom ponownie dobieranie wykonawców</div></span><i class="bi bi-chevron-right chev" aria-hidden="true"></i></a></li>
-        <li><a class="row-link" :href="link('quote-show', {id: q.id})"><span class="row-icon"><i class="bi bi-eye" aria-hidden="true"></i></span><span class="row-main">Podgląd</span><i class="bi bi-chevron-right chev" aria-hidden="true"></i></a></li>
-        <li><a class="row-link" :href="link('quote-pdf', {id: q.id})" target="_blank" rel="noopener"><span class="row-icon"><i class="bi bi-file-earmark-pdf" aria-hidden="true"></i></span><span class="row-main">PDF<div class="small text-body-secondary"><i class="bi bi-eye" aria-hidden="true"></i> widzi klient — załącznik maila z ofertą</div></span><i class="bi bi-box-arrow-up-right chev" aria-hidden="true"></i></a></li>
-      </ul>
-      <div class="d-grid gap-2 mt-3">
-        <button type="button" class="btn btn-primary btn-main" @click="trySend()"><i class="bi bi-send" aria-hidden="true"></i> Wyślij do klienta</button>
-        <div class="d-flex gap-2">
-          <button type="button" class="btn btn-outline-secondary flex-fill" @click="doCopy()"><i class="bi bi-copy" aria-hidden="true"></i> Kopiuj</button>
-          <button type="button" class="btn btn-outline-danger flex-fill" @click="doDeleteQuote()"><i class="bi bi-trash" aria-hidden="true"></i> Usuń</button>
+        <div>
+          <h2 class="ikpm-section-title">Wycena</h2>
+          <ul class="ikpm-list">
+            <li><a class="ikpm-row" :href="link('builder', {id: q.id, view: 'client'})" :aria-current="view === 'client' ? 'page' : null">${ICON('bi-person')}
+              <span class="ikpm-row-main"><span class="ikpm-row-title">Klient</span><span class="ikpm-row-meta" x-text="client(q.client_id)?.name ?? 'Wybierz klienta'"></span></span>${CHEV}</a></li>
+            <li><a class="ikpm-row" :href="link('builder', {id: q.id, view: 'term'})" :aria-current="view === 'term' ? 'page' : null">${ICON('bi-calendar-event')}
+              <span class="ikpm-row-main"><span class="ikpm-row-title">Termin i adres</span><span class="ikpm-row-meta" :class="!q.planned_end_on && 'row-late'" x-text="q.planned_end_on ? 'Termin: ' + date(q.planned_end_on) : 'brak terminu zakończenia'"></span></span>${CHEV}</a></li>
+            <li><a class="ikpm-row" :href="link('builder', {id: q.id, view: 'notes'})" :aria-current="view === 'notes' ? 'page' : null">${ICON('bi-journal-text')}
+              <span class="ikpm-row-main"><span class="ikpm-row-title">Notatki <span class="fw-normal ikpm-muted">(klient ich nie widzi)</span></span><span class="ikpm-row-meta text-truncate" x-text="q.notes"></span></span>${CHEV}</a></li>
+            <li><a class="ikpm-row" :href="link('match-contractors', {id: q.id})" :aria-current="screen === 'match-contractors' ? 'page' : null">${ICON('bi-people')}
+              <span class="ikpm-row-main"><span class="ikpm-row-title">Dobierz wykonawców</span>
+                <span class="ikpm-row-meta" x-text="q.applied_profile_name ? 'Plan: ' + PROFILES[q.applied_profile_name] : 'bez wykonawców'"></span>
+                <span class="ikpm-row-meta row-late" x-show="changedAfterMatching(q).length"><i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i> Uruchom ponownie dobieranie wykonawców</span></span>${CHEV}</a></li>
+            <li><a class="ikpm-row" :href="link('quote-show', {id: q.id})">${ICON('bi-eye')}<span class="ikpm-row-main"><span class="ikpm-row-title">Podgląd</span></span>${CHEV}</a></li>
+            <li><a class="ikpm-row" :href="link('quote-pdf', {id: q.id})" target="_blank" rel="noopener">${ICON('bi-file-earmark-pdf')}<span class="ikpm-row-main"><span class="ikpm-row-title">PDF</span><span class="ikpm-row-meta"><i class="bi bi-eye" aria-hidden="true"></i> widzi klient — załącznik maila z ofertą</span></span><i class="bi bi-box-arrow-up-right ikpm-chevron" aria-hidden="true"></i></a></li>
+          </ul>
+          <h2 class="ikpm-section-title">Koszt i narzut</h2>
+          <div class="card card-body">
+            <dl class="ikpm-dl ikpm-dl-num">
+              <dt>Prace</dt><dd x-text="qJobs(q).length"></dd><dt>Pokoje</dt><dd x-text="q.rooms.length"></dd>
+              <dt>Koszt:</dt><dd class="fw-semibold" x-text="pln(quoteCost(liveQ()))"></dd><dt>Marża:</dt><dd class="fw-semibold" x-text="pln(totals(liveQ()).net - quoteCost(liveQ()))"></dd>
+            </dl>
+            <div class="dim-grid mt-3">
+              <div><label class="form-label small" for="qf-markup">Narzut:</label>
+                <div class="input-group"><input id="qf-markup" class="form-control ikpm-num" type="number" inputmode="decimal" min="0" max="1000" step="0.01" aria-describedby="qf-margin" :value="q.markup_percent" :disabled="q.status !== 'draft'" @change="setMarkup($event.target)"><span class="input-group-text">%</span></div>
+                <div class="form-text" id="qf-margin" title="Marża jako % ceny dla klienta — wynika z narzutu" x-text="'marża ' + dec(marginOfMarkup(q.markup_percent)) + '%'"></div></div>
+              <div><label class="form-label small" for="qf-vat">VAT:</label>
+                <select id="qf-vat" class="form-select" :disabled="q.status !== 'draft'" @change="q.vat_rate = Number($event.target.value); saveQuote('Wycena zaktualizowana.')">
+                  <option value="8" :selected="Number(q.vat_rate) === 8">8%</option><option value="23" :selected="Number(q.vat_rate) === 23">23%</option></select></div>
+            </div>
+          </div>
+          <div class="d-flex flex-wrap gap-2 mt-3">
+            <button type="button" class="btn btn-outline-secondary flex-fill" @click="doCopy()"><i class="bi bi-copy" aria-hidden="true"></i>Kopiuj</button>
+            <button type="button" class="btn btn-outline-danger flex-fill" @click="doDeleteQuote()"><i class="bi bi-trash" aria-hidden="true"></i>Usuń</button>
+          </div>
         </div>
       </div>
     </div>`,
   'realization-list': () => `
-    <div class="pane-inner">
-      <div class="pane-head">${back(link('start'), 'Start', 'back-only-phone')}<h1 class="pane-title">Realizacje</h1></div>
-      <p x-show="!db.realizations.length" class="text-body-secondary">Brak realizacji — przekształć zaakceptowaną wycenę na jej stronie (przycisk „Przekształć w realizację").</p>
-      <ul class="group">
+    <div class="ikpm-content">
+      <div class="pane-head">${back(link('start'), 'Start', 'back-only-phone')}<h1 class="ikpm-page-title">Realizacje</h1></div>
+      <div class="ikpm-empty" x-show="!db.realizations.length"><i class="bi bi-cone-striped" aria-hidden="true"></i><p class="ikpm-empty-title">Brak realizacji</p>
+        <p>Przekształć zaakceptowaną wycenę na jej stronie (przycisk „Przekształć w realizację").</p><a class="btn btn-primary" :href="link('quotes-index')">Lista wycen</a></div>
+      <ul class="ikpm-list list-cols" x-show="db.realizations.length">
         <template x-for="lr in realizationsSorted()" :key="lr.id">
-          <li><a class="row-link" :href="link('realization-show', {id: lr.id})" :aria-current="lr.id === currentRealizationId ? 'page' : null">
-            <span class="row-main"><div class="fw-semibold">Realizacja #<span x-text="lr.id"></span></div><div x-text="clientName(lr)"></div>
-              <div class="small text-body-secondary" x-text="lr.site_address"></div>
-              <div class="progress mini-progress mt-1" role="progressbar" :aria-label="'Postęp prac realizacji #' + lr.id" aria-valuemin="0" aria-valuemax="100" :aria-valuenow="progressOf(rJobs(lr)).pct">
-                <div class="progress-bar bg-success" :style="'width:' + progressOf(rJobs(lr)).pct + '%'"></div></div></span>
-            <span class="row-end"><span x-html="realBadge(lr)"></span><div class="small mt-1" x-text="progressOf(rJobs(lr)).pct + '%'"></div>
-              <div class="small" :class="endDelayed(lr) && 'text-danger-emphasis fw-semibold'" x-text="date(lr.status === 'done' ? lr.completed_on : (lr.expected_end_on || lr.promised_end_on))"></div></span>
-          </a></li>
+          <li><a class="ikpm-row" :href="link('realization-show', {id: lr.id})" :aria-current="lr.id === currentRealizationId ? 'page' : null">
+            <span class="ikpm-row-main"><span class="ikpm-row-title">Realizacja #<span x-text="lr.id"></span> · <span x-text="clientName(lr)"></span></span>
+              <span class="ikpm-row-meta" x-text="lr.site_address"></span>
+              <span class="ikpm-row-meta row-extra" x-text="'Wartość (z wyceny): ' + pln(lr.total_price) + ' · Koszt: ' + pln(realCost(lr)) + (lr.quote_id ? ' · Wycena #' + lr.quote_id : '')"></span>
+              <span class="row-progress"><span class="progress" role="progressbar" :aria-label="'Postęp prac realizacji #' + lr.id" aria-valuemin="0" aria-valuemax="100" :aria-valuenow="progressOf(rJobs(lr)).pct">
+                <span class="progress-bar" :class="lr.status === 'done' && 'bg-success'" :style="'width:' + progressOf(rJobs(lr)).pct + '%'"></span></span><span x-text="progressOf(rJobs(lr)).pct + '%'"></span></span></span>
+            <span class="ikpm-row-end"><span x-html="realBadge(lr)"></span>
+              <span class="ikpm-meta" :class="endDelayed(lr) && 'row-late'" x-show="realEndText(lr)" x-text="realEndText(lr)"></span>
+              <span class="ikpm-meta row-late" x-show="endDelayed(lr)" x-text="'obiecany ' + date(lr.promised_end_on)"></span></span>
+            ${CHEV}</a></li>
         </template>
       </ul>
     </div>`,
   'client-list': () => `
-    <div class="pane-inner">
-      <div class="pane-head">${back(link('quotes-index'), 'Wyceny', 'back-only-phone')}<h1 class="pane-title">Klienci</h1></div>
-      <div class="group"><a class="row-link row-add" :href="link('client-form')"><span class="row-icon"><i class="bi bi-plus-lg" aria-hidden="true"></i></span>Nowy klient</a></div>
-      <h2 class="group-title">Lista klientów</h2>
-      <ul class="group">
+    <div class="ikpm-content">
+      <div class="pane-head">${back(link('quotes-index'), 'Wyceny', 'back-only-phone')}<h1 class="ikpm-page-title">Klienci</h1></div>
+      <ul class="ikpm-list list-tiles"><li><a class="ikpm-row ikpm-row-add" :href="link('client-form')">${ICON('bi-plus-lg')}Nowy klient</a></li></ul>
+      <h2 class="ikpm-section-title">Lista klientów</h2>
+      <ul class="ikpm-list list-cols">
         <template x-for="lc in clientsSorted()" :key="lc.id">
-          <li><a class="row-link" :href="link('client-show', {id: lc.id})" :aria-current="lc.id === currentClientId ? 'page' : null">
-            <span class="row-main"><div class="fw-semibold" x-text="lc.name"></div><div class="small text-body-secondary" x-text="lc.email || '—'"></div></span>
-            <span class="row-end small"><div x-text="'Wyceny: ' + db.quotes.filter(x => x.client_id === lc.id).length"></div><div x-text="'Realizacje: ' + db.realizations.filter(x => x.client_id === lc.id).length"></div></span>
-            <i class="bi bi-chevron-right chev" aria-hidden="true"></i></a></li>
+          <li><a class="ikpm-row" :href="link('client-show', {id: lc.id})" :aria-current="lc.id === currentClientId ? 'page' : null">
+            <span class="ikpm-row-main"><span class="ikpm-row-title" x-text="lc.name"></span><span class="ikpm-row-meta" x-text="lc.email || '—'"></span></span>
+            <span class="ikpm-row-end ikpm-meta"><span x-text="'Wyceny: ' + db.quotes.filter(x => x.client_id === lc.id).length"></span><span x-text="'Realizacje: ' + db.realizations.filter(x => x.client_id === lc.id).length"></span></span>
+            ${CHEV}</a></li>
         </template>
       </ul>
     </div>`,
   'user-list': () => `
-    <div class="pane-inner">
-      <div class="pane-head">${back(link('more'), 'Więcej', 'back-only-phone')}<h1 class="pane-title">Użytkownicy</h1></div>
-      <div class="group"><a class="row-link row-add" :href="link('user-form')"><span class="row-icon"><i class="bi bi-plus-lg" aria-hidden="true"></i></span>Dodaj użytkownika</a></div>
-      <h2 class="group-title">Konta</h2>
-      <ul class="group">
+    <div class="ikpm-content">
+      <div class="pane-head">${back(link('more'), 'Więcej', 'back-only-phone')}<h1 class="ikpm-page-title">Użytkownicy</h1></div>
+      <ul class="ikpm-list list-tiles"><li><a class="ikpm-row ikpm-row-add" :href="link('user-form')">${ICON('bi-plus-lg')}Dodaj użytkownika</a></li></ul>
+      <h2 class="ikpm-section-title">Konta</h2>
+      <ul class="ikpm-list list-cols">
         <template x-for="lu in db.users" :key="lu.id">
-          <li><a class="row-link" :href="link('user-form', {id: lu.id})" :aria-current="lu.id === currentUserId ? 'page' : null">
-            <span class="row-main"><div class="fw-semibold overflow-anywhere"><span x-text="lu.email"></span>
-              <span x-show="!lu.active" class="badge text-bg-danger ms-1"><i class="bi bi-slash-circle" aria-hidden="true"></i>Nieaktywne</span></div>
-              <div class="small" x-text="[lu.first_name, lu.last_name].join(' ').trim() || '—'"></div>
-              <div class="small text-body-secondary" x-text="lu.roles.length ? lu.roles.map(r => ROLES[r]).join(', ') : 'brak'"></div></span>
-            <i class="bi bi-chevron-right chev" aria-hidden="true"></i></a></li>
+          <li><a class="ikpm-row" :href="link('user-form', {id: lu.id})" :aria-current="lu.id === currentUserId ? 'page' : null">
+            <span class="ikpm-row-main"><span class="ikpm-row-title overflow-anywhere" x-text="lu.email"></span>
+              <span class="ikpm-row-meta" x-text="[lu.first_name, lu.last_name].join(' ').trim() || '—'"></span>
+              <span class="ikpm-row-meta" x-text="lu.roles.length ? lu.roles.map(r => ROLES[r]).join(', ') : 'brak'"></span></span>
+            <span class="ikpm-row-end" x-show="!lu.active"><span class="ikpm-status ikpm-st-user-inactive">Nieaktywne</span></span>
+            ${CHEV}</a></li>
         </template>
       </ul>
     </div>`,
@@ -802,6 +858,8 @@ export function quoteOps() {
       flashNext('notice', `Pokój '${_r.name}' utworzony.`); go('builder', { id: this.q.id, room: _r.id });
     },
     async trySend() {
+      // Termin wpisany (albo „Użyj”) w otwartej części „Termin i adres”, ale jeszcze nie zapisany — zapisz go przed wysyłką.
+      if (typeof this.termDirty === 'function' && this.view === 'term' && this.termDirty() && !this.saveTerm()) return;
       const _error = sendGate(this.q);
       if (_error) { alertBox(_error); return; }
       const _c = client(this.q.client_id);
@@ -820,7 +878,7 @@ export function quoteOps() {
       const _ok = await confirmBox({ title: `Usunąć wycenę #${this.q.id}?`, consequences: ['Wycena zniknie razem z pokojami i pracami — tego nie da się cofnąć.'],
         ok: 'Usuń', okClass: 'btn-danger' });
       if (!_ok) return;
-      db.quotes.splice(db.quotes.indexOf(this.q), 1); save('quotes');
+      const _i = db.quotes.findIndex((x) => x.id === this.q.id); if (_i < 0) return; db.quotes.splice(_i, 1); save('quotes');
       flashNext('notice', 'Wycena usunięta.'); go('quotes-index');
     },
     async doReopen() {
@@ -857,7 +915,7 @@ const EXPORTS = {
   catJob, stageOfJob, material, materialUnitPrice, materialPackage, jobMaterialCost, contractor, contractorName, client, clientName,
   clientsSorted, activeContractors, crewEffectivePrice, isIrregular, hasDimensions, areaText, sizeParts, sizeLine, sizeAll, sortJobs,
   jobsByStage, effMaterial, liveAverage, calcJob, jobUnitPrice, jobValue, jobLabor, qJobs, totals, netTotal, quoteCost, roomTotal,
-  marginOfMarkup, suggestedEnd, quotesSorted, quoteHref, realizationOf, hasClientComments, changedAfterMatching, rJobs, isActive,
+  marginOfMarkup, suggestedEnd, quotesSorted, quoteHref, quoteDates, realEndText, statusChip, realizationOf, hasClientComments, changedAfterMatching, rJobs, isActive,
   progressOf, unfinishedCount, realJobValue, actualLabor, realCost, statusCounts, areaFor, defaultQuantity, roundHalfUp, parseNumber,
   toast, alertBox, flashNext, confirmBox, nameList, num,
 };
@@ -891,15 +949,19 @@ export async function boot(factory = () => ({}), { shell = true } = {}) {
   const _live = document.createElement('div'); _live.id = 'live-region'; _live.className = 'visually-hidden'; _live.setAttribute('aria-live', 'polite');
   document.body.append(_live);
   document.addEventListener('alpine:init', () => { window.Alpine.data('page', () => merge(base(), factory())); });
-  // Kolumna listy na tablecie / laptopie przewija się do otwartej pozycji.
+  ensureToastRegion();
+  // Kolumna listy na tablecie / laptopie przewija się do otwartej pozycji — tylko gdy ta jest poza widokiem kolumny.
   document.addEventListener('alpine:initialized', () => setTimeout(() => {
     document.querySelectorAll('.pane-list, .pane-folder').forEach((pane) => {
-      const _cur = pane.querySelector('[aria-current]');
-      if (_cur && pane.scrollHeight > pane.clientHeight) pane.scrollTop = Math.max(0, _cur.offsetTop - pane.clientHeight / 3);
+      const _cur = pane.querySelector('a[aria-current]');
+      if (!_cur || pane.scrollHeight <= pane.clientHeight) return;
+      const _p = pane.getBoundingClientRect(); const _c = _cur.getBoundingClientRect();
+      if (_c.bottom > _p.bottom || _c.top < _p.top) _cur.scrollIntoView({ block: 'nearest' });
     });
+    showFlash();
   }, 0));
   const _s = document.createElement('script'); _s.src = `${ROOT}assets/alpine.min.js`; document.head.append(_s);
-  showFlash();
+  guardDirtyForms();
   // Strona z pamięci przeglądarki („Wstecz”) albo zmiana w innej karcie — dane od nowa, żeby zapis nie cofnął nowszych zmian.
   addEventListener('pageshow', (e) => { if (e.persisted) location.reload(); });
   addEventListener('storage', (e) => { if (e.key?.startsWith(KEY)) location.reload(); });

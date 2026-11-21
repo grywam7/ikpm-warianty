@@ -2,31 +2,36 @@
 <html lang="pl">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:,">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Klienci — IKPM</title>
   <link rel="stylesheet" href="../assets/bootstrap/bootstrap.min.css">
   <link rel="stylesheet" href="../assets/bootstrap-icons/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="../assets/ikpm-ui.css">
   <link rel="stylesheet" href="../assets/app.css">
 </head>
 <body data-section="clients">
-  <main id="main"><div id="app" class="container-xxl" x-data="page" x-cloak>
-    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 page-title">
-      <h1 class="mb-0">Klienci</h1>
-      <a class="btn btn-primary btn-main" :href="link('screens/client-form.html')"><i class="bi bi-person-plus" aria-hidden="true"></i> Nowy klient</a>
+  <main id="main"><div id="app" class="ikpm-content" x-data="page" x-cloak>
+    <div class="ikpm-page-head">
+      <div class="ikpm-page-heading"><h1 class="ikpm-page-title">Klienci</h1></div>
+      <div class="ikpm-page-actions"><a class="btn btn-primary btn-lg" :href="link('screens/client-form.html')"><i class="bi bi-person-plus" aria-hidden="true"></i>Nowy klient</a></div>
     </div>
-    <label class="form-label" for="client-filter">Szukaj klienta</label>
-    <input class="form-control mb-3" id="client-filter" type="search" x-model="filter" autocomplete="off">
-    <template x-for="c in shown" :key="c.id">
-      <article class="list-card d-flex flex-wrap gap-2 align-items-center justify-content-between">
-        <div class="min-w-0">
-          <a class="fw-semibold tap-link" :href="link('screens/client-show.html?id=' + c.id)" x-text="c.name"></a>
-          <span class="d-block small" x-text="[c.email, c.phone].filter(Boolean).join(' · ') || '—'"></span>
-          <span class="d-block small" x-text="'Wyceny: ' + counts(c).quotes + ' · Realizacje: ' + counts(c).realizations"></span>
-        </div>
-        <a class="btn btn-outline-primary" :href="link('screens/client-form.html?id=' + c.id)" :aria-label="'Edytuj: ' + c.name">Edytuj</a>
-      </article>
-    </template>
-    <p x-show="!shown.length">Brak klientów — dodaj pierwszego przyciskiem „Nowy klient”.</p>
+    <div class="form-row mb-3"><div class="field" style="max-width: 28rem"><label class="form-label" for="client-filter">Szukaj klienta</label>
+      <input class="form-control" id="client-filter" type="search" x-model="filter" autocomplete="off"></div></div>
+    <div class="ikpm-table-box" x-show="shown.length">
+      <table class="table ikpm-stack">
+        <thead><tr><th scope="col">Nazwa</th><th scope="col">Email</th><th scope="col">Telefon</th><th scope="col" class="ikpm-num">Wyceny</th><th scope="col" class="ikpm-num">Realizacje</th><th scope="col"><span class="visually-hidden">Akcje</span></th></tr></thead>
+        <tbody>
+          <template x-for="c in shown" :key="c.id">
+            <tr><td class="ikpm-cell-lead"><a :href="link('screens/client-show.html?id=' + c.id)" x-text="c.name"></a></td>
+              <td data-label="Email" x-text="c.email || '—'"></td><td data-label="Telefon" x-text="c.phone || '—'"></td>
+              <td class="ikpm-num" data-label="Wyceny" x-text="counts(c).quotes"></td><td class="ikpm-num" data-label="Realizacje" x-text="counts(c).realizations"></td>
+              <td class="ikpm-cell-full text-end"><a class="btn btn-outline-primary btn-sm" :href="link('screens/client-form.html?id=' + c.id)" :aria-label="'Edytuj: ' + c.name">Edytuj</a></td></tr>
+          </template>
+        </tbody>
+      </table>
+    </div>
+    <div class="ikpm-empty" x-show="!shown.length"><i class="bi bi-people" aria-hidden="true"></i><p class="ikpm-empty-title">Brak klientów</p><p>Brak klientów — dodaj pierwszego przyciskiem „Nowy klient”.</p></div>
   </div></main>
   <script type="module">
     import { start, clients, quotes, realizations } from '../assets/app.js';

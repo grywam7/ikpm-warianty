@@ -2,49 +2,47 @@
 <html lang="pl">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:,">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Realizacje — IKPM</title>
   <link rel="stylesheet" href="../assets/bootstrap/bootstrap.min.css">
   <link rel="stylesheet" href="../assets/bootstrap-icons/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="../assets/ikpm-ui.css">
   <link rel="stylesheet" href="../assets/app.css">
 </head>
 <body data-section="realizations">
-  <main id="main"><div id="app" class="container-xxl" x-data="page" x-cloak>
-    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 page-title">
-      <h1 class="mb-0">Realizacje</h1>
-      <a class="btn btn-primary btn-main" :href="link('screens/obchod.html')"><i class="bi bi-cone-striped" aria-hidden="true"></i> Obchód na budowie</a>
+  <main id="main"><div id="app" class="ikpm-content" x-data="page" x-cloak>
+    <div class="ikpm-page-head">
+      <div class="ikpm-page-heading"><h1 class="ikpm-page-title">Realizacje</h1></div>
+      <div class="ikpm-page-actions"><a class="btn btn-primary btn-lg" :href="link('screens/obchod.html')"><i class="bi bi-cone-striped" aria-hidden="true"></i>Obchód na budowie</a></div>
     </div>
-    <template x-for="r in list" :key="r.id">
-      <article class="list-card">
-        <div class="row g-2 align-items-center">
-          <div class="col-lg-4 min-w-0">
-            <a class="fw-semibold tap-link" :href="link('screens/realization-show.html?id=' + r.id)" x-text="r.client.name"></a>
-            <span x-html="badge('realization', r.status)"></span>
-            <span class="d-block small" x-text="r.site_address"></span>
-            <span class="d-block small">Wycena: <template x-if="r.quote_id"><a :href="link('screens/quote-show.html?id=' + r.quote_id)" x-text="'#' + r.quote_id"></a></template><span x-show="!r.quote_id">—</span></span>
-          </div>
-          <div class="col-lg-4">
-            <dl class="row small mb-1 g-0">
-              <dt class="col-5 fw-normal">Wartość (z wyceny)</dt><dd class="col-7 mb-0 fw-semibold" x-text="pln(r.total_price)"></dd>
-              <dt class="col-5 fw-normal">Koszt</dt><dd class="col-7 mb-0" x-text="pln(cost(r))"></dd>
-              <dt class="col-5 fw-normal">Termin</dt>
-              <dd class="col-7 mb-0"><span x-text="dateText(r.status === 'done' ? r.end_on : (r.expected_end_on || r.promised_end_on))"></span>
-                <span class="d-block text-danger-emphasis" x-show="delayed(r)"><i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i> obiecany <span x-text="dateText(r.promised_end_on)"></span></span></dd>
-            </dl>
-            <div class="d-flex align-items-center gap-2 small">
-              <div class="progress flex-grow-1" role="progressbar" :aria-label="'Postęp: ' + prog(r).pct + '%'" aria-valuemin="0" aria-valuemax="100" :aria-valuenow="prog(r).pct"><div class="progress-bar bg-success" :style="`width: ${prog(r).pct}%`"></div></div>
-              <span x-text="prog(r).pct + '%'"></span>
-            </div>
-          </div>
-          <div class="col-lg-4 d-flex flex-wrap gap-2 justify-content-lg-end">
-            <template x-if="active(r)"><a class="btn btn-primary" :href="link('screens/obchod.html?id=' + r.id + '&krok=pokoj')"><i class="bi bi-cone-striped" aria-hidden="true"></i> Obchód</a></template>
-            <a class="btn btn-outline-primary" :href="link('screens/realization-show.html?id=' + r.id)">Otwórz</a>
-            <template x-if="r.status !== 'done'"><button type="button" class="btn btn-outline-danger btn-icon" @click="askDelete(r)" :aria-label="'Usuń realizację: ' + r.client.name" title="Usuń"><i class="bi bi-trash" aria-hidden="true"></i></button></template>
-          </div>
-        </div>
-      </article>
-    </template>
-    <p x-show="!list.length">Brak realizacji — przekształć zaakceptowaną wycenę na jej stronie (przycisk „Przekształć w realizację”).</p>
+    <div class="ikpm-table-box" x-show="list.length">
+      <table class="table ikpm-stack">
+        <thead><tr><th scope="col">Klient</th><th scope="col">Status</th><th scope="col" class="ikpm-num">Wartość (z wyceny)</th><th scope="col" class="ikpm-num">Koszt</th><th scope="col">Postęp</th><th scope="col">Termin</th><th scope="col">Wycena</th><th scope="col"><span class="visually-hidden">Akcje</span></th></tr></thead>
+        <tbody>
+          <template x-for="r in list" :key="r.id">
+            <tr>
+              <td class="ikpm-cell-lead"><a :href="link('screens/realization-show.html?id=' + r.id)" x-text="r.client.name"></a><span class="d-block ikpm-meta fw-normal" x-text="r.site_address"></span></td>
+              <td data-label="Status" x-html="badge('realization', r.status)"></td>
+              <td class="ikpm-num fw-semibold" data-label="Wartość (z wyceny)" x-text="pln(r.total_price)"></td>
+              <td class="ikpm-num" data-label="Koszt" x-text="pln(cost(r))"></td>
+              <td data-label="Postęp"><span class="d-flex align-items-center gap-2" style="min-width: 8rem">
+                <span class="progress flex-grow-1" role="progressbar" :aria-label="'Postęp: ' + prog(r).pct + '%'" aria-valuemin="0" aria-valuemax="100" :aria-valuenow="prog(r).pct"><span class="progress-bar" :style="`width: ${prog(r).pct}%`"></span></span>
+                <span class="ikpm-num" x-text="prog(r).pct + '%'"></span></span></td>
+              <td data-label="Termin"><span><span x-text="dateText(r.status === 'done' ? r.end_on : (r.expected_end_on || r.promised_end_on))"></span>
+                <template x-if="delayed(r)"><span class="text-danger-emphasis d-block"><i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i> obiecany <span x-text="dateText(r.promised_end_on)"></span></span></template></span></td>
+              <td data-label="Wycena"><template x-if="r.quote_id"><a :href="link('screens/quote-show.html?id=' + r.quote_id)" x-text="'#' + r.quote_id"></a></template><span x-show="!r.quote_id">—</span></td>
+              <td class="ikpm-cell-full"><div class="d-flex flex-wrap gap-2 justify-content-end">
+                <template x-if="active(r)"><a class="btn btn-primary btn-sm" :href="link('screens/obchod.html?id=' + r.id + '&krok=pokoj')"><i class="bi bi-cone-striped" aria-hidden="true"></i>Obchód</a></template>
+                <a class="btn btn-outline-primary btn-sm" :href="link('screens/realization-show.html?id=' + r.id)">Otwórz</a>
+                <template x-if="r.status !== 'done'"><button type="button" class="btn btn-outline-danger btn-sm ikpm-btn-icon" @click="askDelete(r)" :aria-label="'Usuń realizację: ' + r.client.name" title="Usuń"><i class="bi bi-trash" aria-hidden="true"></i></button></template>
+              </div></td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+    </div>
+    <div class="ikpm-empty" x-show="!list.length"><i class="bi bi-cone-striped" aria-hidden="true"></i><p class="ikpm-empty-title">Brak realizacji</p><p>Brak realizacji — przekształć zaakceptowaną wycenę na jej stronie (przycisk „Przekształć w realizację”).</p><a class="btn btn-primary" :href="link('screens/quotes-index.html')">Lista wycen</a></div>
   </div></main>
   <script type="module">
     import { start, realizations, realCost, progress, isActive, saveRealization } from '../assets/app.js';

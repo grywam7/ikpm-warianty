@@ -2,10 +2,11 @@
 <html lang="pl">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Podgląd wyceny — IKPM</title>
 <link rel="stylesheet" href="../assets/bootstrap/bootstrap.min.css">
 <link rel="stylesheet" href="../assets/bootstrap-icons/bootstrap-icons.min.css">
+<link rel="stylesheet" href="../assets/ikpm-ui.css">
 <link rel="stylesheet" href="../assets/app.css">
 </head>
 <body data-screen="quote-show" data-nav="quotes-index" data-tab="wyceny">
@@ -14,79 +15,90 @@
 <div class="panes" data-level="2">
   <section class="pane pane-list" aria-label="Lista wycen" data-partial="quote-list"></section>
   <section class="pane pane-folder" aria-label="Podgląd wyceny">
-    <div class="pane-inner">
+    <div class="ikpm-content">
       <div class="pane-head">
-        <a class="back-link" :href="link('quotes-index')"><i class="bi bi-chevron-left" aria-hidden="true"></i>Wyceny</a>
-        <h1 class="pane-title">Wycena #<span x-text="q.id"></span></h1>
-        <div class="d-flex flex-wrap gap-2 align-items-center"><span x-html="quoteBadge(q)"></span><span class="pane-sub" x-text="clientName(q)"></span></div>
-      </div>
-      <div class="d-flex flex-wrap gap-2 mb-3">
-        <template x-if="q.status === 'draft'"><a class="btn btn-primary btn-main" :href="link('builder', {id: q.id})"><i class="bi bi-pencil" aria-hidden="true"></i> Edytuj</a></template>
-        <template x-if="q.status === 'draft'"><a class="btn btn-outline-primary btn-main" :href="link('match-contractors', {id: q.id})"><i class="bi bi-people" aria-hidden="true"></i> Dobierz wykonawców</a></template>
-        <template x-if="q.status !== 'draft' && !realizationOf(q)"><button type="button" class="btn btn-warning btn-main" @click="doReopen()"><i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i> Przywróć do edycji</button></template>
-        <template x-if="q.status === 'accepted' && !realizationOf(q)"><button type="button" class="btn btn-success btn-main" @click="doConvert()"><i class="bi bi-cone-striped" aria-hidden="true"></i> Przekształć w realizację</button></template>
-        <template x-if="realizationOf(q)"><a class="btn btn-success btn-main" :href="link('realization-show', {id: realizationOf(q).id})"><i class="bi bi-cone-striped" aria-hidden="true"></i> Realizacja</a></template>
-        <a class="btn btn-outline-secondary btn-main" :href="link('quote-pdf', {id: q.id})" target="_blank" rel="noopener"><i class="bi bi-file-earmark-pdf" aria-hidden="true"></i> PDF</a>
-        <button type="button" class="btn btn-outline-secondary btn-main" @click="doCopy()"><i class="bi bi-copy" aria-hidden="true"></i> Kopiuj</button>
+        <a class="ikpm-back" :href="link('quotes-index')">Wyceny</a>
+        <h1 class="ikpm-page-title">Wycena #<span x-text="q.id"></span></h1>
+        <div class="ikpm-page-meta"><span x-html="quoteBadge(q)"></span><span x-text="clientName(q)"></span></div>
+        <div class="d-flex flex-wrap gap-2 mt-3">
+          <template x-if="q.status === 'draft'"><a class="btn btn-primary btn-lg" :href="link('builder', {id: q.id})"><i class="bi bi-pencil" aria-hidden="true"></i>Edytuj</a></template>
+          <template x-if="q.status === 'draft'"><a class="btn btn-outline-primary btn-lg" :href="link('match-contractors', {id: q.id})"><i class="bi bi-people" aria-hidden="true"></i>Dobierz wykonawców</a></template>
+          <template x-if="q.status !== 'draft' && !realizationOf(q)"><button type="button" class="btn btn-primary btn-lg" @click="doReopen()"><i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i>Przywróć do edycji</button></template>
+          <template x-if="q.status === 'accepted' && !realizationOf(q)"><button type="button" class="btn btn-success btn-lg" @click="doConvert()"><i class="bi bi-cone-striped" aria-hidden="true"></i>Przekształć w realizację</button></template>
+          <template x-if="realizationOf(q)"><a class="btn btn-success btn-lg" :href="link('realization-show', {id: realizationOf(q).id})"><i class="bi bi-cone-striped" aria-hidden="true"></i>Realizacja</a></template>
+          <a class="btn btn-outline-secondary btn-lg" :href="link('quote-pdf', {id: q.id})" target="_blank" rel="noopener"><i class="bi bi-file-earmark-pdf" aria-hidden="true"></i>PDF</a>
+          <button type="button" class="btn btn-outline-secondary btn-lg" @click="doCopy()"><i class="bi bi-copy" aria-hidden="true"></i>Kopiuj</button>
+        </div>
       </div>
 
       <template x-if="hasClientComments(q)">
-        <div class="alert alert-warning" role="note"><div class="fw-bold"><i class="bi bi-chat-left-text" aria-hidden="true"></i> Uwagi klienta</div>
-          <div x-text="q.client_general_comment || '(brak komentarza ogólnego — sprawdź komentarze przy pokojach)'"></div></div>
+        <div class="alert alert-warning d-flex gap-2" role="note"><i class="bi bi-chat-left-text" aria-hidden="true"></i><div><div class="fw-bold">Uwagi klienta</div>
+          <div x-text="q.client_general_comment || '(brak komentarza ogólnego — sprawdź komentarze przy pokojach)'"></div></div></div>
       </template>
 
-      <ul class="group">
-        <li class="row-item"><span class="row-main text-body-secondary">Klient</span><span class="row-end">
-          <template x-if="client(q.client_id)"><span><a class="tap" :href="link('client-show', {id: q.client_id})" x-text="client(q.client_id).name"></a>
-            <div class="small" x-text="client(q.client_id).email"></div><div class="small" x-text="client(q.client_id).phone"></div></span></template>
-          <template x-if="!client(q.client_id)"><span>(nie przypisano)</span></template></span></li>
-        <li class="row-item"><span class="row-main text-body-secondary">Status</span><span class="row-end" x-html="quoteBadge(q)"></span></li>
-        <li class="row-item"><span class="row-main text-body-secondary">Data utworzenia</span><span class="row-end" x-text="date(q.created_on)"></span></li>
-        <li class="row-item" x-show="q.sent_at"><span class="row-main text-body-secondary">Wysłana</span><span class="row-end" x-text="date(q.sent_at)"></span></li>
-        <li class="row-item" x-show="q.site_address"><span class="row-main text-body-secondary">Adres inwestycji</span><span class="row-end" x-text="q.site_address"></span></li>
-        <li class="row-item" x-show="q.planned_start_on"><span class="row-main text-body-secondary">Planowany start</span><span class="row-end" x-text="date(q.planned_start_on)"></span></li>
-        <li class="row-item" x-show="q.planned_end_on"><span class="row-main text-body-secondary">Termin zakończenia</span><span class="row-end" x-text="date(q.planned_end_on)"></span></li>
-      </ul>
-
-      <template x-for="pr in q.rooms" :key="pr.id">
-        <section class="mt-3" :aria-labelledby="'room-h-' + pr.id">
-          <div class="d-flex flex-wrap align-items-baseline gap-2 mt-4 mb-2">
-            <h2 class="h5 mb-0 me-auto" :id="'room-h-' + pr.id"><i class="bi bi-door-open" aria-hidden="true"></i> <span x-text="pr.name"></span></h2>
-            <span class="small text-body-secondary" x-text="sizeLine(pr)"></span>
-          </div>
-          <div class="alert alert-warning py-2" x-show="pr.client_comment" role="note"><b>Komentarz klienta:</b> <span x-text="pr.client_comment"></span></div>
-          <div class="small mb-2" x-show="pr.notes"><i class="bi bi-lock" aria-hidden="true"></i> <b>Notatka:</b> <span x-text="pr.notes"></span></div>
-          <ul class="group">
-            <template x-for="j in sortJobs(pr.jobs)" :key="j.id">
-              <li class="row-item"><span class="row-main"><div x-text="j.name"></div><div class="small text-body-secondary" x-text="j.stage + ' · ' + dec(j.quantity) + ' ' + j.unit + ' × ' + pln(jobUnitPrice(j, q))"></div></span>
-                <span class="row-end fw-semibold" x-text="pln(jobValue(j, q))"></span></li>
-            </template>
-            <li class="row-item" x-show="!pr.jobs.length"><span class="text-body-secondary">(brak prac w tym pokoju)</span></li>
-            <li class="row-item"><span class="row-main fw-semibold">Suma pokoju:</span><span class="row-end fw-bold" x-text="pln(roomTotal(pr, q))"></span></li>
+      <div class="fold-grid">
+        <div>
+          <ul class="ikpm-list info-list">
+            <li class="ikpm-row"><span class="ikpm-row-main">Klient</span><span class="ikpm-row-end">
+              <template x-if="client(q.client_id)"><span><a class="tap" :href="link('client-show', {id: q.client_id})" x-text="client(q.client_id).name"></a>
+                <span class="d-block ikpm-meta" x-text="client(q.client_id).email"></span><span class="d-block ikpm-meta" x-text="client(q.client_id).phone"></span></span></template>
+              <template x-if="!client(q.client_id)"><span>(nie przypisano)</span></template></span></li>
+            <li class="ikpm-row"><span class="ikpm-row-main">Status</span><span class="ikpm-row-end" x-html="quoteBadge(q)"></span></li>
+            <li class="ikpm-row"><span class="ikpm-row-main">Data utworzenia</span><span class="ikpm-row-end" x-text="date(q.created_on)"></span></li>
+            <li class="ikpm-row" x-show="q.status !== 'draft'"><span class="ikpm-row-main">Wysłana</span><span class="ikpm-row-end" x-text="date(q.sent_at)"></span></li>
+            <li class="ikpm-row" x-show="q.status !== 'draft'"><span class="ikpm-row-main">Odpowiedź</span><span class="ikpm-row-end" x-text="date(q.responded_at)"></span></li>
+            <li class="ikpm-row" x-show="q.site_address"><span class="ikpm-row-main">Adres inwestycji</span><span class="ikpm-row-end" x-text="q.site_address"></span></li>
+            <li class="ikpm-row" x-show="q.planned_start_on"><span class="ikpm-row-main">Planowany start</span><span class="ikpm-row-end" x-text="date(q.planned_start_on)"></span></li>
+            <li class="ikpm-row" x-show="q.planned_end_on"><span class="ikpm-row-main">Termin zakończenia</span><span class="ikpm-row-end" x-text="date(q.planned_end_on)"></span></li>
           </ul>
-          <details class="mt-2"><summary class="btn btn-outline-secondary"><i class="bi bi-bookmark-plus" aria-hidden="true"></i> Zapisz jako szablon</summary>
-            <div class="card-plain mt-2">
+        </div>
+        <section class="card" aria-labelledby="qs-sum"><div class="card-body">
+          <h2 class="h5 mb-3" id="qs-sum">Podsumowanie</h2>
+          <dl class="ikpm-dl ikpm-dl-num mb-3">
+            <dt>Pokoje:</dt><dd x-text="q.rooms.length"></dd><dt>Prace:</dt><dd x-text="qJobs(q).length"></dd>
+            <dt>Koszt (ekipy + materiały):</dt><dd x-text="pln(quoteCost(q))"></dd><dt>Narzut:</dt><dd x-text="dec(q.markup_percent) + ' %'"></dd>
+            <dt>Marża:</dt><dd x-text="pln(totals(q).net - quoteCost(q))"></dd>
+          </dl>
+          <dl class="ikpm-totals">
+            <div><dt>Razem netto</dt><dd data-total-net x-text="pln(totals(q).net)"></dd></div>
+            <div><dt x-text="'VAT ' + Number(q.vat_rate) + '%'"></dt><dd x-text="pln(totals(q).vat)"></dd></div>
+            <div class="ikpm-totals-grand"><dt>Razem brutto</dt><dd x-text="pln(totals(q).gross)"></dd></div>
+          </dl>
+        </div></section>
+      </div>
+
+      <h2 class="ikpm-section-title">Zakres prac</h2>
+      <template x-for="pr in q.rooms" :key="pr.id">
+        <section class="pub-card" :aria-labelledby="'room-h-' + pr.id">
+          <div class="pub-room"><h3 :id="'room-h-' + pr.id" x-text="pr.name"></h3><span class="ikpm-meta" x-text="sizeLine(pr)"></span></div>
+          <div class="alert alert-warning d-flex gap-2 m-3" x-show="pr.client_comment" role="note"><i class="bi bi-chat-left-text" aria-hidden="true"></i><div><b>Komentarz klienta:</b> <span x-text="pr.client_comment"></span></div></div>
+          <div class="ikpm-meta px-3 pt-2" x-show="pr.notes"><i class="bi bi-lock" aria-hidden="true"></i> <b>Notatka:</b> <span x-text="pr.notes"></span></div>
+          <div class="pub-table-box">
+          <table class="table pub-table mb-0">
+            <thead><tr><th scope="col">Praca</th><th scope="col" class="c-wide">Etap</th><th scope="col" class="c-wide ikpm-num">Ilość</th><th scope="col" class="c-wide ikpm-num">Cena/j.</th><th scope="col" class="ikpm-num">Wartość</th></tr></thead>
+            <tbody>
+              <template x-for="j in sortJobs(pr.jobs)" :key="j.id">
+                <tr><td class="c-name"><span x-text="j.name"></span><span class="c-sub" x-text="j.stage + ' · ' + dec(j.quantity) + ' ' + j.unit + ' × ' + pln(jobUnitPrice(j, q))"></span></td>
+                  <td class="c-wide" x-text="j.stage"></td><td class="c-wide ikpm-num" x-text="dec(j.quantity) + ' ' + j.unit"></td><td class="c-wide ikpm-num" x-text="pln(jobUnitPrice(j, q))"></td>
+                  <td class="ikpm-num fw-semibold" x-text="pln(jobValue(j, q))"></td></tr>
+              </template>
+              <tr x-show="!pr.jobs.length"><td colspan="5" class="text-body-secondary">(brak prac w tym pokoju)</td></tr>
+            </tbody>
+            <tfoot><tr><th scope="row" class="c-foot">Suma pokoju:</th><td class="c-wide" colspan="3"></td><td class="ikpm-num" x-text="pln(roomTotal(pr, q))"></td></tr></tfoot>
+          </table>
+          </div>
+          <details class="border-top p-3"><summary class="btn btn-outline-secondary"><i class="bi bi-bookmark-plus" aria-hidden="true"></i>Zapisz jako szablon</summary>
+            <div class="mt-3">
               <label class="form-label" :for="'tpl-' + pr.id">Nazwa szablonu</label>
               <input class="form-control" :id="'tpl-' + pr.id" maxlength="100" :value="pr.name" :aria-describedby="'tplh-' + pr.id">
-              <div class="small text-body-secondary mb-2" :id="'tplh-' + pr.id">Nowy szablon z wymiarami i pracami pokoju (ilości tylko prac ręcznych).</div>
+              <div class="form-text mb-2" :id="'tplh-' + pr.id">Nowy szablon z wymiarami i pracami pokoju (ilości tylko prac ręcznych).</div>
               <button type="button" class="btn btn-primary" @click="saveTpl(pr, document.getElementById('tpl-' + pr.id).value)">Zapisz szablon</button>
             </div></details>
         </section>
       </template>
 
-      <h2 class="group-title mt-4">Podsumowanie</h2>
-      <ul class="group">
-        <li class="row-item"><span class="row-main">Pokoje:</span><span class="row-end" x-text="q.rooms.length"></span></li>
-        <li class="row-item"><span class="row-main">Prace:</span><span class="row-end" x-text="qJobs(q).length"></span></li>
-        <li class="row-item"><span class="row-main">Koszt (ekipy + materiały):</span><span class="row-end" x-text="pln(quoteCost(q))"></span></li>
-        <li class="row-item"><span class="row-main">Narzut:</span><span class="row-end" x-text="dec(q.markup_percent) + ' %'"></span></li>
-        <li class="row-item"><span class="row-main">Marża:</span><span class="row-end" x-text="pln(totals(q).net - quoteCost(q))"></span></li>
-        <li class="row-item"><span class="row-main">Razem netto</span><span class="row-end fw-semibold" data-total-net x-text="pln(totals(q).net)"></span></li>
-        <li class="row-item"><span class="row-main" x-text="'VAT ' + Number(q.vat_rate) + '%'"></span><span class="row-end" x-text="pln(totals(q).vat)"></span></li>
-        <li class="row-item"><span class="row-main fw-bold">Razem brutto</span><span class="row-end fw-bold fs-5" x-text="pln(totals(q).gross)"></span></li>
-      </ul>
-      <h2 class="group-title">Notatki</h2>
-      <div class="card-plain" style="white-space:pre-line" x-text="q.notes || '—'"></div>
+      <h2 class="ikpm-section-title">Notatki</h2>
+      <div class="card card-body ikpm-measure" style="white-space:pre-line" x-text="q.notes || '—'"></div>
       <a class="btn btn-outline-secondary mt-3" :href="link('quotes-index')">Wróć do listy</a>
     </div>
   </section>

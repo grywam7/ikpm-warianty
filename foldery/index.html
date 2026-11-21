@@ -2,72 +2,75 @@
 <html lang="pl">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Start — IKPM</title>
 <link rel="stylesheet" href="assets/bootstrap/bootstrap.min.css">
 <link rel="stylesheet" href="assets/bootstrap-icons/bootstrap-icons.min.css">
+<link rel="stylesheet" href="assets/ikpm-ui.css">
 <link rel="stylesheet" href="assets/app.css">
 </head>
 <body data-screen="start" data-nav="start" data-tab="start">
 <main x-data="page" x-cloak>
-  <div class="page"><div class="pane-inner">
-    <div class="pane-head"><h1 class="pane-title">Start</h1>
-      <div class="pane-sub">Bieżąca praca: realizacje w toku i wyceny, które czekają na następny krok.</div></div>
-
-    <div class="group">
-      <a class="row-link" :href="link('quotes-new', {mode: 'rooms'})"><span class="row-icon"><i class="bi bi-plus-square" aria-hidden="true"></i></span><span class="row-main row-add">Nowa wycena (pokoje)</span></a>
-      <a class="row-link" :href="link('quotes-new', {mode: 'simple'})"><span class="row-icon"><i class="bi bi-plus-lg" aria-hidden="true"></i></span><span class="row-main row-add">Nowa wycena (prosta)</span></a>
+  <div class="ikpm-content">
+    <div class="ikpm-page-head">
+      <div class="ikpm-page-heading"><h1 class="ikpm-page-title">Start</h1>
+        <p class="ikpm-page-meta mb-0">Bieżąca praca: realizacje w toku i wyceny, które czekają na następny krok.</p></div>
+      <div class="ikpm-page-actions">
+        <a class="btn btn-primary btn-lg" :href="link('quotes-new', {mode: 'rooms'})"><i class="bi bi-plus-square" aria-hidden="true"></i>Nowa wycena (pokoje)</a>
+        <a class="btn btn-outline-primary btn-lg" :href="link('quotes-new', {mode: 'simple'})"><i class="bi bi-plus-lg" aria-hidden="true"></i>Nowa wycena (prosta)</a>
+      </div>
     </div>
 
-    <div class="row g-4">
-      <div class="col-12 col-xl-6">
+    <div class="start-grid">
+      <div class="start-col">
         <template x-for="sec in realizationSections()" :key="sec.title">
           <section>
-            <h2 class="group-title" x-text="sec.title + ' (' + sec.items.length + ')'"></h2>
-            <ul class="group">
+            <h2 class="ikpm-section-title" x-text="sec.title + ' (' + sec.items.length + ')'"></h2>
+            <div class="ikpm-empty py-3" x-show="!sec.items.length"><p>Brak realizacji w tym stanie.</p></div>
+            <ul class="ikpm-list" x-show="sec.items.length">
               <template x-for="r in sec.items" :key="r.id">
-                <li><a class="row-link" :href="link('realization-show', {id: r.id})">
-                  <span class="row-main"><div class="fw-semibold">Realizacja #<span x-text="r.id"></span> · <span x-text="clientName(r)"></span></div>
-                    <div class="small text-body-secondary" x-text="r.site_address"></div>
-                    <div class="d-flex align-items-center gap-2 mt-1">
-                      <div class="progress mini-progress flex-grow-1" role="progressbar" :aria-label="'Postęp prac realizacji #' + r.id" aria-valuemin="0" aria-valuemax="100" :aria-valuenow="progressOf(rJobs(r)).pct">
-                        <div class="progress-bar bg-success" :style="'width:' + progressOf(rJobs(r)).pct + '%'"></div></div>
-                      <span class="small" x-text="progressOf(rJobs(r)).pct + '%'"></span></div>
-                    <div class="small mt-1" x-show="rJobs(r).some(j => j.status === 'remake')"><span x-html="jobBadge('remake')"></span> <span x-text="rJobs(r).filter(j => j.status === 'remake').length"></span></div></span>
-                  <span class="row-end small"><span x-html="realBadge(r)"></span>
-                    <div class="mt-1">Termin</div><div class="fw-semibold" :class="endDelayed(r) && 'text-danger-emphasis'" x-text="date(r.expected_end_on || r.promised_end_on)"></div>
-                    <div class="text-danger-emphasis" x-show="endDelayed(r)" x-text="'obiecany ' + date(r.promised_end_on)"></div></span>
-                  <i class="bi bi-chevron-right chev" aria-hidden="true"></i></a></li>
+                <li><a class="ikpm-row" :href="link('realization-show', {id: r.id})">
+                  <span class="ikpm-row-main"><span class="ikpm-row-title">Realizacja #<span x-text="r.id"></span> · <span x-text="clientName(r)"></span></span>
+                    <span class="ikpm-row-meta" x-text="r.site_address"></span>
+                    <span class="row-progress"><span class="progress" role="progressbar" :aria-label="'Postęp prac realizacji #' + r.id" aria-valuemin="0" aria-valuemax="100" :aria-valuenow="progressOf(rJobs(r)).pct">
+                        <span class="progress-bar" :style="'width:' + progressOf(rJobs(r)).pct + '%'"></span></span><span x-text="progressOf(rJobs(r)).pct + '%'"></span></span>
+                    <span class="row-tags" x-show="rJobs(r).some(j => j.status === 'remake')"><span x-html="jobBadge('remake', 'Do poprawy: ' + rJobs(r).filter(j => j.status === 'remake').length)"></span></span></span>
+                  <span class="ikpm-row-end"><span x-html="realBadge(r)"></span>
+                    <span class="ikpm-meta" :class="endDelayed(r) && 'row-late'" x-text="'Termin: ' + date(r.expected_end_on || r.promised_end_on)"></span>
+                    <span class="ikpm-meta row-late" x-show="endDelayed(r)" x-text="'obiecany ' + date(r.promised_end_on)"></span></span>
+                  <i class="bi bi-chevron-right ikpm-chevron" aria-hidden="true"></i></a></li>
               </template>
             </ul>
           </section>
         </template>
       </div>
-      <div class="col-12 col-xl-6">
+      <div class="start-col start-quotes">
         <template x-for="sec in quoteSections()" :key="sec.title">
           <section x-show="sec.items.length">
-            <h2 class="group-title" x-text="sec.title + ' (' + sec.items.length + ')'"></h2>
-            <ul class="group">
+            <h2 class="ikpm-section-title" x-text="sec.title + ' (' + sec.items.length + ')'"></h2>
+            <ul class="ikpm-list">
               <template x-for="sq in sec.items" :key="sq.id">
-                <li><a class="row-link" :href="quoteHref(sq)">
-                  <span class="row-main"><div class="fw-semibold">Wycena #<span x-text="sq.id"></span> · <span x-text="clientName(sq)"></span></div>
-                    <div class="small text-body-secondary" x-text="sq.site_address"></div>
-                    <div class="small" x-show="sec.hint !== undefined" x-text="sec.hint ? sec.hint(sq) : ''"></div></span>
-                  <span class="row-end small"><span x-html="quoteBadge(sq)"></span><div class="mt-1" x-text="pln(netTotal(sq))"></div></span>
-                  <i class="bi bi-chevron-right chev" aria-hidden="true"></i></a></li>
+                <li><a class="ikpm-row" :href="quoteHref(sq)">
+                  <span class="ikpm-row-main"><span class="ikpm-row-title">Wycena #<span x-text="sq.id"></span> · <span x-text="clientName(sq)"></span></span>
+                    <span class="ikpm-row-meta" x-text="sq.site_address"></span>
+                    <span class="d-block mt-1" :class="sec.warn && sec.warn(sq) ? 'row-late' : ''" x-show="!!sec.hint" x-text="sec.hint ? sec.hint(sq) : ''"></span></span>
+                  <span class="ikpm-row-end"><span x-html="quoteBadge(sq)"></span><span class="ikpm-amount" x-text="pln(netTotal(sq))"></span></span>
+                  <i class="bi bi-chevron-right ikpm-chevron" aria-hidden="true"></i></a></li>
               </template>
             </ul>
           </section>
         </template>
-        <h2 class="group-title">Na skróty</h2>
-        <div class="group">
-          <a class="row-link" :href="link('quotes-index')"><span class="row-icon"><i class="bi bi-file-earmark-text" aria-hidden="true"></i></span><span class="row-main">Lista wycen</span><i class="bi bi-chevron-right chev" aria-hidden="true"></i></a>
-          <a class="row-link" :href="link('realizations-index')"><span class="row-icon"><i class="bi bi-cone-striped" aria-hidden="true"></i></span><span class="row-main">Lista realizacji</span><i class="bi bi-chevron-right chev" aria-hidden="true"></i></a>
-          <a class="row-link" :href="link('stages')"><span class="row-icon"><i class="bi bi-list-task" aria-hidden="true"></i></span><span class="row-main">Prace i Etapy</span><i class="bi bi-chevron-right chev" aria-hidden="true"></i></a>
-        </div>
+        <section>
+          <h2 class="ikpm-section-title">Na skróty</h2>
+          <ul class="ikpm-list">
+            <li><a class="ikpm-row" :href="link('quotes-index')"><span class="row-icon"><i class="bi bi-file-earmark-text" aria-hidden="true"></i></span><span class="ikpm-row-main">Lista wycen</span><i class="bi bi-chevron-right ikpm-chevron" aria-hidden="true"></i></a></li>
+            <li><a class="ikpm-row" :href="link('realizations-index')"><span class="row-icon"><i class="bi bi-cone-striped" aria-hidden="true"></i></span><span class="ikpm-row-main">Lista realizacji</span><i class="bi bi-chevron-right ikpm-chevron" aria-hidden="true"></i></a></li>
+            <li><a class="ikpm-row" :href="link('stages')"><span class="row-icon"><i class="bi bi-list-task" aria-hidden="true"></i></span><span class="ikpm-row-main">Prace i Etapy</span><i class="bi bi-chevron-right ikpm-chevron" aria-hidden="true"></i></a></li>
+          </ul>
+        </section>
       </div>
     </div>
-  </div></div>
+  </div>
 </main>
 <script type="module">
 import { boot } from './assets/app.js';
@@ -86,7 +89,8 @@ boot(() => ({
         hint: (q) => q.rooms.filter((r) => r.client_comment).map((r) => `${r.name}: ${r.client_comment}`)[0] ?? q.client_general_comment },
       { title: 'Zaakceptowane — do przekształcenia w realizację', items: _q.filter((q) => q.status === 'accepted' && !this.realizationOf(q)) },
       { title: 'Szkice', items: _q.filter((q) => q.status === 'draft'),
-        hint: (q) => (q.applied_profile_name ? (q.planned_end_on ? `Termin: ${this.date(q.planned_end_on)}` : 'brak terminu zakończenia') : 'bez wykonawców') },
+        hint: (q) => (q.applied_profile_name ? (q.planned_end_on ? `Termin: ${this.date(q.planned_end_on)}` : 'brak terminu zakończenia') : 'bez wykonawców'),
+        warn: (q) => q.applied_profile_name && !q.planned_end_on },
       { title: 'Wysłane — czekają na odpowiedź klienta', items: _q.filter((q) => q.status === 'sent') },
     ];
   },

@@ -2,53 +2,60 @@
 <html lang="pl">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Postęp prac — IKPM</title>
 <link rel="stylesheet" href="../assets/bootstrap/bootstrap.min.css">
 <link rel="stylesheet" href="../assets/bootstrap-icons/bootstrap-icons.min.css">
+<link rel="stylesheet" href="../assets/ikpm-ui.css">
 <link rel="stylesheet" href="../assets/app.css">
 </head>
 <body data-screen="public-realization">
-<main x-data="page" x-cloak>
-<div class="public-bar">IKPM</div>
-<div class="public-main">
+<header class="ikpm-public-bar"><strong>IKPM</strong></header>
+<main x-data="page" x-cloak class="ikpm-public" id="main">
 <template x-if="r">
   <div>
-    <h1 class="h2 mb-0">Postęp prac</h1><div class="text-body-secondary mb-3" x-text="'dla ' + clientName(r)"></div>
-    <div class="row g-3">
-      <div class="col-md-6"><div class="card-plain h-100"><div class="doc-label">Od</div><div class="fw-semibold" x-text="sender()"></div><div class="small" x-text="db.me.email"></div></div></div>
-      <div class="col-md-6"><div class="card-plain h-100"><div class="doc-label">Status realizacji</div><div class="mt-1" x-html="realBadge(r)"></div></div></div>
-    </div>
-    <div class="card-plain mt-3">
-      <div class="d-flex justify-content-between"><span class="fw-semibold">Postęp prac</span><span x-text="progressOf(rJobs(r)).pct + '% (' + progressOf(rJobs(r)).done + ' / ' + progressOf(rJobs(r)).all + ')'"></span></div>
-      <div class="progress mt-1" style="height:12px" role="progressbar" aria-label="Postęp prac" aria-valuemin="0" aria-valuemax="100" :aria-valuenow="progressOf(rJobs(r)).pct"><div class="progress-bar bg-success" :style="'width:' + progressOf(rJobs(r)).pct + '%'"></div></div>
-      <div class="row g-2 mt-2" x-show="r.status !== 'cancelled'">
-        <div class="col-sm-6" x-show="r.site_address"><div class="doc-label">Adres inwestycji</div><div x-text="r.site_address"></div></div>
-        <div class="col-sm-6"><div class="doc-label">Termin zakończenia</div><div x-text="endText()"></div></div>
+    <h1 class="ikpm-page-title">Postęp prac</h1>
+    <p class="ikpm-meta mb-2" x-text="'dla ' + clientName(r)"></p>
+    <div class="ikpm-contact mb-3"><span class="fw-semibold" x-text="sender()"></span>
+      <a :href="'mailto:' + db.me.email"><i class="bi bi-envelope" aria-hidden="true"></i><span x-text="db.me.email"></span></a></div>
+    <div class="card"><div class="card-body">
+      <div class="d-flex flex-wrap align-items-center gap-2 mb-3"><span class="ikpm-meta">Status realizacji</span><span x-html="statusChip('real', r.status, REAL_STATUS[r.status][0], 'ikpm-status-lg')"></span></div>
+      <div class="ikpm-progress">
+        <div class="ikpm-progress-head"><span id="pr-label">Postęp prac</span><span x-text="progressOf(rJobs(r)).pct + '% (' + progressOf(rJobs(r)).done + ' / ' + progressOf(rJobs(r)).all + ')'"></span></div>
+        <div class="progress" role="progressbar" aria-labelledby="pr-label" aria-valuemin="0" aria-valuemax="100" :aria-valuenow="progressOf(rJobs(r)).pct"><div class="progress-bar" :class="r.status === 'done' && 'bg-success'" :style="'width:' + progressOf(rJobs(r)).pct + '%'"></div></div>
       </div>
-    </div>
+      <dl class="ikpm-dl dl-stack mt-3 mb-0" x-show="r.status !== 'cancelled'">
+        <template x-if="r.site_address"><dt>Adres inwestycji</dt></template><template x-if="r.site_address"><dd x-text="r.site_address"></dd></template>
+        <dt>Termin zakończenia</dt><dd x-text="endText()"></dd>
+      </dl>
+    </div></div>
+    <h2 class="ikpm-section-title">Prace w pokojach</h2>
     <template x-for="pr in r.rooms" :key="pr.id">
-      <section class="mt-4"><h2 class="h4" x-text="pr.name"></h2>
-        <ul class="group">
+      <section class="pub-card" :aria-label="pr.name">
+        <div class="pub-room"><h3 x-text="pr.name"></h3><span class="ikpm-meta" x-text="progressOf(pr.jobs).done + ' / ' + progressOf(pr.jobs).all + ' Zrobione'"></span></div>
+        <ul class="pub-jobs">
           <template x-for="j in sortJobs(pr.jobs)" :key="j.id">
-            <li class="row-item flex-wrap"><span class="row-main"><div x-text="j.name"></div><div class="small text-body-secondary" x-text="j.stage"></div>
-              <div class="small mt-1"><b>Komentarz:</b> <span x-text="j.notes || '—'"></span></div></span><span class="row-end" x-html="jobBadge(j.status)"></span></li>
+            <li class="pub-job"><div class="pub-job-main"><div class="pub-job-name" x-text="j.name"></div><div class="ikpm-meta" x-text="j.stage"></div>
+              <template x-if="j.notes"><div class="pub-note"><b>Komentarz:</b> <span x-text="j.notes"></span></div></template></div>
+              <span x-html="jobBadge(j.status)"></span></li>
           </template>
-          <li class="row-item" x-show="!pr.jobs.length"><span class="text-body-secondary">(brak prac w tym pomieszczeniu)</span></li>
+          <li class="pub-job" x-show="!pr.jobs.length"><span class="text-body-secondary">(brak prac w tym pomieszczeniu)</span></li>
         </ul>
       </section>
     </template>
     <template x-if="visiblePhotos().length">
-      <section class="mt-4"><h2 class="h4">Zdjęcia</h2>
-        <template x-for="grp in photoGroups()" :key="grp.key"><div><h3 class="group-title" x-text="grp.name"></h3>
-          <div class="photo-grid"><template x-for="p in grp.photos" :key="p.id"><div class="photo-card"><div class="photo-thumb">
-            <template x-if="p.src"><img :src="p.src" :alt="p.filename"></template><template x-if="!p.src"><span><i class="bi bi-image fs-2" aria-hidden="true"></i><br><span x-text="p.filename"></span></span></template></div></div></template></div></div></template>
+      <section><h2 class="ikpm-section-title">Zdjęcia</h2>
+        <template x-for="grp in photoGroups()" :key="grp.key"><div class="mb-3"><h3 class="h6 mb-2" x-text="grp.name"></h3>
+          <div class="ikpm-photo-grid"><template x-for="p in grp.photos" :key="p.id">
+            <div class="ikpm-photo"><template x-if="p.src"><a class="ikpm-photo-thumb p-0" :href="p.src" target="_blank" rel="noopener" :aria-label="'Zdjęcie ' + p.filename + ' — otwórz większe'"><img class="ikpm-photo-thumb" :src="p.src" alt=""></a></template>
+              <template x-if="!p.src"><div class="ikpm-photo-thumb"><i class="bi bi-image" aria-hidden="true"></i><span x-text="p.filename"></span></div></template></div>
+          </template></div></div></template>
       </section>
     </template>
   </div>
 </template>
-</div><footer class="text-center small text-body-secondary py-4">Wygenerowane przez system IKPM.</footer>
 </main>
+<footer class="ikpm-public-footer">Wygenerowane przez system IKPM.</footer>
 <script type="module">
 import { boot, db, intParam, link, todayISO, date } from '../assets/app.js';
 boot(() => ({

@@ -2,76 +2,95 @@
 <html lang="pl">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>IKPM — System kosztorysów</title>
 <link rel="stylesheet" href="assets/bootstrap/bootstrap.min.css">
 <link rel="stylesheet" href="assets/bootstrap-icons/bootstrap-icons.min.css">
+<link rel="stylesheet" href="assets/ikpm-ui.css">
 <link rel="stylesheet" href="assets/app.css">
+<style>
+  /* Start: zestawienie bieżącej pracy — od 1100 px dwie kolumny (realizacje | wyceny), od 1600 px wyceny w dwóch kolumnach. */
+  .k-start { display: grid; gap: var(--ikpm-space-6) var(--ikpm-space-8); align-items: start; }
+  .k-start-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: .25rem 1rem; }
+  .k-start-head .ikpm-section-title { margin-top: 0; }
+  .k-start-groups > section + section { margin-top: var(--ikpm-space-5); }
+  .k-group-title { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin: 0 0 .5rem; font-size: 1rem; }
+  @media (min-width: 1100px) { .k-start { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
+  @media (min-width: 1600px) {
+    .k-start { grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); }
+    .k-start-groups { column-count: 2; column-gap: var(--ikpm-space-6); }
+    .k-start-groups > section, .k-start-groups > section + section { break-inside: avoid; margin: 0 0 var(--ikpm-space-5); }
+  }
+</style>
 </head>
 <body data-nav="start">
 <div id="nav"></div>
-<main x-data="page" x-cloak class="container-xxl px-3 mw-doc pb-5">
+<main id="main" x-data="page" x-cloak class="ikpm-content">
   <div id="alerts"></div>
-  <div class="d-grid d-sm-flex flex-wrap align-items-center gap-2 my-3">
-    <h1 class="h3 mb-0 me-sm-auto">Start</h1>
-    <a class="btn btn-success btn-main" :href="ik.href('screens/quotes-new.html?mode=rooms')"><i class="bi bi-grid-3x2" aria-hidden="true"></i> Nowa wycena (pokoje)</a>
-    <a class="btn btn-outline-success btn-main" :href="ik.href('screens/quotes-new.html?mode=simple')"><i class="bi bi-file-earmark-plus" aria-hidden="true"></i> Nowa wycena (prosta)</a>
+  <div class="ikpm-page-head">
+    <div class="ikpm-page-heading"><h1 class="ikpm-page-title">Start</h1>
+      <div class="ikpm-page-meta"><span x-text="realizations.length + ' w toku · ' + waiting + ' wycen czeka na następny krok'"></span></div></div>
+    <div class="ikpm-page-actions">
+      <a class="btn btn-primary btn-lg" :href="ik.href('screens/quotes-new.html?mode=rooms')"><i class="bi bi-plus-square" aria-hidden="true"></i>Nowa wycena (pokoje)</a>
+      <a class="btn btn-outline-primary btn-lg" :href="ik.href('screens/quotes-new.html?mode=simple')"><i class="bi bi-plus-lg" aria-hidden="true"></i>Nowa wycena (prosta)</a>
+    </div>
   </div>
 
-  <section class="card mb-4" aria-labelledby="real-title">
-    <div class="card-header bg-body d-flex flex-wrap align-items-center gap-2">
-      <h2 id="real-title" class="h5 mb-0 me-auto"><i class="bi bi-hammer" aria-hidden="true"></i> Realizacje w toku</h2>
-      <a class="btn btn-sm btn-outline-secondary text-nowrap" :href="ik.href('screens/realizations-index.html')">Lista realizacji</a>
-    </div>
-    <p class="card-body mb-0 text-body-secondary" x-show="!realizations.length">Brak realizacji planowanych i w trakcie.</p>
-    <table class="table doc-table reflow mb-0" x-show="realizations.length">
-      <caption class="visually-hidden">Realizacje planowane i w trakcie</caption>
-      <thead class="table-light"><tr><th scope="col">Realizacja</th><th scope="col">Status</th><th scope="col" style="min-width: 12rem">Postęp prac</th><th scope="col">Termin</th><th scope="col"><span class="visually-hidden">Akcja</span></th></tr></thead>
-      <tbody>
+  <div class="k-start">
+    <section aria-labelledby="real-title">
+      <div class="k-start-head"><h2 id="real-title" class="ikpm-section-title">Realizacje w toku</h2><a :href="ik.href('screens/realizations-index.html')">Lista realizacji</a></div>
+      <div class="ikpm-empty" x-show="!realizations.length"><i class="bi bi-cone-striped" aria-hidden="true"></i><p>Brak realizacji planowanych i w trakcie.</p></div>
+      <ul class="ikpm-list" x-show="realizations.length">
         <template x-for="r in realizations" :key="r.id">
-          <tr>
-            <td data-label="Realizacja" class="reflow-full"><strong x-text="'#' + r.id + ' ' + r.client.name"></strong><small class="d-block text-body-secondary" x-text="r.site_address"></small></td>
-            <td data-label="Status" x-html="ik.realBadge(r.status)"></td>
-            <td data-label="Postęp prac"><div class="d-flex align-items-center gap-2 w-100"><div class="progress flex-grow-1" role="progressbar" :aria-label="'Postęp prac #' + r.id" :aria-valuenow="ik.progress(r)" aria-valuemin="0" aria-valuemax="100"><div class="progress-bar bg-success" :style="'width:' + ik.progress(r) + '%'"></div></div><span class="small num text-nowrap" x-text="ik.progress(r) + '% (' + ik.doneCount(r) + ' / ' + ik.realJobs(r).length + ')'"></span></div></td>
-            <td data-label="Termin"><span x-text="ik.date(ik.endOn(r))"></span><small class="d-block text-danger" x-show="ik.delayed(r)" x-text="'obiecany ' + ik.date(r.promised_end_on)"></small></td>
-            <td class="text-end"><a class="btn btn-primary btn-main" :href="ik.href('screens/realization-show.html?id=' + r.id)" :aria-label="'Otwórz realizację #' + r.id">Otwórz</a></td>
-          </tr>
+          <li class="ikpm-row">
+            <span class="ikpm-row-main">
+              <span class="ikpm-row-title" x-text="'#' + r.id + ' ' + r.client.name"></span>
+              <span class="ikpm-row-meta" x-text="r.site_address"></span>
+              <span class="ikpm-row-meta"><span x-text="'Termin: ' + ik.date(ik.endOn(r))"></span><span class="fw-semibold text-danger-emphasis" x-show="ik.delayed(r)" x-text="' · obiecany ' + ik.date(r.promised_end_on)"></span></span>
+              <span class="ikpm-progress mt-2" style="max-width: 22rem">
+                <span class="ikpm-progress-head"><span :id="'pp-' + r.id">Postęp prac</span><span x-text="ik.progress(r) + '% (' + ik.doneCount(r) + ' / ' + ik.realJobs(r).length + ')'"></span></span>
+                <span class="progress d-flex" role="progressbar" :aria-labelledby="'pp-' + r.id" :aria-valuenow="ik.progress(r)" aria-valuemin="0" aria-valuemax="100"><span class="progress-bar" :style="'width:' + ik.progress(r) + '%'"></span></span>
+              </span>
+            </span>
+            <span class="ikpm-row-end"><span x-html="ik.realBadge(r.status)"></span>
+              <a class="btn btn-primary btn-lg" :href="ik.href('screens/realization-show.html?id=' + r.id)" :aria-label="'Otwórz realizację #' + r.id">Otwórz</a></span>
+          </li>
         </template>
-      </tbody>
-    </table>
-  </section>
+      </ul>
+    </section>
 
-  <section class="card mb-4" aria-labelledby="quotes-title">
-    <div class="card-header bg-body d-flex flex-wrap align-items-center gap-2">
-      <h2 id="quotes-title" class="h5 mb-0 me-auto"><i class="bi bi-file-earmark-text" aria-hidden="true"></i> Wyceny czekające na następny krok</h2>
-      <a class="btn btn-sm btn-outline-secondary text-nowrap" :href="ik.href('screens/quotes-index.html')">Lista wycen</a>
-    </div>
-    <template x-for="g in groups" :key="g.key">
-      <div x-show="g.quotes.length">
-        <h3 class="h6 px-3 pt-3 mb-2 d-flex align-items-center gap-2"><span x-html="ik.quoteBadge(g.status)"></span> <span x-text="g.title"></span> <span class="badge rounded-pill text-bg-light border" x-text="g.quotes.length"></span></h3>
-        <table class="table doc-table reflow mb-0">
-          <caption class="visually-hidden" x-text="g.title"></caption>
-          <thead><tr><th scope="col">Wycena</th><th scope="col">Adres inwestycji</th><th scope="col" class="text-end">Wartość</th><th scope="col"><span class="visually-hidden">Akcja</span></th></tr></thead>
-          <tbody>
-            <template x-for="q in g.quotes" :key="q.id">
-              <tr>
-                <td data-label="Wycena" class="reflow-full"><strong x-text="'#' + q.id + ' ' + (q.client ? q.client.name : '(brak klienta)')"></strong>
-                  <small class="d-block text-warning-emphasis" x-show="ik.clientComments(q)"><i class="bi bi-chat-left-text" aria-hidden="true"></i> Uwagi klienta</small></td>
-                <td data-label="Adres inwestycji" x-text="q.site_address || '—'"></td>
-                <td data-label="Wartość" class="num" x-text="ik.pln(ik.quoteTotals(q).net)"></td>
-                <td class="text-end"><a class="btn btn-outline-primary btn-main" :href="ik.href('screens/' + (q.status === 'draft' ? 'builder' : 'quote-show') + '.html?id=' + q.id)" :aria-label="(q.status === 'draft' ? 'Edytuj' : 'Podgląd') + ' — wycena #' + q.id" x-text="q.status === 'draft' ? 'Edytuj' : 'Podgląd'"></a></td>
-              </tr>
-            </template>
-          </tbody>
-        </table>
+    <section aria-labelledby="quotes-title">
+      <div class="k-start-head"><h2 id="quotes-title" class="ikpm-section-title">Wyceny czekające na następny krok</h2><a :href="ik.href('screens/quotes-index.html')">Lista wycen</a></div>
+      <div class="ikpm-empty" x-show="!waiting"><i class="bi bi-file-earmark-text" aria-hidden="true"></i><p>Żadna wycena nie czeka na następny krok.</p></div>
+      <div class="k-start-groups">
+        <template x-for="g in groups" :key="g.key">
+          <section x-show="g.quotes.length" :aria-labelledby="'g-' + g.key">
+            <h3 class="k-group-title" :id="'g-' + g.key"><span x-html="ik.quoteBadge(g.status, true)"></span><span x-text="g.title"></span><span class="ikpm-chip" x-text="g.quotes.length"></span></h3>
+            <ul class="ikpm-list">
+              <template x-for="q in g.quotes" :key="q.id">
+                <li class="ikpm-row">
+                  <span class="ikpm-row-main">
+                    <span class="ikpm-row-title" x-text="'#' + q.id + ' ' + (q.client ? q.client.name : '(brak klienta)')"></span>
+                    <span class="ikpm-row-meta" x-text="q.site_address || 'Adres inwestycji: —'"></span>
+                    <span class="ikpm-chip ikpm-tone-warning mt-1" x-show="ik.clientComments(q)"><i class="bi bi-chat-left-text" aria-hidden="true"></i>Uwagi klienta</span>
+                  </span>
+                  <span class="ikpm-row-end"><span class="ikpm-amount" x-text="ik.pln(ik.quoteTotals(q).net)"></span>
+                    <a class="btn btn-lg" :class="q.status === 'draft' ? 'btn-primary' : 'btn-outline-primary'" :href="ik.href('screens/' + (q.status === 'draft' ? 'builder' : 'quote-show') + '.html?id=' + q.id)" :aria-label="(q.status === 'draft' ? 'Edytuj' : 'Podgląd') + ' — wycena #' + q.id" x-text="q.status === 'draft' ? 'Edytuj' : 'Podgląd'"></a></span>
+                </li>
+              </template>
+            </ul>
+          </section>
+        </template>
       </div>
-    </template>
-  </section>
+    </section>
+  </div>
 </main>
 <script type="module">
 import { boot, db } from './assets/app.js';
 
 boot(() => ({
+  get waiting() { return this.groups.reduce((n, g) => n + g.quotes.length, 0); },
   get realizations() { return db.realizations.filter((r) => ik.realActive(r)).sort((a, b) => (a.status === 'in_progress' ? 0 : 1) - (b.status === 'in_progress' ? 0 : 1) || b.id - a.id); },
   get groups() {
     const by = (status, extra = () => true) => [...db.quotes].filter((q) => q.status === status && extra(q)).sort((a, b) => b.id - a.id);

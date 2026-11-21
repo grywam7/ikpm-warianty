@@ -2,61 +2,74 @@
 <html lang="pl">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Klient — IKPM</title>
 <link rel="stylesheet" href="../assets/bootstrap/bootstrap.min.css">
 <link rel="stylesheet" href="../assets/bootstrap-icons/bootstrap-icons.min.css">
+<link rel="stylesheet" href="../assets/ikpm-ui.css">
 <link rel="stylesheet" href="../assets/app.css">
 </head>
 <body data-nav="clients">
 <div id="nav"></div>
-<main x-data="page" x-cloak class="container-xxl px-3 mw-doc pb-5">
+<main id="main" x-data="page" x-cloak class="ikpm-content">
 <template x-if="c">
 <div>
   <div id="alerts"></div>
-  <section class="card my-3" aria-labelledby="c-title">
-    <div class="card-body">
-      <div class="d-flex flex-wrap align-items-center gap-2">
-        <h1 id="c-title" class="h3 mb-0 me-auto" x-text="c.name"></h1>
-        <a class="btn btn-outline-primary" :href="ik.href('screens/client-form.html?id=' + c.id)"><i class="bi bi-pencil" aria-hidden="true"></i> Edytuj</a>
-        <button type="button" class="btn btn-outline-danger" @click="remove()"><i class="bi bi-trash" aria-hidden="true"></i> Usuń</button>
+  <div class="ikpm-page-head">
+    <a class="ikpm-back" :href="ik.href('screens/clients.html')">Klienci</a>
+    <div class="ikpm-page-heading"><h1 class="ikpm-page-title" x-text="c.name"></h1>
       </div>
-      <dl class="row mt-3 mb-0">
-        <dt class="col-sm-3">Email</dt><dd class="col-sm-9"><template x-if="c.email"><a class="tap text-break" :href="'mailto:' + c.email" x-text="c.email"></a></template><template x-if="!c.email"><span>—</span></template></dd>
-        <dt class="col-sm-3">Telefon</dt><dd class="col-sm-9"><template x-if="c.phone"><a class="tap" :href="'tel:' + c.phone.replace(/\s/g, '')" x-text="c.phone"></a></template><template x-if="!c.phone"><span>—</span></template></dd>
-        <dt class="col-sm-3">Notatki</dt><dd class="col-sm-9 text-pre" x-text="c.notes || '—'"></dd>
-      </dl>
+    <div class="ikpm-page-actions">
+      <a class="btn btn-outline-primary" :href="ik.href('screens/client-form.html?id=' + c.id)"><i class="bi bi-pencil" aria-hidden="true"></i>Edytuj</a>
+      <button type="button" class="btn btn-outline-danger" @click="remove()"><i class="bi bi-trash" aria-hidden="true"></i>Usuń</button>
     </div>
-  </section>
-  <section class="card mb-3" aria-labelledby="q-title">
-    <div class="card-header bg-body"><h2 id="q-title" class="h5 mb-0">Wyceny</h2></div>
-    <p class="card-body mb-0 text-body-secondary" x-show="!quotes.length">Brak wycen.</p>
-    <table class="table doc-table reflow mb-0" x-show="quotes.length">
-      <caption class="visually-hidden">Wyceny klienta</caption>
-      <thead class="table-light"><tr><th scope="col">#</th><th scope="col">Status</th><th scope="col" class="text-end">Wartość</th><th scope="col">Wysłana</th><th scope="col"><span class="visually-hidden">Akcje</span></th></tr></thead>
-      <tbody><template x-for="q in quotes" :key="q.id"><tr>
-        <td data-label="#"><a class="tap fw-semibold" :href="ik.href('screens/quote-show.html?id=' + q.id)" x-text="'#' + q.id"></a></td>
-        <td data-label="Status" x-html="ik.quoteBadge(q.status)"></td>
-        <td data-label="Wartość" class="num" x-text="ik.pln(ik.quoteTotals(q).net)"></td>
-        <td data-label="Wysłana" x-text="ik.date(q.sent_at)"></td>
-        <td class="text-end"><template x-if="q.status === 'draft'"><a class="btn btn-outline-primary" :href="ik.href('screens/builder.html?id=' + q.id)" :aria-label="'Edytuj wycenę #' + q.id">Edytuj</a></template></td>
-      </tr></template></tbody>
-    </table>
-  </section>
-  <section class="card mb-3" aria-labelledby="r-title">
-    <div class="card-header bg-body"><h2 id="r-title" class="h5 mb-0">Realizacje</h2></div>
-    <p class="card-body mb-0 text-body-secondary" x-show="!realizations.length">Brak realizacji.</p>
-    <table class="table doc-table reflow mb-0" x-show="realizations.length">
-      <caption class="visually-hidden">Realizacje klienta</caption>
-      <thead class="table-light"><tr><th scope="col">#</th><th scope="col">Status</th><th scope="col" class="text-end">Wartość (z wyceny)</th><th scope="col" style="min-width: 10rem">Postęp</th></tr></thead>
-      <tbody><template x-for="r in realizations" :key="r.id"><tr>
-        <td data-label="#"><a class="tap fw-semibold" :href="ik.href('screens/realization-show.html?id=' + r.id)" x-text="'#' + r.id"></a></td>
-        <td data-label="Status" x-html="ik.realBadge(r.status)"></td>
-        <td data-label="Wartość (z wyceny)" class="num" x-text="ik.pln(r.total_price)"></td>
-        <td data-label="Postęp"><div class="d-flex align-items-center gap-2 w-100"><div class="progress flex-grow-1" role="progressbar" :aria-label="'Postęp prac #' + r.id" :aria-valuenow="ik.progress(r)" aria-valuemin="0" aria-valuemax="100"><div class="progress-bar bg-success" :style="'width:' + ik.progress(r) + '%'"></div></div><span class="small num" x-text="ik.progress(r) + '%'"></span></div></td>
-      </tr></template></tbody>
-    </table>
-  </section>
+  </div>
+  <div class="ikpm-grid" style="--ikpm-grid-min: 22rem">
+    <section class="card" aria-labelledby="d-title">
+      <div class="card-body">
+        <h2 id="d-title" class="k-card-title mb-3">Dane klienta</h2>
+        <dl class="ikpm-dl">
+          <dt>Email</dt><dd><template x-if="c.email"><a :href="'mailto:' + c.email" x-text="c.email"></a></template><template x-if="!c.email"><span>—</span></template></dd>
+          <dt>Telefon</dt><dd><template x-if="c.phone"><a :href="'tel:' + c.phone.replace(/\s/g, '')" x-text="c.phone"></a></template><template x-if="!c.phone"><span>—</span></template></dd>
+          <dt>Notatki</dt><dd class="text-pre" x-text="c.notes || '—'"></dd>
+        </dl>
+      </div>
+    </section>
+    <section aria-labelledby="q-title">
+      <h2 id="q-title" class="ikpm-section-title">Wyceny</h2>
+      <p class="ikpm-muted" x-show="!quotes.length">Brak wycen.</p>
+      <div class="ikpm-table-box" x-show="quotes.length">
+        <table class="table ikpm-stack">
+          <caption class="visually-hidden">Wyceny klienta</caption>
+          <thead><tr><th scope="col">#</th><th scope="col">Status</th><th scope="col" class="ikpm-num">Wartość</th><th scope="col">Wysłana</th><th scope="col"><span class="visually-hidden">Akcje</span></th></tr></thead>
+          <tbody><template x-for="q in quotes" :key="q.id"><tr>
+            <td class="ikpm-cell-lead"><a :href="ik.href('screens/quote-show.html?id=' + q.id)" x-text="'Wycena #' + q.id"></a></td>
+            <td data-label="Status" x-html="ik.quoteBadge(q.status)"></td>
+            <td data-label="Wartość" class="ikpm-num" x-text="ik.pln(ik.quoteTotals(q).net)"></td>
+            <td data-label="Wysłana" x-text="ik.date(q.sent_at)"></td>
+            <td class="text-end"><template x-if="q.status === 'draft'"><a class="btn btn-outline-primary" :href="ik.href('screens/builder.html?id=' + q.id)" :aria-label="'Edytuj wycenę #' + q.id">Edytuj</a></template></td>
+          </tr></template></tbody>
+        </table>
+      </div>
+    </section>
+    <section aria-labelledby="r-title">
+      <h2 id="r-title" class="ikpm-section-title">Realizacje</h2>
+      <p class="ikpm-muted" x-show="!realizations.length">Brak realizacji.</p>
+      <div class="ikpm-table-box" x-show="realizations.length">
+        <table class="table ikpm-stack">
+          <caption class="visually-hidden">Realizacje klienta</caption>
+          <thead><tr><th scope="col">#</th><th scope="col">Status</th><th scope="col" class="ikpm-num">Wartość (z wyceny)</th><th scope="col" style="min-width: 10rem">Postęp</th></tr></thead>
+          <tbody><template x-for="r in realizations" :key="r.id"><tr>
+            <td class="ikpm-cell-lead"><a :href="ik.href('screens/realization-show.html?id=' + r.id)" x-text="'Realizacja #' + r.id"></a></td>
+            <td data-label="Status" x-html="ik.realBadge(r.status)"></td>
+            <td data-label="Wartość (z wyceny)" class="ikpm-num" x-text="ik.pln(r.total_price)"></td>
+            <td data-label="Postęp"><div class="d-flex align-items-center gap-2 w-100"><div class="progress flex-grow-1" role="progressbar" :aria-label="'Postęp prac #' + r.id" :aria-valuenow="ik.progress(r)" aria-valuemin="0" aria-valuemax="100"><div class="progress-bar" :style="'width:' + ik.progress(r) + '%'"></div></div><span class="ikpm-num" x-text="ik.progress(r) + '%'"></span></div></td>
+          </tr></template></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
 </div>
 </template>
 </main>

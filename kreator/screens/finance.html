@@ -2,19 +2,21 @@
 <html lang="pl">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:,">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Finanse — IKPM</title>
   <link rel="stylesheet" href="../assets/bootstrap/bootstrap.min.css">
   <link rel="stylesheet" href="../assets/bootstrap-icons/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="../assets/ikpm-ui.css">
   <link rel="stylesheet" href="../assets/app.css">
 </head>
 <body data-section="finance">
-  <main id="main"><div id="app" class="container-xxl" x-data="page" x-cloak>
-    <h1 class="page-title">Finanse</h1>
-    <div class="alert alert-secondary">W badaniu układu ekranów Finanse to tylko wpis w menu. Raporty zostają w obecnym wyglądzie aplikacji — po badaniu dostaną układ zwycięskiego wariantu.</div>
+  <main id="main"><div id="app" class="ikpm-content" x-data="page" x-cloak>
+    <div class="ikpm-page-head"><div class="ikpm-page-heading"><h1 class="ikpm-page-title">Finanse</h1></div></div>
+    <div class="alert alert-secondary d-flex gap-2 ikpm-measure"><i class="bi bi-info-circle" aria-hidden="true"></i><span>W badaniu układu ekranów Finanse to tylko wpis w menu. Raporty zostają w obecnym wyglądzie aplikacji — po badaniu dostaną układ zwycięskiego wariantu.</span></div>
     <p>Raporty dla księgowości (tylko odczyt, okres „Od” – „Do”, „Pokaż”, „CSV”, kwoty netto):</p>
-    <ul class="list-group" style="max-width: 36rem">
-      <template x-for="r in reports" :key="r"><li class="list-group-item py-3" x-text="r"></li></template>
+    <ul class="ikpm-list" style="max-width: 36rem">
+      <template x-for="r in reports" :key="r"><li class="ikpm-row"><i class="bi bi-graph-up text-secondary" aria-hidden="true"></i><span x-text="r"></span></li></template>
     </ul>
   </div></main>
   <script type="module">

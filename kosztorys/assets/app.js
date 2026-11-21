@@ -32,11 +32,9 @@ const suggestedEnd = (start, days) => {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 };
 
-const QUOTE_STATUS = { draft: ['secondary', 'pencil-square'], sent: ['info', 'send'], changes_requested: ['warning', 'chat-left-text'], accepted: ['success', 'check-circle'], rejected: ['danger', 'x-circle'] };
-const REAL_STATUS = { planned: ['secondary', 'calendar-event'], in_progress: ['info', 'play-circle'], done: ['success', 'check-circle'], cancelled: ['danger', 'x-octagon'] };
-const JOB_STATUS = { to_do: ['secondary', 'circle'], in_progress: ['info', 'hourglass-split'], done: ['success', 'check-circle-fill'], remake: ['warning', 'exclamation-triangle-fill'] };
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const badgeHTML = (map, labels, key) => (map[key] ? `<span class="badge text-bg-${map[key][0]}"><i class="bi bi-${map[key][1]}" aria-hidden="true"></i> ${esc(labels[key])}</span>` : '');
+// Status: kolor + ikona (z klasy wspólnej warstwy) + tekst. kind: quote | real | job | user.
+const chip = (kind, key, label, lg) => (label ? `<span class="ikpm-status${lg ? ' ikpm-status-lg' : ''} ikpm-st-${kind}-${key}">${esc(label)}</span>` : '');
 
 // ---------- pokój ----------
 const roomSizeParts = (room) => {
@@ -86,6 +84,15 @@ const syncMaterial = (m, oldName, oldPackage) => db.catalogue.forEach((s) => s.j
   Object.assign(x, { name: m.name, package: m.package, price: m.price, unit_price: m.unit_price });
   j.material_unit_cost = materialUnitCost(j);
 })));
+// Praca albo etap przemianowany / przeniesiony w „Dane”: wiersze wycen i realizacji oraz prace szablonów idą za cennikiem
+// (w aplikacji nazwę i etap czyta się z pracy w cenniku).
+const syncCatalogueJob = (job, stageName) => {
+  [...db.quotes, ...db.realizations].forEach((x) => x.rooms.forEach((r) => r.jobs.forEach((line) => {
+    if (line.job_id !== job.id) return;
+    line.name = job.name; if (stageName) line.stage = stageName;
+  })));
+  db.templates.forEach((t) => t.jobs.forEach((tj) => { if (tj.job_id === job.id) tj.name = job.name; }));
+};
 const packageOf = (quantity, unit) => `${MEASURE.format(Number(quantity))} ${unit}`;
 
 // Nowa praca w pokoju: ilość z pomiarów (ręczna — 1), cena ekipy i koszt materiałów żywe z cennika.
@@ -109,7 +116,7 @@ const applyTemplate = (room, tpl) => {
   room._defaultHeight = false;
   let added = 0;
   tpl.jobs.forEach((tj) => {
-    const found = catJobs().byName.get(tj.name);
+    const found = (tj.job_id && catJobs().byId.get(tj.job_id)) || catJobs().byName.get(tj.name);
     if (!found) return;
     const existing = room.jobs.find((j) => j.job_id === found.job.id);
     const tq = num(tj.quantity);
@@ -206,6 +213,7 @@ const maxId = (list) => list.reduce((m, x) => Math.max(m, x.id || 0), 0);
 const parsePackage = (pkg) => { const i = pkg.indexOf(' '); return { quantity: K.parseNumber(pkg.slice(0, i)), unit: pkg.slice(i + 1) }; };
 
 function initialState() {
+  const kitJobId = (name) => kit.catalogue.flatMap((st) => st.jobs).find((j) => j.name === name)?.id ?? null;
   const clients = new Map();
   [...kit.quotes, ...kit.realizations].forEach((x) => { if (x.client && !clients.has(x.client.name)) clients.set(x.client.name, { ...x.client, notes: '' }); });
   const crews = new Map();
@@ -233,7 +241,7 @@ function initialState() {
     realizations,
     catalogue: kit.catalogue.map((s, si) => ({ ...clone(s), order: si + 1, jobs: s.jobs.map((j, ji) => ({ ...clone(j), order: ji + 1, description: '' })) })),
     materials: kit.materials.map((m, i) => ({ id: i + 1, ...m, ...parsePackage(m.package), link: '' })),
-    templates: kit.room_templates.map((t, i) => ({ id: i + 1, ...clone(t), description: untag(t.description), order: i + 1, jobs: t.jobs.map((j, ji) => ({ ...j, order: ji + 1 })) })),
+    templates: kit.room_templates.map((t, i) => ({ id: i + 1, ...clone(t), description: untag(t.description), order: i + 1, jobs: t.jobs.map((j, ji) => ({ ...j, job_id: kitJobId(j.name), order: ji + 1 })) })),
     clients: [...clients.values()].sort((a, b) => a.name.localeCompare(b.name, 'pl')).map((c, i) => ({ id: i + 1, ...c })),
     contractors: [...crews.values()].sort((a, b) => a.name.localeCompare(b.name, 'pl')).map((c, i) => ({ id: i + 1, ...c })),
     users: kit.users.map((u, i) => ({ id: i + 1, phone: '', ...clone(u) })),
@@ -282,61 +290,74 @@ export const flash = (text, kind = 'success') => { try { sessionStorage.setItem(
 // replace — przekierowanie strażnika (bez nowego wpisu w historii: Wstecz nie wraca w pętli na ten sam ekran).
 export const go = (path, text, kind, replace = false) => { if (text) flash(text, kind); flush(); location[replace ? 'replace' : 'assign'](href(path)); };
 
-// Na dole ekranu, nad przyklejonym paskiem sum — nie zasłania przyklejonego nagłówka pokoju.
-const placeToast = (box) => { box.style.bottom = `${(document.querySelector('.doc-bar')?.offsetHeight ?? 0) + 12}px`; };
-
+// Potwierdzenie: jedno naraz (nowe zastępuje poprzednie), na telefonie nad dolnymi zakładkami (i paskiem sum), od 768 px
+// w prawym dolnym rogu nad paskiem sum. „Cofnij” tylko tam, gdzie cofnięcie działa (ponowny wybór statusu pracy). 4 s,
+// z „Cofnij” 8 s; najechanie i fokus wstrzymują. Przy otwartym oknie (okno dolne pracy) komunikat jest w oknie — nad nim
+// i klikalny; po zamknięciu okna wraca na stronę. Zwraca element komunikatu.
+const modalHost = () => [...document.querySelectorAll('dialog[open]')].filter((d) => d.matches(':modal')).pop() || document.body;
+document.addEventListener('close', (e) => {
+  const region = e.target.querySelector?.(':scope > .ikpm-toast-region');
+  if (region) document.body.append(region);
+}, true);
 export function toast(text, undo) {
-  let box = document.getElementById('toast-box');
-  if (!box) {
-    box = document.createElement('div'); box.id = 'toast-box'; box.className = 'toast-box'; box.setAttribute('role', 'status'); box.setAttribute('aria-live', 'polite'); document.body.append(box);
-    // Pasek sum zawija się do dwóch wierszy (np. po „Zapisano”) — komunikat idzie w górę razem z nim.
-    const bar = document.querySelector('.doc-bar'); if (bar) new ResizeObserver(() => placeToast(box)).observe(bar);
+  let region = document.querySelector('.ikpm-toast-region');
+  if (!region) {
+    region = document.createElement('div'); region.className = 'ikpm-toast-region'; region.setAttribute('role', 'status'); region.setAttribute('aria-live', 'polite');
   }
-  box.innerHTML = '';
+  const host = modalHost();
+  if (region.parentElement !== host) host.append(region);
   const el = document.createElement('div');
-  el.className = 'alert alert-success shadow d-flex align-items-center gap-2 mb-0 py-2';
-  el.innerHTML = '<i class="bi bi-check-circle-fill" aria-hidden="true"></i><span class="flex-grow-1"></span>';
+  el.className = 'ikpm-toast';
+  el.innerHTML = '<span class="ikpm-toast-msg"></span>';
   el.querySelector('span').textContent = text;
+  const close = () => { clearTimeout(timer); el.remove(); };
   if (undo) {
-    const b = document.createElement('button'); b.type = 'button'; b.className = 'btn btn-sm btn-outline-success'; b.textContent = 'Cofnij';
-    b.addEventListener('click', () => { undo(); el.remove(); });
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'btn ikpm-toast-action'; b.textContent = 'Cofnij';
+    b.addEventListener('click', () => { close(); undo(); });
     el.append(b);
   }
-  box.append(el);
-  placeToast(box);
-  let left = 4000; let started = Date.now(); let timer = setTimeout(() => el.remove(), left);
+  const x = document.createElement('button'); x.type = 'button'; x.className = 'btn-close'; x.setAttribute('aria-label', 'Zamknij');
+  x.addEventListener('click', close);
+  el.append(x);
+  region.replaceChildren(el);
+  let left = undo ? 8000 : 4000; let started = Date.now(); let timer = setTimeout(close, left);
   const pause = () => { clearTimeout(timer); left -= Date.now() - started; };
-  const resume = () => { started = Date.now(); timer = setTimeout(() => el.remove(), Math.max(left, 1000)); };
+  const resume = () => { if (el.contains(document.activeElement) || el.matches(':hover')) return; started = Date.now(); timer = setTimeout(close, Math.max(left, 1500)); };
   el.addEventListener('mouseenter', pause); el.addEventListener('mouseleave', resume);
-  el.addEventListener('focusin', pause); el.addEventListener('focusout', resume);
+  el.addEventListener('focusin', pause); el.addEventListener('focusout', () => setTimeout(resume, 0));
+  return el;
 }
 
+// Błąd: w treści strony, na górze, do „Zamknij” (nigdy tylko w znikającym komunikacie).
 export function alertError(text) {
   let box = document.getElementById('alerts');
   if (!box) { box = document.createElement('div'); box.id = 'alerts'; document.querySelector('main')?.prepend(box); }
-  box.innerHTML = '';
   const el = document.createElement('div');
-  el.className = 'alert alert-danger d-flex align-items-start gap-2 my-3';
+  el.className = 'alert alert-danger alert-dismissible d-flex gap-2';
   el.setAttribute('role', 'alert');
-  el.innerHTML = '<i class="bi bi-exclamation-octagon-fill mt-1" aria-hidden="true"></i><div class="flex-grow-1"></div><button type="button" class="btn-close" aria-label="Zamknij"></button>';
+  el.innerHTML = '<i class="bi bi-exclamation-octagon-fill" aria-hidden="true"></i><div class="flex-grow-1"></div><button type="button" class="btn-close" aria-label="Zamknij"></button>';
   el.querySelector('div').textContent = text;
   el.querySelector('button').addEventListener('click', () => el.remove());
-  box.append(el);
+  box.replaceChildren(el);
   el.scrollIntoView({ block: 'center' });
 }
 
-// Okno potwierdzenia ze skutkami (zamiast okna przeglądarki): Promise<true|false>.
+// Okno potwierdzenia ze skutkami (zamiast okna przeglądarki): Promise<true|false>. Tytuł to pytanie z aplikacji (do „?”),
+// dalsza część tekstu — akapit pod nim; przycisk powtarza nazwę akcji.
 export function ask({ title, text = '', points = [], ok, okClass = 'primary', cancel = 'Wróć' }) {
   return new Promise((resolve) => {
     let d = document.getElementById('confirm-dialog');
-    if (!d) { d = document.createElement('dialog'); d.id = 'confirm-dialog'; d.className = 'confirm-dialog shadow'; d.setAttribute('aria-labelledby', 'confirm-title'); document.body.append(d); }
-    d.innerHTML = `<form method="dialog" class="p-3 p-md-4"><h2 id="confirm-title" class="h5 mb-3"></h2><p class="confirm-text mb-2"></p>
-      <div class="confirm-points"><p class="fw-semibold small mb-1">Po potwierdzeniu:</p><ul class="small mb-0"></ul></div>
-      <div class="d-flex flex-wrap gap-2 justify-content-end mt-4"><button value="cancel" class="btn btn-outline-secondary btn-main"></button>
-      <button value="ok" class="btn btn-${okClass} btn-main"></button></div></form>`;
-    d.querySelector('h2').textContent = title;
-    d.querySelector('.confirm-text').textContent = text;
-    if (!text) d.querySelector('.confirm-text').remove();
+    if (!d) { d = document.createElement('dialog'); d.id = 'confirm-dialog'; d.className = 'ikpm-dialog'; d.setAttribute('aria-labelledby', 'confirm-title'); document.body.append(d); }
+    const m = text.match(/^([^?]*\?)\s*(.*)$/s);
+    const heading = m ? m[1] : (text || title);
+    const rest = m ? m[2] : (text ? '' : '');
+    d.innerHTML = `<form method="dialog"><div class="ikpm-dialog-body"><h2 id="confirm-title" class="ikpm-dialog-title"></h2><p class="confirm-text mb-0"></p>
+      <div class="confirm-points"><p class="fw-semibold mt-3 mb-0">Po potwierdzeniu:</p><ul class="ikpm-dialog-consequences"></ul></div></div>
+      <div class="ikpm-dialog-actions"><button value="cancel" class="btn btn-outline-secondary btn-lg"></button>
+      <button value="ok" class="btn btn-${okClass} btn-lg"></button></div></form>`;
+    d.querySelector('h2').textContent = heading;
+    d.querySelector('.confirm-text').textContent = rest;
+    if (!rest) d.querySelector('.confirm-text').remove();
     if (points.length) points.forEach((p) => { const li = document.createElement('li'); li.textContent = p; d.querySelector('ul').append(li); });
     else d.querySelector('.confirm-points').remove();
     d.querySelector('[value=cancel]').textContent = cancel;
@@ -349,36 +370,62 @@ export function ask({ title, text = '', points = [], ok, okClass = 'primary', ca
 }
 
 // ---------- menu ----------
+// Od 1100 px wszystkie pozycje i konto; 768–1099 px Start, Wyceny, Klienci, Realizacje, Dane + „Więcej”; telefon — dolne
+// zakładki Start, Wyceny, Realizacje, Dane, Więcej (okno dolne z resztą). Ikony sekcji jak we wspólnej warstwie.
 const NAV = [
-  ['start', 'index.html', 'house', 'Start', ''],
-  ['quotes', 'screens/quotes-index.html', 'file-earmark-text', 'Wyceny', ''],
-  ['clients', 'screens/clients.html', 'person-vcard', 'Klienci', 'wide'],
-  ['realizations', 'screens/realizations-index.html', 'hammer', 'Realizacje', ''],
-  ['data', 'screens/stages.html', 'table', 'Dane', ''],
+  ['start', 'index.html', 'house', 'Start', 'tab'],
+  ['quotes', 'screens/quotes-index.html', 'file-earmark-text', 'Wyceny', 'tab'],
+  ['clients', 'screens/clients.html', 'people', 'Klienci', 'mid'],
+  ['realizations', 'screens/realizations-index.html', 'cone-striped', 'Realizacje', 'tab'],
+  ['data', 'screens/stages.html', 'database', 'Dane', 'tab'],
   ['finance', 'screens/finance.html', 'graph-up', 'Finanse', 'wide'],
-  ['users', 'screens/users.html', 'people', 'Użytkownicy', 'wide'],
+  ['users', 'screens/users.html', 'person-gear', 'Użytkownicy', 'wide'],
 ];
 const cur = (on) => (on ? ' aria-current="page"' : '');
+const navLink = ([key, path, icon, label], active, cls = '') => `<a href="${href(path)}" class="ikpm-nav-link${cls}"${cur(key === active)}><i class="bi bi-${icon}" aria-hidden="true"></i><span>${label}</span></a>`;
+const accountLinks = (user, active) => `<p class="k-pop-label mb-0">${esc(user.email)}</p>
+  <a href="${href('screens/profile.html')}" class="dropdown-item"${cur(active === 'profile')}><i class="bi bi-person-circle" aria-hidden="true"></i>Mój profil</a>
+  <a href="${href('screens/login.html')}" class="dropdown-item"><i class="bi bi-box-arrow-right" aria-hidden="true"></i>Wyloguj się</a>`;
 function navHTML(active, user) {
-  const link = ([key, path, icon, label, kind]) => `<a href="${href(path)}" class="${kind === 'wide' ? 'nav-wide' : ''}"${cur(key === active)}><i class="bi bi-${icon}" aria-hidden="true"></i><span>${label}</span></a>`;
-  const moreKeys = ['clients', 'finance', 'users', 'profile'];
-  const more = NAV.filter((n) => n[4] === 'wide').map(([key, path, icon, label]) => `<a href="${href(path)}" class="dropdown-item d-flex align-items-center gap-2"${cur(key === active)}><i class="bi bi-${icon}" aria-hidden="true"></i>${label}</a>`).join('');
-  const account = `<div class="dropdown-divider"></div><p class="px-3 py-1 small text-body-secondary mb-0 text-truncate">${esc(user.email)}</p>
-    <a href="${href('screens/profile.html')}" class="dropdown-item d-flex align-items-center gap-2"${cur(active === 'profile')}><i class="bi bi-person-circle" aria-hidden="true"></i>Mój profil</a>
-    <a href="${href('screens/login.html')}" class="dropdown-item d-flex align-items-center gap-2"><i class="bi bi-box-arrow-right" aria-hidden="true"></i>Wyloguj się</a>`;
-  return `<nav class="app-nav bg-dark" aria-label="Menu główne" x-data="{ more: false, acc: false }" @keydown.escape="more = false; acc = false">
-    <div class="nav-row container-fluid px-0 px-lg-2">
-      <a href="${href('index.html')}" class="brand nav-wide"><span>IKPM<small>System kosztorysów</small></span></a>
-      ${NAV.map(link).join('')}
-      <button type="button" class="nav-btn nav-narrow${moreKeys.includes(active) ? ' active' : ''}" :aria-expanded="more" aria-controls="nav-more" @click="more = !more" @click.outside="more = false"><i class="bi bi-three-dots" aria-hidden="true"></i><span>Więcej</span></button>
-      <button type="button" class="nav-btn nav-wide ms-auto${active === 'profile' ? ' active' : ''}" :aria-expanded="acc" aria-controls="nav-account" @click="acc = !acc" @click.outside="acc = false"><i class="bi bi-person-circle" aria-hidden="true"></i><span class="text-truncate" style="max-width: 14rem">${esc(user.email)}</span><i class="bi bi-chevron-down small" aria-hidden="true"></i></button>
-    </div>
-    <div id="nav-more" class="more-panel bg-body border rounded shadow nav-narrow" x-show="more" x-cloak>${more}${account}</div>
-    <div id="nav-account" class="more-panel bg-body border rounded shadow nav-wide" x-show="acc" x-cloak>${account}</div>
-  </nav>`;
+  const more = NAV.filter((n) => n[4] === 'wide');
+  const inMore = ['finance', 'users', 'profile'].includes(active);
+  const top = `<header class="app-nav ikpm-topnav" x-data="{ more: false, acc: false }" @keydown.escape="more = false; acc = false">
+    <a href="${href('index.html')}" class="ikpm-brand"><strong>IKPM</strong><span>System kosztorysów</span></a>
+    <nav aria-label="Menu główne" class="min-w-0"><ul class="app-nav-list">
+      ${NAV.map((n) => `<li class="${n[4] === 'wide' ? 'nav-wide' : ''}">${navLink(n, active)}</li>`).join('')}
+      <li class="nav-narrow" @click.outside="more = false"><button type="button" class="ikpm-nav-link${inMore ? ' active' : ''}" :aria-expanded="more" aria-controls="nav-more" @click="more = !more"><i class="bi bi-three-dots" aria-hidden="true"></i><span>Więcej</span></button>
+        <div id="nav-more" class="dropdown-menu k-pop" x-show="more" x-cloak>${more.map(([key, path, icon, label]) => `<a href="${href(path)}" class="dropdown-item"${cur(key === active)}><i class="bi bi-${icon}" aria-hidden="true"></i>${label}</a>`).join('')}<div class="dropdown-divider"></div>${accountLinks(user, active)}</div></li>
+    </ul></nav>
+    <div class="k-account nav-wide position-relative d-flex" @click.outside="acc = false"><button type="button" class="ikpm-nav-link${active === 'profile' ? ' active' : ''}" :aria-expanded="acc" aria-controls="nav-account" @click="acc = !acc"><i class="bi bi-person-circle" aria-hidden="true"></i><span>${esc(user.email)}</span><i class="bi bi-chevron-down small" aria-hidden="true"></i></button>
+      <div id="nav-account" class="dropdown-menu k-pop" x-show="acc" x-cloak>${accountLinks(user, active)}</div></div>
+  </header>`;
+  const moreActive = ['clients', 'finance', 'users', 'profile'].includes(active);
+  const tabs = `<nav aria-label="Menu główne — zakładki"><ul class="ikpm-tabbar">
+      ${NAV.filter((n) => n[4] === 'tab').map((n) => `<li>${navLink(n, active)}</li>`).join('')}
+      <li><button type="button" class="ikpm-nav-link${moreActive ? ' active' : ''}" aria-haspopup="dialog" onclick="document.getElementById('nav-more-sheet').showModal()"><i class="bi bi-three-dots" aria-hidden="true"></i><span>Więcej</span></button></li>
+    </ul></nav>
+    <dialog id="nav-more-sheet" class="ikpm-dialog ikpm-sheet" aria-labelledby="nav-more-title">
+      <div class="ikpm-sheet-head"><h2 id="nav-more-title">Więcej</h2><form method="dialog"><button class="btn-close" aria-label="Zamknij"></button></form></div>
+      <ul class="ikpm-sidenav k-more-list">
+        ${NAV.filter((n) => n[4] !== 'tab').map((n) => `<li>${navLink(n, active)}</li>`).join('')}
+        <li class="ikpm-sidenav-label">${esc(user.email)}</li>
+        <li><a href="${href('screens/profile.html')}" class="ikpm-nav-link"${cur(active === 'profile')}><i class="bi bi-person-circle" aria-hidden="true"></i><span>Mój profil</span></a></li>
+        <li><a href="${href('screens/login.html')}" class="ikpm-nav-link"><i class="bi bi-box-arrow-right" aria-hidden="true"></i><span>Wyloguj się</span></a></li>
+      </ul>
+    </dialog>`;
+  return `<a class="ikpm-skip" href="#main">Przejdź do treści</a>${top}${tabs}`;
 }
-const DATA_TABS = [['stages', 'stages.html', 'list-check', 'Prace'], ['materials', 'materials.html', 'box-seam', 'Materiały'], ['contractors', 'contractors.html', 'people', 'Wykonawcy'], ['room-templates', 'room-templates.html', 'grid-1x2', 'Szablony pokoi']];
-const dataTabsHTML = (active) => `<nav aria-label="Arkusze danych" class="sheet-tabs my-3">${DATA_TABS.map(([key, path, icon, label]) => `<a href="${href(`screens/${path}`)}" class="btn ${key === active ? 'btn-dark' : 'btn-outline-dark'}"${cur(key === active)}><i class="bi bi-${icon}" aria-hidden="true"></i>${label}</a>`).join('')}</nav>`;
+const DATA_TABS = [['stages', 'stages.html', 'list-task', 'Prace'], ['materials', 'materials.html', 'box-seam', 'Materiały'], ['contractors', 'contractors.html', 'person-badge', 'Wykonawcy'], ['room-templates', 'room-templates.html', 'grid-1x2', 'Szablony pokoi']];
+const dataTabsHTML = (active) => `<nav aria-label="Arkusze danych"><ul class="sheet-tabs">${DATA_TABS.map(([key, path, icon, label]) => `<li><a href="${href(`screens/${path}`)}" class="ikpm-nav-link"${cur(key === active)}><i class="bi bi-${icon}" aria-hidden="true"></i><span>${label}</span></a></li>`).join('')}</ul></nav>`;
+
+// Pasek sum bywa wyższy niż domyślne 76 px (dwa wiersze) — jego wysokość idzie do --ikpm-actionbar-h (komunikaty,
+// scroll-padding, spis pokoi).
+const watchActionbar = () => {
+  const bar = document.querySelector('.ikpm-actionbar');
+  if (!bar) return;
+  const set = () => document.documentElement.style.setProperty('--ikpm-actionbar-h', `${bar.offsetHeight}px`);
+  new ResizeObserver(set).observe(bar); set();
+};
 
 // ---------- start ekranu ----------
 export async function boot(page) {
@@ -397,9 +444,10 @@ export async function boot(page) {
   document.head.append(s);
   let pending = null;
   try { pending = JSON.parse(sessionStorage.getItem('ikpm-flash')); sessionStorage.removeItem('ikpm-flash'); } catch (e) { pending = null; }
-  if (pending) {
-    document.addEventListener('alpine:initialized', () => setTimeout(() => (pending.kind === 'error' ? alertError(pending.text) : toast(pending.text)), 50));
-  }
+  document.addEventListener('alpine:initialized', () => {
+    requestAnimationFrame(watchActionbar);
+    if (pending) setTimeout(() => (pending.kind === 'error' ? alertError(pending.text) : toast(pending.text)), 50);
+  });
 }
 
 // Pomocniki dostępne w wyrażeniach Alpine (window.ik).
@@ -417,15 +465,16 @@ window.ik = {
   jobsGenitive: (n) => plural(n, 'pracy', 'prac', 'prac'),
   jobsAccusative: (n) => plural(n, 'pracę', 'prace', 'prac'),
   unfinished: (n) => ({ one: `Została ${n} praca do zrobienia`, few: `Zostały ${n} prace do zrobienia` }[PLURAL.select(n)] ?? `Zostało ${n} prac do zrobienia`),
-  quoteBadge: (s) => badgeHTML(QUOTE_STATUS, kit.labels.quote_status, s),
-  realBadge: (s) => badgeHTML(REAL_STATUS, kit.labels.realization_status, s),
-  jobBadge: (s) => badgeHTML(JOB_STATUS, kit.labels.realization_job_status, s),
-  jobStatus: JOB_STATUS,
+  quoteBadge: (s, lg) => chip('quote', s, kit.labels.quote_status[s], lg),
+  clientQuoteBadge: (s) => chip('quote', s, kit.labels.quote_client_status[s], true),
+  realBadge: (s, lg) => chip('real', s, kit.labels.realization_status[s], lg),
+  jobBadge: (s, lg) => chip('job', s, kit.labels.realization_job_status[s], lg),
+  inactiveBadge: () => chip('user', 'inactive', 'Nieaktywne'),
   labels: () => kit.labels,
   roomSizeParts, irregular, jobsOf, quoteCost, roomTotal, marginPercent, nextRoomName, jobNames, catJobs, sortJobs, byStage,
   newJobLine, recalcRoom, applyTemplate, plansFor, hasKitPlans, applyPlan, sendError, sendQuote, clientComments, realizationOf,
   realJobs, realCost, realActive, doneCount, progress, currentEnd, endOn, delayed, setJobStatus, materialUnitCost, parsePackage,
-  syncMaterial, packageOf, priceRound: (x) => Math.max(1, Math.floor(x + 0.5 + 1e-9)),
+  syncMaterial, syncCatalogueJob, packageOf, priceRound: (x) => Math.max(1, Math.floor(x + 0.5 + 1e-9)),
   clientByName: (name) => db.clients.find((c) => c.name === name),
   quoteUser: (q) => db.users.find((u) => u.display_name === q.user) ?? db.users[0],
 };

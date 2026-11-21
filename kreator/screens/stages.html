@@ -2,98 +2,153 @@
 <html lang="pl">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:,">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Prace i Etapy — IKPM</title>
   <link rel="stylesheet" href="../assets/bootstrap/bootstrap.min.css">
   <link rel="stylesheet" href="../assets/bootstrap-icons/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="../assets/ikpm-ui.css">
   <link rel="stylesheet" href="../assets/app.css">
 </head>
 <body data-section="data">
-  <main id="main"><div id="app" class="container-xxl" x-data="page" x-cloak>
-    <nav aria-label="Dane"><ul class="subnav">
-      <template x-for="n in DATA_NAV" :key="n.key"><li><a class="btn" :class="n.key === 'stages' ? 'btn-primary' : 'btn-outline-primary'" :href="link(n.href)" :aria-current="n.key === 'stages' ? 'page' : null" x-text="n.label"></a></li></template>
-    </ul></nav>
-    <h1 class="page-title mt-0">Prace i Etapy</h1>
-    <div class="d-flex flex-wrap gap-2 mb-3">
-      <a class="btn btn-primary btn-main" :href="link('screens/job-wizard.html')"><i class="bi bi-plus-lg" aria-hidden="true"></i> Dodaj pracę</a>
-      <button type="button" class="btn btn-outline-primary btn-main" @click="stageFormOpen = !stageFormOpen" :aria-expanded="stageFormOpen" aria-controls="new-stage"><i class="bi bi-plus-lg" aria-hidden="true"></i> Dodaj etap</button>
-    </div>
-    <div class="list-card mb-3" id="new-stage" x-show="stageFormOpen">
-      <div class="row g-2 align-items-end">
-        <div class="col-md-6"><label class="form-label" for="stage-name">Nazwa etapu</label><input class="form-control" id="stage-name" placeholder="np. Przygotowanie podłoża" maxlength="100" x-model="newStage"></div>
-        <div class="col-6 col-md-3"><label class="form-label" for="stage-order">Kolejność</label><input class="form-control" id="stage-order" type="number" inputmode="decimal" min="0" max="10000" step="1" :value="stages.length + 1"></div>
-        <div class="col-6 col-md-3"><button type="button" class="btn btn-primary w-100" @click="addStage()">Dodaj etap</button></div>
+  <main id="main"><div id="app" class="ikpm-content" x-data="page" x-cloak>
+    <nav class="ikpm-topnav data-nav" aria-label="Dane"><template x-for="n in DATA_NAV" :key="n.key"><a class="ikpm-nav-link" :href="link(n.href)" :aria-current="n.key === 'stages' ? 'page' : null"><i class="bi" :class="'bi-' + n.icon" aria-hidden="true"></i><span x-text="n.label"></span></a></template></nav>
+    <div class="ikpm-page-head">
+      <div class="ikpm-page-heading"><h1 class="ikpm-page-title">Prace i Etapy</h1></div>
+      <div class="ikpm-page-actions">
+        <a class="btn btn-primary btn-lg" :href="link('screens/job-wizard.html')"><i class="bi bi-plus-lg" aria-hidden="true"></i>Dodaj pracę</a>
+        <button type="button" class="btn btn-outline-primary btn-lg" @click="stageFormOpen = !stageFormOpen" :aria-expanded="stageFormOpen" aria-controls="new-stage"><i class="bi bi-plus-lg" aria-hidden="true"></i>Dodaj etap</button>
       </div>
     </div>
-    <label class="form-label" for="job-filter">Szukaj pracy</label>
-    <input class="form-control mb-3" id="job-filter" type="search" x-model="filter" autocomplete="off">
-
-    <template x-for="s in shownStages" :key="s.id">
-      <details class="list-card" :open="filter.trim() !== '' || openStage === s.id" @toggle="if ($el.open) openStage = s.id">
-        <summary class="justify-content-between">
-          <span class="flex-grow-1"><strong x-text="s.name"></strong></span>
-          <span class="badge text-bg-light border" title="Liczba prac" x-text="jobsText(s.jobs.length)"></span>
-        </summary>
-        <div class="d-flex flex-wrap gap-2 align-items-end my-2">
-          <a class="btn btn-outline-primary" :href="link('screens/job-wizard.html?etap=' + s.id)"><i class="bi bi-plus-lg" aria-hidden="true"></i> Dodaj pracę do tego etapu</a>
-          <div class="d-flex gap-2 align-items-end">
-            <div><label class="form-label small mb-1" :for="'pct-' + s.id">Zmień ceny o %<span class="visually-hidden" x-text="' — etap ' + s.name"></span></label>
-              <input class="form-control qty" :id="'pct-' + s.id" type="number" inputmode="decimal" step="0.1" min="-90" max="200"></div>
-            <button type="button" class="btn btn-outline-secondary" @click="preview(s)">Podgląd</button>
-          </div>
-          <button type="button" class="btn btn-outline-danger ms-auto" @click="askDeleteStage(s)" :aria-label="'Usuń etap: ' + s.name"><i class="bi bi-trash" aria-hidden="true"></i> Usuń etap</button>
+    <div class="box mb-3" id="new-stage" x-show="stageFormOpen">
+      <div class="form-row">
+        <div class="field"><label class="form-label" for="stage-name">Nazwa etapu</label><input class="form-control" id="stage-name" placeholder="np. Przygotowanie podłoża" maxlength="100" x-model="newStage"></div>
+        <div class="field-sm"><label class="form-label" for="stage-order">Kolejność</label><input class="form-control ikpm-num" id="stage-order" type="number" inputmode="decimal" min="0" max="10000" step="1" :value="stages.length + 1"></div>
+        <button type="button" class="btn btn-primary" @click="addStage()">Dodaj etap</button>
+      </div>
+    </div>
+    <!-- od 1100 px: tabele prac etapów + szczegóły wybranej pracy obok; węziej — szczegóły zamiast listy, z „Wróć do listy prac” -->
+    <div class="cat">
+      <div class="cat-list" x-show="wide || !openJob">
+        <div class="form-row mb-3">
+          <div class="field" style="max-width: 32rem"><label class="form-label" for="job-filter">Szukaj pracy</label>
+            <input class="form-control" id="job-filter" type="search" x-model="filter" autocomplete="off"></div>
         </div>
-        <ul class="list-unstyled mb-0">
-          <template x-for="j in s.jobs" :key="j.id">
-            <li class="border-top py-1" :id="'job-' + j.id">
-              <button type="button" class="choice border-0 px-1" :class="openJob === j.id ? 'selected' : ''" :aria-expanded="openJob === j.id" @click="openJob = openJob === j.id ? null : j.id">
-                <span class="min-w-0 flex-grow-1"><span class="d-block" x-text="j.name"></span>
-                  <span class="small d-block">
-                    <span class="badge text-bg-light border" x-text="j.unit"></span>
-                    <span class="badge text-bg-light border" x-text="j.area_type_label"></span>
-                    <span x-text="'Śr. cena: ' + (j.average_price ? pln(j.average_price) : '-') + ' · Śr. tempo: ' + (j.average_speed ? measure(j.average_speed) + ' h' : '-')"></span>
-                  </span></span>
-                <i class="bi" :class="openJob === j.id ? 'bi-chevron-up' : 'bi-chevron-down'" aria-hidden="true"></i>
-              </button>
-              <div class="px-1 pb-2" x-show="openJob === j.id">
-                <p class="small mb-2" x-show="j.description" x-text="j.description"></p>
-                <div class="row g-3">
-                  <div class="col-md-6">
-                    <h3 class="h6">Materiały potrzebne do pracy</h3>
-                    <ul class="small ps-3 mb-0">
-                      <template x-for="m in j.materials" :key="m.name + m.package"><li x-text="`${m.name} (${pln(m.unit_price)}/${materialUnit(m)} · opak. ${m.package} za ${pln(m.price)}) — ${dec(m.quantity_per_unit)} ${materialUnit(m)} na ${j.unit}`"></li></template>
-                      <li x-show="!j.materials.length">Brak materiałów.</li>
-                    </ul>
-                  </div>
-                  <div class="col-md-6">
-                    <h3 class="h6">Wykonawcy mogący wykonać tę pracę</h3>
-                    <ul class="small ps-3 mb-0">
-                      <template x-for="c in j.crews.filter((x) => !x.archived)" :key="c.contractor"><li x-text="`${c.contractor} — Cena: ${c.price ? pln(c.price) : 'średnia'} · Tempo: ${tempoText(c)} · Jakość: ${c.quality ? kit.labels.quality[c.quality] : 'brak oceny'}`"></li></template>
-                      <li x-show="!j.crews.filter((x) => !x.archived).length">Brak wykonawców.</li>
-                    </ul>
-                  </div>
-                </div>
-                <div class="d-flex flex-wrap gap-2 mt-2">
-                  <a class="btn btn-outline-primary" :href="link('screens/job-wizard.html?praca=' + j.id)"><i class="bi bi-pencil" aria-hidden="true"></i> Zmień pracę</a>
-                  <button type="button" class="btn btn-outline-danger" @click="askDeleteJob(j)"><i class="bi bi-trash" aria-hidden="true"></i> Usuń pracę</button>
-                </div>
-              </div>
-            </li>
-          </template>
-          <li x-show="!s.jobs.length" class="border-top pt-2">Brak prac w tym etapie. Dodaj pierwszą pracę powyżej.</li>
-        </ul>
-      </details>
-    </template>
-    <p x-show="!stages.length">Brak etapów. Dodaj pierwszy etap powyżej.</p>
+        <template x-for="s in shownStages" :key="s.id">
+          <details class="box stage-box" :open="filter.trim() !== '' || openStage === s.id" @toggle="if ($el.open) openStage = s.id">
+            <summary><span class="flex-grow-1" x-text="s.name"></span><span class="ikpm-chip" title="Liczba prac" x-text="jobsText(s.jobs.length)"></span></summary>
+            <div class="form-row stage-edit">
+              <div class="field"><label class="form-label" :for="'sn-' + s.id">Nazwa etapu</label><input class="form-control" :id="'sn-' + s.id" :value="s.name" maxlength="100"></div>
+              <div class="field-sm"><label class="form-label" :for="'so-' + s.id">Kolejność</label><input class="form-control ikpm-num" :id="'so-' + s.id" type="number" inputmode="decimal" min="0" max="10000" step="1" :value="s.order"></div>
+              <button type="button" class="btn btn-outline-primary" @click="saveStageRow(s)">Zapisz etap</button>
+              <button type="button" class="btn btn-outline-danger" @click="askDeleteStage(s)" :aria-label="'Usuń etap: ' + s.name"><i class="bi bi-trash" aria-hidden="true"></i>Usuń etap</button>
+            </div>
+            <div class="form-row my-3">
+              <a class="btn btn-outline-primary" :href="link('screens/job-wizard.html?etap=' + s.id)"><i class="bi bi-plus-lg" aria-hidden="true"></i>Dodaj pracę do tego etapu</a>
+              <div class="field-sm"><label class="form-label" :for="'pct-' + s.id">Zmień ceny o %<span class="visually-hidden" x-text="' — etap ' + s.name"></span></label>
+                <input class="form-control ikpm-num" :id="'pct-' + s.id" type="number" inputmode="decimal" step="0.1" min="-90" max="200"></div>
+              <button type="button" class="btn btn-outline-secondary" @click="preview(s)">Podgląd</button>
+            </div>
+            <div class="ikpm-table-box" x-show="s.jobs.length">
+              <table class="table cat-table">
+                <caption class="visually-hidden" x-text="'Prace etapu ' + s.name"></caption>
+                <thead><tr><th scope="col">Praca</th><th scope="col">Jedn.</th><th scope="col">Typ powierzchni</th><th scope="col" class="ikpm-num">Śr. cena</th><th scope="col" class="ikpm-num">Śr. tempo</th><th scope="col" class="ikpm-num">Materiały</th><th scope="col" class="ikpm-num">Ekipy</th></tr></thead>
+                <tbody>
+                  <template x-for="j in s.jobs" :key="j.id">
+                    <tr :id="'job-' + j.id" :class="openJob === j.id ? 'is-current' : ''" @click="openDetail(s, j)">
+                      <td class="cat-lead"><button type="button" class="cat-job" :id="'job-btn-' + j.id" :aria-current="openJob === j.id ? 'true' : null" aria-controls="job-detail" @click.stop="openDetail(s, j)" x-text="j.name"></button></td>
+                      <td data-label="Jedn." x-text="j.unit"></td>
+                      <td data-label="Typ powierzchni"><span class="d-inline-flex align-items-center gap-1 text-nowrap"><i class="bi bi-rulers" aria-hidden="true" x-show="j.area_type !== 'manual'"></i><span x-text="j.area_type_label"></span></span></td>
+                      <td class="ikpm-num lab" data-label="Śr. cena" x-text="j.average_price ? pln(j.average_price) : '—'"></td>
+                      <td class="ikpm-num lab" data-label="Śr. tempo" x-text="Number(j.average_speed) ? measure(j.average_speed) + ' h' : '—'"></td>
+                      <td class="ikpm-num lab" data-label="Materiały" x-text="j.materials.length"></td>
+                      <td class="ikpm-num lab" data-label="Ekipy" x-text="crewsOf(j).length"></td>
+                    </tr>
+                  </template>
+                </tbody>
+              </table>
+            </div>
+            <p class="mb-0" x-show="!s.jobs.length">Brak prac w tym etapie. Dodaj pierwszą pracę powyżej.</p>
+          </details>
+        </template>
+        <div class="ikpm-empty" x-show="!stages.length"><i class="bi bi-list-task" aria-hidden="true"></i><p class="ikpm-empty-title">Brak etapów.</p><p>Dodaj pierwszy etap powyżej.</p></div>
+      </div>
+
+      <aside class="cat-detail" id="job-detail" aria-label="Szczegóły pracy" x-show="wide || openJob">
+        <template x-if="job">
+          <div class="box">
+            <button type="button" class="btn btn-outline-secondary mb-3" x-show="!wide" @click="closeDetail()"><i class="bi bi-arrow-left" aria-hidden="true"></i>Wróć do listy prac</button>
+            <p class="ikpm-meta mb-1" x-text="job.stage"></p>
+            <h2 class="h3 mb-2" id="job-detail-title" tabindex="-1" x-text="job.name"></h2>
+            <div class="chips mb-3"><span class="ikpm-chip ikpm-chip-lg" x-text="job.unit"></span><span class="ikpm-chip ikpm-chip-lg"><i class="bi bi-rulers" aria-hidden="true" x-show="job.area_type !== 'manual'"></i><span x-text="job.area_type_label"></span></span></div>
+            <p class="ikpm-measure" x-show="job.description" x-text="job.description"></p>
+            <dl class="ikpm-dl ikpm-dl-num">
+              <dt>Śr. cena:</dt><dd x-text="job.average_price ? pln(job.average_price) : '—'"></dd>
+              <dt>Śr. tempo:</dt><dd x-text="Number(job.average_speed) ? measure(job.average_speed) + ' h' : '—'"></dd>
+            </dl>
+            <h3 class="h6 mt-3">Materiały potrzebne do pracy</h3>
+            <ul class="ikpm-list">
+              <template x-for="m in job.materials" :key="m.name + m.package">
+                <li><div class="ikpm-row"><span class="ikpm-row-main"><span class="ikpm-row-title" x-text="m.name"></span>
+                  <span class="ikpm-row-meta" x-text="`opak. ${m.package} za ${pln(m.price)} · ${pln(m.unit_price)}/${materialUnit(m)}`"></span></span>
+                  <span class="ikpm-row-end ikpm-num" x-text="`${dec(m.quantity_per_unit)} ${materialUnit(m)} na ${job.unit}`"></span></div></li>
+              </template>
+              <li x-show="!job.materials.length"><div class="ikpm-row">Brak materiałów.</div></li>
+            </ul>
+            <h3 class="h6 mt-3">Wykonawcy mogący wykonać tę pracę</h3>
+            <ul class="ikpm-list">
+              <template x-for="c in crewsOf(job)" :key="c.contractor">
+                <li><div class="ikpm-row"><span class="ikpm-row-main"><span class="ikpm-row-title" x-text="c.contractor"></span>
+                  <span class="ikpm-row-meta" x-text="`Tempo: ${tempoText(c)} · Jakość: ${c.quality ? kit.labels.quality[c.quality] : 'brak oceny'}`"></span></span>
+                  <span class="ikpm-row-end ikpm-num" x-text="'Cena: ' + (c.price ? pln(c.price) : 'średnia')"></span></div></li>
+              </template>
+              <li x-show="!crewsOf(job).length"><div class="ikpm-row">Brak wykonawców.</div></li>
+            </ul>
+            <div class="cat-detail-actions">
+              <a class="btn btn-outline-primary" :href="link('screens/job-wizard.html?praca=' + job.id)"><i class="bi bi-pencil" aria-hidden="true"></i>Zmień pracę</a>
+              <button type="button" class="btn btn-outline-danger" @click="askDeleteJob(job)"><i class="bi bi-trash" aria-hidden="true"></i>Usuń pracę</button>
+            </div>
+          </div>
+        </template>
+        <template x-if="!job">
+          <div class="box ikpm-empty"><i class="bi bi-hand-index" aria-hidden="true"></i><p class="ikpm-empty-title">Wybierz pracę</p><p>Kliknij pracę w tabeli — tu zobaczysz jej materiały i wykonawców.</p></div>
+        </template>
+      </aside>
+    </div>
   </div></main>
   <script type="module">
-    import { start, catalogue, DATA_NAV, materialUnit, state, persist, resetCatalogueCache, nextId, jobInUse, saveCatalogueJob, link, kit } from '../assets/app.js';
+    import { start, catalogue, DATA_NAV, materialUnit, state, persist, resetCatalogueCache, nextId, jobInUse, saveCatalogueJob, saveStage, link, kit } from '../assets/app.js';
     const _p = new URLSearchParams(location.search);
+    const _wide = matchMedia('(min-width: 1100px)');
     start(() => ({
       DATA_NAV, materialUnit, kit,
       stages: catalogue(), filter: '', newStage: '', stageFormOpen: false,
-      openStage: Number(_p.get('etap')) || null, openJob: Number(_p.get('praca')) || null,
-      init() { if (this.openJob) this.$nextTick(() => document.getElementById('job-' + this.openJob)?.scrollIntoView({ block: 'center' })); },
+      openStage: Number(_p.get('etap')) || null, openJob: Number(_p.get('praca')) || null, wide: _wide.matches, pushed: false,
+      init() {
+        _wide.addEventListener('change', (e) => { this.wide = e.matches; });
+        window.addEventListener('popstate', () => { this.openJob = Number(new URLSearchParams(location.search).get('praca')) || null; this.pushed = false; });
+        if (this.openJob && this.wide) this.$nextTick(() => document.getElementById('job-' + this.openJob)?.scrollIntoView({ block: 'center' }));
+      },
+      get job() {
+        for (const s of this.stages) { const _j = s.jobs.find((j) => j.id === this.openJob); if (_j) return { ..._j, stage: s.name }; }
+        return null;
+      },
+      crewsOf(j) { return j.crews.filter((x) => !x.archived); },
+      // Szczegóły pracy: szeroko — panel obok tabeli; węziej — zamiast listy (wpis w historii: „Wstecz” wraca do listy).
+      openDetail(s, j) {
+        if (this.openJob === j.id && this.wide) return;
+        this.openJob = j.id; this.openStage = s.id;
+        const _url = `?etap=${s.id}&praca=${j.id}`;
+        if (this.wide) { history.replaceState(null, '', _url); return; }
+        history.pushState(null, '', _url); this.pushed = true;
+        this.$nextTick(() => { window.scrollTo(0, 0); document.getElementById('job-detail-title')?.focus(); });
+      },
+      closeDetail() {
+        const _id = this.openJob;
+        if (this.pushed) history.back(); else history.replaceState(null, '', `?etap=${this.openStage ?? ''}`);
+        this.openJob = null; this.pushed = false;
+        this.$nextTick(() => { const _b = document.getElementById('job-btn-' + _id); _b?.scrollIntoView({ block: 'center' }); _b?.focus({ preventScroll: true }); });
+      },
       get shownStages() {
         const _f = this.filter.trim().toLowerCase();
         if (!_f) return this.stages;
@@ -102,8 +157,17 @@
       reload() { resetCatalogueCache(); this.stages = catalogue(); },
       addStage() {
         if (!this.newStage.trim()) { this.$store.alert.msg = 'Nazwa nie może być pusta'; return; }
-        state.newStages.push({ id: nextId(), name: this.newStage.trim() }); persist(); this.reload();
+        const _ov = document.getElementById('stage-order').value; const _order = _ov === '' ? this.stages.length + 1 : Number(_ov);
+        state.newStages.push({ id: nextId(), name: this.newStage.trim(), order: _order }); persist(); this.reload();
         this.$store.toast.show(`Etap '${this.newStage.trim()}' został dodany.`); this.newStage = ''; this.stageFormOpen = false;
+      },
+      saveStageRow(s) {
+        const _name = document.getElementById('sn-' + s.id).value.trim();
+        if (!_name) { this.$store.alert.msg = 'Nazwa nie może być pusta'; window.scrollTo(0, 0); return; }
+        const _o = document.getElementById('so-' + s.id).value;
+        saveStage(s.id, { name: _name, order: _o === '' ? s.order : Number(_o) });
+        this.reload(); this.openStage = s.id;
+        this.$store.toast.show(`Etap '${_name}' został zaktualizowany.`);
       },
       askDeleteStage(s) {
         this.$store.confirm.ask({ title: `Usunąć etap '${s.name}'? Etapu z pracami nie da się usunąć.`, lines: ['Etap zniknie z cennika.'], ok: 'Usuń etap', variant: 'danger',
@@ -116,7 +180,7 @@
         this.$store.confirm.ask({ title: `Usunąć pracę '${j.name}'?`, lines: ['Praca zniknie z cennika. Pracy użytej w wycenach lub realizacjach nie da się usunąć.'], ok: 'Usuń pracę', variant: 'danger',
           run: () => {
             if (jobInUse(j.id)) { this.$store.alert.msg = 'Nie można usunąć, gdyż istnieją zależne od niej prace w wycenach i realizacjach'; return; }
-            const { stage, ...rest } = j; saveCatalogueJob({ ...rest, deleted: true }); this.reload(); this.$store.toast.show(`Praca '${j.name}' została usunięta.`);
+            const { stage, ...rest } = j; saveCatalogueJob({ ...rest, deleted: true }); this.reload(); this.openJob = null; history.replaceState(null, '', `?etap=${this.openStage ?? ''}`); this.$store.toast.show(`Praca '${j.name}' została usunięta.`);
           } });
       },
       preview(s) {

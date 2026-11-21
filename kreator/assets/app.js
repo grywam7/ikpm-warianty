@@ -15,7 +15,8 @@ export const kit = JSON.parse(_raw.replaceAll(' [DEMO]', ''));
 // ---------------------------------------------------------------- stan prototypu
 const KEY = 'ikpm-kreator-v1';
 const blank = () => ({
-  quotes: {}, realizations: {}, jobEdits: {}, newJobs: [], newStages: [], clients: [], templates: [],
+  quotes: {}, realizations: {}, jobEdits: {}, newJobs: [], newStages: [], stageEdits: {}, clients: [], templates: [], templateEdits: {},
+  contractorEdits: {}, newContractors: [], materialEdits: {}, newMaterials: [], users: [],
   seq: { quote: Math.max(...kit.quotes.map((q) => q.id)) + 1, realization: Math.max(...kit.realizations.map((r) => r.id)) + 1, id: 900000 },
 });
 const read = () => {
@@ -68,16 +69,12 @@ export const addWorkDays = (startIso, n) => {
   return isoDay(_d);
 };
 
-const BADGES = {
-  quote: { draft: ['secondary', 'pencil'], sent: ['info', 'send'], changes_requested: ['warning', 'chat-left-dots'], accepted: ['success', 'check-circle'], rejected: ['danger', 'x-circle'] },
-  realization: { planned: ['secondary', 'calendar-event'], in_progress: ['info', 'play-circle'], done: ['success', 'check-circle'], cancelled: ['danger', 'x-circle'] },
-  job: { to_do: ['secondary', 'circle'], in_progress: ['info', 'hourglass-split'], done: ['success', 'check-circle-fill'], remake: ['warning', 'exclamation-triangle-fill'] },
-};
-export const STATUS_ICON = (kind, status) => BADGES[kind][status]?.[1] ?? 'circle';
-export const STATUS_COLOR = (kind, status) => BADGES[kind][status]?.[0] ?? 'secondary';
+// Status = kolor + ikona + tekst; ikona i kolor z ikpm-ui.css (.ikpm-st-<rodzaj>-<status>).
 const LABELS = { quote: kit.labels.quote_status, realization: kit.labels.realization_status, job: kit.labels.realization_job_status };
+const KIND = { quote: 'quote', realization: 'real', job: 'job', user: 'user' };
 export const statusLabel = (kind, status) => LABELS[kind][status] ?? status;
-export const badge = (kind, status, label) => `<span class="badge text-bg-${STATUS_COLOR(kind, status)} status-badge"><i class="bi bi-${STATUS_ICON(kind, status)}" aria-hidden="true"></i> ${label ?? statusLabel(kind, status)}</span>`;
+export const statusClass = (kind, status) => `ikpm-st-${KIND[kind]}-${status}`;
+export const badge = (kind, status, label, extra = '') => `<span class="ikpm-status ${statusClass(kind, status)}${extra ? ` ${extra}` : ''}">${escapeHtml(label ?? statusLabel(kind, status))}</span>`;
 
 export const pln = (value) => formatPLN(roundHalfUp(num(value)));
 export const dec = (value) => formatDecimal(num(value));
@@ -122,6 +119,8 @@ export const catalogue = () => {
     stage.jobs = stage.jobs.map((job) => state.jobEdits[job.id] ?? { ...job, stage_id: stage.id }).filter((job) => !job.deleted);
   }
   for (const job of state.newJobs) if (!job.deleted) _stages.find((s) => s.id === job.stage_id)?.jobs.push(job);
+  _stages.forEach((stage, i) => { Object.assign(stage, state.stageEdits[stage.id] ?? {}); stage.order = Number(stage.order ?? i + 1); });
+  _stages.sort((a, b) => a.order - b.order || a.id - b.id);
   // praca przeniesiona do innego etapu (pole „Etap” w edycji)
   for (const stage of _stages) {
     for (const job of stage.jobs.filter((j) => j.stage_id !== stage.id)) {
@@ -129,10 +128,24 @@ export const catalogue = () => {
       _stages.find((s) => s.id === job.stage_id)?.jobs.push(job);
     }
   }
+  for (const stage of _stages) {
+    for (const job of stage.jobs) {
+      job.crews = (job.crews ?? []).map((c) => {
+        const _e = state.contractorEdits[c.contractor];
+        return _e ? { ...c, archived: _e.archived ?? c.archived, max_parallel_jobs: _e.max_parallel_jobs ?? c.max_parallel_jobs } : c;
+      });
+    }
+  }
   _catalogue = _stages;
   return _stages;
 };
 export const resetCatalogueCache = () => { _catalogue = undefined; };
+// Etap: nazwa i kolejność (Zapisz etap).
+export const saveStage = (id, fields) => {
+  const _new = state.newStages.find((s) => s.id === id);
+  if (_new) Object.assign(_new, fields); else state.stageEdits[id] = { ...(state.stageEdits[id] ?? {}), ...fields };
+  persist(); resetCatalogueCache();
+};
 export const saveCatalogueJob = (job) => {
   if (state.newJobs.some((j) => j.id === job.id)) state.newJobs = state.newJobs.map((j) => (j.id === job.id ? job : j));
   else if (kit.catalogue.some((s) => s.jobs.some((j) => j.id === job.id))) state.jobEdits[job.id] = job;
@@ -140,30 +153,68 @@ export const saveCatalogueJob = (job) => {
   persist();
   resetCatalogueCache();
 };
+// Zmiana jednej pracy z cennika (cena, ekipy, materiały) — zapis jak „Zapisz pracę”.
+export const updateCatalogueJob = (id, change) => {
+  const { stage, ...job } = clone(jobById(id));
+  change(job);
+  for (const c of job.crews) c.effective_price = c.price ?? job.average_price;
+  saveCatalogueJob(job);
+};
+export const jobsInUseByCrew = (name) => [...quotes().flatMap(quoteJobs), ...realizations().flatMap(realJobs)].some((j) => j.contractor === name);
 export const jobInUse = (jobId) => [...quotes().flatMap(quoteJobs), ...realizations().flatMap(realJobs)].some((j) => j.job_id === jobId);
 export const allJobs = () => catalogue().flatMap((stage) => stage.jobs.map((job) => ({ ...job, stage: stage.name, stage_id: stage.id })));
 export const jobById = (id) => allJobs().find((job) => job.id === Number(id));
 export const jobByName = (name) => allJobs().find((job) => job.name === name);
 export const units = () => [...new Set([...allJobs().map((j) => j.unit), 'kg', 'l'])];
 export const materialUnit = (material) => String(material.package ?? '').replace(/^[\d.,\s]+/, '') || 'szt';
-export const materials = () => kit.materials;
+// Materiały: z kitu (klucz = pozycja w kicie) + dodane i zmienione w prototypie.
+export const materials = () => [
+  ...kit.materials.map((m, i) => ({ link: null, ...m, key: `k${i}`, ...(state.materialEdits[`k${i}`] ?? {}) })),
+  ...state.newMaterials.map((m) => ({ ...m, ...(state.materialEdits[m.key] ?? {}) })),
+].filter((m) => !m.deleted);
+export const saveMaterial = (m) => {
+  const _qty = Number.parseFloat(String(m.package).replace(',', '.')) || 1;
+  const _rec = { name: m.name, price: String(m.price), package: m.package, unit_price: String(Number(m.price) / _qty), link: m.link || null, deleted: m.deleted || undefined };
+  if (!m.key) { state.newMaterials.push({ ..._rec, key: `n${nextId()}` }); } else state.materialEdits[m.key] = { ...(state.materialEdits[m.key] ?? {}), ..._rec };
+  persist();
+};
 
 // Wykonawcy z cennika (karta ekipy i jej prace); kit nie niesie e-maila ani telefonu ekipy.
 export const contractors = () => {
   const _map = new Map();
-  for (const job of allJobs()) {
-    for (const crew of job.crews) {
-      if (!_map.has(crew.contractor)) _map.set(crew.contractor, { name: crew.contractor, archived: crew.archived, max_parallel_jobs: crew.max_parallel_jobs, jobs: [] });
-      _map.get(crew.contractor).jobs.push({ ...crew, job: job.name, job_id: job.id, unit: job.unit, stage: job.stage, average_price: job.average_price });
+  const _add = (name, crew = {}) => {
+    if (!_map.has(name)) {
+      _map.set(name, { name, email: null, phone: null, notes: null, archived: Boolean(crew.archived), archived_on: null, max_parallel_jobs: crew.max_parallel_jobs ?? 1, jobs: [], ...(state.contractorEdits[name] ?? {}) });
     }
+    return _map.get(name);
+  };
+  for (const job of allJobs()) {
+    for (const crew of job.crews) _add(crew.contractor, crew).jobs.push({ ...crew, job: job.name, job_id: job.id, unit: job.unit, stage: job.stage, average_price: job.average_price });
   }
-  return [..._map.values()].sort((a, b) => a.name.localeCompare(b.name, 'pl'));
+  for (const c of state.newContractors) _add(c.name, c);
+  return [..._map.values()].filter((c) => !c.deleted).sort((a, b) => a.name.localeCompare(b.name, 'pl'));
+};
+// Dane ekipy (nazwa, e-mail, telefon, prace naraz, notatki, archiwum); zmiana nazwy idzie do cennika.
+export const saveContractor = (oldName, fields) => {
+  const _name = fields.name ?? oldName;
+  const _edits = { ...(state.contractorEdits[oldName] ?? {}), ...fields };
+  delete _edits.name;
+  if (oldName && _name !== oldName) {
+    for (const job of allJobs().filter((j) => j.crews.some((c) => c.contractor === oldName))) {
+      updateCatalogueJob(job.id, (j) => { for (const c of j.crews) if (c.contractor === oldName) c.contractor = _name; });
+    }
+    state.newContractors = state.newContractors.map((c) => (c.name === oldName ? { ...c, name: _name } : c));
+    delete state.contractorEdits[oldName];
+  }
+  if (!oldName) state.newContractors.push({ name: _name, max_parallel_jobs: fields.max_parallel_jobs ?? 1 });
+  state.contractorEdits[_name] = _edits;
+  persist(); resetCatalogueCache();
 };
 
-// Tempo ekipy z cennika (h/j.): min – max; bez danych „-” jak „Śr. tempo: -”.
+// Tempo ekipy z cennika (h/j.): min – max; bez danych „—”.
 export const tempoText = (crew) => {
   const _parts = [crew.speed_min, crew.speed_max].filter((v) => v !== null && v !== undefined && v !== '').map((v) => measure(v));
-  return _parts.length ? `${_parts.join(' – ')} h/j.` : '-';
+  return _parts.length ? `${_parts.join(' – ')} h/j.` : '—';
 };
 
 const STAGE_POS = () => new Map(catalogue().map((stage, i) => [stage.name, i]));
@@ -205,9 +256,16 @@ export const clients = () => [...clientsFromKit().map((c) => state.clients.find(
 export const clientById = (id) => clients().find((c) => c.id === Number(id));
 export const clientByName = (name) => clients().find((c) => c.name === name);
 export const saveClient = (client) => {
+  const _old = client.id ? clientById(client.id) : null;
   if (!client.id) client.id = 1000 + state.clients.length + 1;
   state.clients = [...state.clients.filter((c) => c.id !== client.id), client];
   persist();
+  // Wyceny i realizacje pokazują aktualne dane klienta (w aplikacji — przez client_id).
+  if (_old) {
+    const _data = { name: client.name, email: client.email || null, phone: client.phone || null };
+    for (const q of quotes()) if (q.client?.name === _old.name) { q.client = { ...q.client, ..._data }; saveQuote(q); }
+    for (const r of realizations()) if (r.client?.name === _old.name) { r.client = { ...r.client, ..._data }; saveRealization(r); }
+  }
   return client;
 };
 
@@ -371,7 +429,18 @@ export const blankRoom = (q, name, extra = {}) => ({
 });
 
 // Szablon pokoju: wymiary tylko w puste pola, prace, których pokój nie ma, ilość pracy ręcznej z szablonu (tylko w górę).
-export const templates = () => [...kit.room_templates, ...state.templates];
+// Szablony: z kitu (klucz k<n>) z poprawkami + utworzone w prototypie (klucz s<n>); kolejność „Kolejność”, potem nazwa.
+export const templates = () => [
+  ...kit.room_templates.map((t, i) => ({ order: i + 1, ...t, key: `k${i}`, ...(state.templateEdits[`k${i}`] ?? {}) })),
+  ...state.templates.map((t, i) => ({ order: kit.room_templates.length + i + 1, ...t, key: `s${i}` })),
+].filter((t) => !t.deleted).sort((a, b) => Number(a.order) - Number(b.order) || a.name.localeCompare(b.name, 'pl'));
+export const saveTemplate = (t) => {
+  const { key, ...rec } = clone(t);
+  if (key?.startsWith('k')) state.templateEdits[key] = rec;
+  else if (key?.startsWith('s')) state.templates[Number(key.slice(1))] = rec;
+  else state.templates.push(rec);
+  persist();
+};
 export const applyTemplate = (room, template) => {
   for (const f of DIMENSIONS) {
     if (!has(room[f]) && has(template[f])) room[f] = template[f];
@@ -404,7 +473,7 @@ export const saveRoomAsTemplate = (room, name) => {
     return { error: 'Nie można zapisać szablonu: Szablon o tej nazwie już istnieje — zmień nazwę.' };
   }
   state.templates.push({
-    name: _name, description: null, length: room.length, width: room.width, height: room.height, holes_area: room.holes_area,
+    name: _name, description: null, order: templates().length + 1, length: room.length, width: room.width, height: room.height, holes_area: room.holes_area,
     jobs: sortJobs(room.jobs).map((j) => ({ name: j.name, unit: j.unit, area_type: j.area_type, area_type_label: j.area_type_label, quantity: j.area_type === 'manual' ? String(j.quantity) : null })),
   });
   persist();
@@ -497,145 +566,150 @@ export const readPhotos = async (fileList) => {
 const NAV = [
   { key: 'start', label: 'Start', icon: 'house', href: 'index.html' },
   { key: 'quotes', label: 'Wyceny', icon: 'file-earmark-text', href: 'screens/quotes-index.html' },
-  { key: 'clients', label: 'Klienci', icon: 'people', href: 'screens/clients.html', wide: true },
+  { key: 'clients', label: 'Klienci', icon: 'people', href: 'screens/clients.html', more: true },
   { key: 'realizations', label: 'Realizacje', icon: 'cone-striped', href: 'screens/realizations-index.html' },
   { key: 'data', label: 'Dane', icon: 'database', href: 'screens/stages.html' },
-  { key: 'finance', label: 'Finanse', icon: 'graph-up', href: 'screens/finance.html', wide: true },
-  { key: 'users', label: 'Użytkownicy', icon: 'person-gear', href: 'screens/users.html', wide: true },
+  { key: 'finance', label: 'Finanse', icon: 'graph-up', href: 'screens/finance.html', more: true },
+  { key: 'users', label: 'Użytkownicy', icon: 'person-gear', href: 'screens/users.html', more: true },
 ];
 export const DATA_NAV = [
-  { key: 'stages', label: 'Prace', href: 'screens/stages.html' },
-  { key: 'materials', label: 'Materiały', href: 'screens/materials.html' },
-  { key: 'contractors', label: 'Wykonawcy', href: 'screens/contractors.html' },
-  { key: 'templates', label: 'Szablony pokoi', href: 'screens/room-templates.html' },
+  { key: 'stages', label: 'Prace', icon: 'list-task', href: 'screens/stages.html' },
+  { key: 'materials', label: 'Materiały', icon: 'box-seam', href: 'screens/materials.html' },
+  { key: 'contractors', label: 'Wykonawcy', icon: 'person-badge', href: 'screens/contractors.html' },
+  { key: 'templates', label: 'Szablony pokoi', icon: 'grid-1x2', href: 'screens/room-templates.html' },
 ];
 const USER = kit.users[0];
+export const users = () => [...kit.users.map((u) => ({ phone: null, ...u, ...(state.users.find((x) => x.orig === u.email) ?? {}) })),
+  ...state.users.filter((x) => !x.orig)];
 
+// Menu zawsze widoczne z podpisami: laptop i PC — wszystkie sekcje w pasku u góry; tablet — Start, Wyceny, Realizacje,
+// Dane, Więcej; telefon — te same pięć jako dolne zakładki.
 const headerHtml = (section) => {
-  const _item = (n) => `<li class="nav-item${n.wide ? ' d-none d-lg-block' : ''}"><a class="main-nav-link${section === n.key ? ' active' : ''}" href="${link(n.href)}"${section === n.key ? ' aria-current="page"' : ''}><i class="bi bi-${n.icon}" aria-hidden="true"></i><span>${n.label}</span></a></li>`;
-  const _more = NAV.filter((n) => n.wide).map((n) => `<li class="d-lg-none"><a class="dropdown-item" href="${link(n.href)}"><i class="bi bi-${n.icon}" aria-hidden="true"></i> ${n.label}</a></li>`).join('');
+  const _cur = (key) => (section === key ? ' aria-current="page"' : '');
+  const _link = (n, cls = '') => `<a class="ikpm-nav-link${cls}" href="${link(n.href)}"${_cur(n.key)}><i class="bi bi-${n.icon}" aria-hidden="true"></i>${n.label}</a>`;
+  const _moreActive = ['clients', 'finance', 'users', 'account'].includes(section);
+  const _accountItems = `
+    <li><span class="dropdown-item-text ikpm-meta">${escapeHtml(USER.email)}</span></li>
+    <li><a class="dropdown-item" href="${link('screens/profile.html')}"${_cur('account')}><i class="bi bi-person-circle" aria-hidden="true"></i>Mój profil</a></li>
+    <li><a class="dropdown-item" href="${link('screens/login.html')}"><i class="bi bi-box-arrow-right" aria-hidden="true"></i>Wyloguj się</a></li>`;
+  const _moreItems = NAV.filter((n) => n.more).map((n) => `<li><a class="dropdown-item" href="${link(n.href)}"${_cur(n.key)}><i class="bi bi-${n.icon}" aria-hidden="true"></i>${n.label}</a></li>`).join('')
+    + `<li><hr class="dropdown-divider"></li>${_accountItems}`;
+  const _more = (cls, drop) => `<div class="${drop}${cls}">
+      <button type="button" class="ikpm-nav-link dropdown-toggle${_moreActive ? ' active' : ''}" data-bs-toggle="dropdown" aria-expanded="false"><i class="bi bi-three-dots" aria-hidden="true"></i>Więcej</button>
+      <ul class="dropdown-menu dropdown-menu-end">${_moreItems}</ul></div>`;
   return `
-  <a class="visually-hidden-focusable skip-link" href="#main">Przejdź do treści</a>
+  <a class="ikpm-skip" href="#main">Przejdź do treści</a>
   <header class="app-header">
-    <div class="container-xxl app-header-inner">
-      <a class="brand" href="${link('index.html')}"><strong>IKPM</strong><span>System kosztorysów</span></a>
-      <nav class="main-nav" aria-label="Menu główne">
-        <ul>
-          ${NAV.map(_item).join('')}
-          <li class="nav-item dropdown">
-            <button class="main-nav-link dropdown-toggle${['account', 'clients', 'finance', 'users'].includes(section) ? ' active-lg-none' : ''}" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-              <i class="bi bi-three-dots d-lg-none" aria-hidden="true"></i><i class="bi bi-person-circle d-none d-lg-inline" aria-hidden="true"></i>
-              <span class="d-lg-none">Więcej</span><span class="d-none d-lg-inline account-email">${USER.email}</span>
-            </button>
-            <ul class="dropdown-menu dropdown-menu-end">
-              ${_more}
-              <li class="d-lg-none"><hr class="dropdown-divider"></li>
-              <li><span class="dropdown-item-text small text-body-secondary">${USER.email}</span></li>
-              <li><a class="dropdown-item" href="${link('screens/profile.html')}"><i class="bi bi-person" aria-hidden="true"></i> Mój profil</a></li>
-              <li><a class="dropdown-item" href="${link('screens/login.html')}"><i class="bi bi-box-arrow-right" aria-hidden="true"></i> Wyloguj się</a></li>
-            </ul>
-          </li>
-        </ul>
-      </nav>
-    </div>
-  </header>`;
+    <a class="ikpm-brand" href="${link('index.html')}"><strong>IKPM</strong><span>System kosztorysów</span></a>
+    <nav class="ikpm-topnav" aria-label="Menu główne">
+      ${NAV.map((n) => _link(n, n.more ? ' nav-wide' : '')).join('')}
+      ${_more(' nav-narrow', 'dropdown')}
+      <div class="dropdown nav-wide">
+        <button type="button" class="ikpm-nav-link dropdown-toggle${section === 'account' ? ' active' : ''}" data-bs-toggle="dropdown" aria-expanded="false"><i class="bi bi-person-circle" aria-hidden="true"></i><span class="account-short">Konto</span><span class="account-email">${escapeHtml(USER.email)}</span></button>
+        <ul class="dropdown-menu dropdown-menu-end">${_accountItems}</ul>
+      </div>
+    </nav>
+  </header>
+  <nav class="ikpm-tabbar" aria-label="Menu główne">
+    ${NAV.filter((n) => !n.more).map((n) => _link(n)).join('')}
+    ${_more('', 'dropup')}
+  </nav>`;
 };
 
 const overlaysHtml = `
-  <div x-data class="ikpm-overlays">
-    <div class="toast-zone" :class="$store.toast.top && 'toast-top'" :style="$store.toast.top ? { top: $store.toast.topPx + 'px' } : $store.toast.bottom !== null ? { bottom: $store.toast.bottom + 'px' } : {}" role="status" aria-live="polite">
-      <template x-if="$store.toast.msg"><div class="toast show align-items-center text-bg-success border-0" @pointerenter="$event.pointerType === 'mouse' && $store.toast.hold()" @pointerleave="$event.pointerType === 'mouse' && $store.toast.release()" @focusin="$store.toast.hold()" @focusout="$store.toast.release()">
-        <div class="d-flex"><div class="toast-body" x-text="$store.toast.msg"></div>
-        <button type="button" class="btn-close btn-close-white align-self-center" aria-label="Zamknij" @click="$store.toast.msg = ''"></button></div>
-      </div></template>
+  <div x-data class="ikpm-toast-region" role="status" aria-live="polite">
+    <template x-if="$store.toast.msg"><div class="ikpm-toast" @pointerenter="$event.pointerType === 'mouse' && $store.toast.hold()" @pointerleave="$event.pointerType === 'mouse' && $store.toast.release()" @focusin="$store.toast.hold()" @focusout="$store.toast.release()">
+      <span class="ikpm-toast-msg" x-text="$store.toast.msg"></span>
+      <template x-if="!!$store.toast.undo"><button type="button" class="btn ikpm-toast-action" @click="$store.toast.runUndo()">Cofnij</button></template>
+      <button type="button" class="btn-close" aria-label="Zamknij" @click="$store.toast.msg = ''"></button>
+    </div></template>
+  </div>
+  <dialog x-data class="ikpm-dialog" id="confirm-dialog" aria-labelledby="confirm-title" @cancel.prevent="$store.confirm.cancel()">
+    <div class="ikpm-dialog-body">
+      <h2 class="ikpm-dialog-title" id="confirm-title" x-text="$store.confirm.title"></h2>
+      <ul class="ikpm-dialog-consequences" x-show="$store.confirm.lines.length">
+        <template x-for="line in $store.confirm.lines"><li x-text="line"></li></template>
+      </ul>
     </div>
-    <template x-if="$store.confirm.open">
-      <div class="confirm-backdrop" @keydown.escape.window="$store.confirm.cancel()">
-        <div class="confirm-card" role="dialog" aria-modal="true" aria-labelledby="confirm-title" x-trap="$store.confirm.open">
-          <p class="confirm-kicker"><i class="bi bi-exclamation-circle" aria-hidden="true"></i> Potwierdź</p>
-          <h2 id="confirm-title" class="h4" x-text="$store.confirm.title"></h2>
-          <ul class="confirm-lines">
-            <template x-for="line in $store.confirm.lines"><li x-text="line"></li></template>
-          </ul>
-          <div class="confirm-actions">
-            <button type="button" class="btn btn-outline-secondary btn-main" @click="$store.confirm.cancel()" x-text="$store.confirm.cancelLabel"></button>
-            <button type="button" class="btn btn-main" :class="'btn-' + $store.confirm.variant" x-ref="ok" @click="$store.confirm.ok()" x-text="$store.confirm.okLabel" x-init="$nextTick(() => $el.focus())"></button>
-          </div>
-        </div>
-      </div>
-    </template>
-  </div>`;
+    <div class="ikpm-dialog-actions">
+      <button type="button" class="btn btn-outline-secondary" @click="$store.confirm.cancel()" x-text="$store.confirm.cancelLabel"></button>
+      <button type="button" class="btn" :class="'btn-' + $store.confirm.variant" autofocus @click="$store.confirm.ok()" x-text="$store.confirm.okLabel"></button>
+    </div>
+  </dialog>`;
 
-const footerHtml = `<footer class="app-footer"><div class="container-xxl">IKPM — prototyp „Kreator” do badania układu ekranów ·
-  <a href="${link('index.html')}?reset=1">Prototyp: przywróć dane początkowe</a></div></footer>`;
+const footerHtml = `<footer class="app-footer">IKPM — prototyp „Kreator” do badania układu ekranów ·
+  <a href="${link('index.html')}?reset=1">Prototyp: przywróć dane początkowe</a></footer>`;
 
 const alertHtml = `
-  <div x-data class="container-xxl alert-zone">
-    <template x-if="$store.alert.msg"><div class="alert alert-danger d-flex align-items-start gap-2 mt-3" role="alert">
-      <i class="bi bi-exclamation-octagon-fill mt-1" aria-hidden="true"></i><div class="flex-grow-1" x-text="$store.alert.msg"></div>
+  <div x-data class="alert-zone" x-show="$store.alert.msg" x-cloak>
+    <div class="alert alert-danger alert-dismissible d-flex gap-2" role="alert">
+      <i class="bi bi-exclamation-octagon-fill" aria-hidden="true"></i><div class="flex-grow-1" x-text="$store.alert.msg"></div>
       <button type="button" class="btn-close" aria-label="Zamknij" @click="$store.alert.msg = ''"></button>
-    </div></template>
+    </div>
   </div>`;
+
+// Fokus pod lepkim paskiem u dołu (pasek kroku, zakładki): przeglądarka przewija pole tylko do krawędzi okna, więc
+// zostałoby pod paskiem (WCAG 2.4.11) — przewiń je na środek. Pasek, który nie przylega do dołu, niczego nie zasłania.
+const hiddenUnderBars = (el) => {
+  const _r = el.getBoundingClientRect();
+  if (!_r.height && !_r.width) return false;
+  const _tab = document.querySelector('.ikpm-tabbar')?.getBoundingClientRect();
+  const _floor = _tab?.height ? _tab.top : innerHeight;
+  if (_r.bottom > _floor || _r.top < 0) return true;
+  return [...document.querySelectorAll('.ikpm-actionbar')].some((bar) => {
+    const _b = bar.getBoundingClientRect();
+    return _b.height > 0 && _b.bottom >= _floor - 1 && _r.bottom > _b.top && _r.right > _b.left && _r.left < _b.right;
+  });
+};
+document.addEventListener('focusin', (e) => {
+  const _el = e.target;
+  if (!(_el instanceof Element) || _el.closest('.ikpm-actionbar, .ikpm-tabbar, .ikpm-toast-region, dialog, .dropdown-menu')) return;
+  const _fix = () => { if (hiddenUnderBars(_el)) _el.scrollIntoView({ block: 'center', behavior: 'instant' }); }; // Bootstrap: płynne przewijanie
+  _fix(); requestAnimationFrame(_fix);
+});
 
 export const flash = (msg, kind = 'notice') => { try { sessionStorage.setItem('ikpm-flash', JSON.stringify({ msg, kind })); } catch { /* bez pamięci */ } };
 export const go = (path, msg, kind) => { if (msg) flash(msg, kind); location.href = path.startsWith('http') ? path : link(path); };
 
 export const helpers = {
-  link, pln, dec, oneDec, qtyText, measure, hoursText, percentText, dateText, dateTimeText, badge, statusLabel, plural, jobsText,
+  link, pln, dec, oneDec, qtyText, measure, hoursText, percentText, dateText, dateTimeText, badge, statusLabel, statusClass, plural, jobsText,
   workDaysText, jobsAccusative, roomSize, roomSizeParts, kit, Number, has, tempoText,
 };
 
-// Start strony: powłoka (nagłówek, stopka, okna), opcjonalny fragment HTML, komponent strony, potem Alpine.
+// Start strony: powłoka (menu, stopka, komunikaty, okno potwierdzenia), opcjonalny fragment HTML, komponent strony, Alpine.
 export const start = async (component = () => ({}), { partial } = {}) => {
   const _section = document.body.dataset.section;
-  if (!['public', 'guest', 'mail'].includes(_section)) document.body.insertAdjacentHTML('afterbegin', headerHtml(_section));
+  const _internal = !['public', 'guest', 'mail'].includes(_section);
+  if (_internal) document.body.insertAdjacentHTML('afterbegin', headerHtml(_section));
   document.getElementById('app').insertAdjacentHTML('beforebegin', alertHtml);
-  if (_section !== 'public' && _section !== 'guest' && _section !== 'mail') document.getElementById('main').insertAdjacentHTML('afterend', footerHtml);
+  if (_internal) document.getElementById('main').insertAdjacentHTML('afterend', footerHtml);
   document.body.insertAdjacentHTML('beforeend', overlaysHtml);
   if (partial) document.getElementById('app').innerHTML = await (await fetch(new URL(partial, import.meta.url))).text();
   let _flash = null;
   try { _flash = JSON.parse(sessionStorage.getItem('ikpm-flash')); sessionStorage.removeItem('ikpm-flash'); } catch { /* bez pamięci */ }
   document.addEventListener('alpine:init', () => {
     const A = window.Alpine;
+    // Jeden komunikat naraz (nowy zastępuje poprzedni): 4 s, z „Cofnij” 8 s; najechanie myszą albo fokus wstrzymuje.
     A.store('toast', {
-      msg: '', timer: null, held: false, top: false, bottom: null, topPx: 16,
-      // Nad dolnym paskiem kreatora tam, gdzie pasek akurat jest (przyklejony do dołu albo wyżej, na końcu kroku) — stała
-      // odległość od dołu okna kładła komunikat na „Wstecz” / „Dalej”; u góry (pod nagłówkiem z menu) tylko wtedy, gdy
-      // zasłoniłby pole z fokusem.
-      place() {
-        const _bar = document.querySelector('.wz-actions')?.getBoundingClientRect();
-        this.bottom = _bar?.height && _bar.top < innerHeight ? Math.max(16, innerHeight - _bar.top + 8) : null;
-        const _zoneBottom = innerHeight - (this.bottom ?? (innerWidth < 768 ? 144 : 96));
-        const _r = document.activeElement?.closest('body > *') ? document.activeElement.getBoundingClientRect() : null;
-        this.top = Boolean(_r && _r.top < _zoneBottom && _r.bottom > _zoneBottom - 120);
-        this.topPx = Math.max(16, (document.querySelector('.app-header')?.getBoundingClientRect().bottom ?? 0) + 8);
-      },
-      show(msg) { this.place(); this.msg = msg; this.release(); },
-      hold() { this.held = true; clearTimeout(this.timer); },
-      release() { this.held = false; clearTimeout(this.timer); this.timer = setTimeout(() => { this.msg = ''; }, 4000); },
+      msg: '', undo: null, timer: null,
+      show(msg, { undo = null } = {}) { this.msg = msg; this.undo = undo; this.release(); },
+      hold() { clearTimeout(this.timer); },
+      release() { clearTimeout(this.timer); this.timer = setTimeout(() => { this.msg = ''; this.undo = null; }, this.undo ? 8000 : 4000); },
+      runUndo() { const _u = this.undo; this.msg = ''; this.undo = null; _u?.(); },
     });
-    // Następne kliknięcie poza komunikatem go zamyka — nie zostaje nad kolejnym krokiem kreatora.
-    document.addEventListener('click', (e) => { if (!e.target.closest?.('.toast')) A.store('toast').msg = ''; }, true);
-    // Pasek przesuwa się przy przewijaniu i gdy strona rośnie po zapisie (np. nowe zdjęcie) — komunikat idzie za nim.
-    const _replace = () => { if (A.store('toast').msg) A.store('toast').place(); };
-    document.addEventListener('scroll', _replace, { passive: true, capture: true });
-    new ResizeObserver(_replace).observe(document.body);
+    // Następne kliknięcie poza komunikatem go zamyka — nie zostaje nad kolejnym krokiem.
+    document.addEventListener('click', (e) => { if (!e.target.closest?.('.ikpm-toast')) { A.store('toast').msg = ''; A.store('toast').undo = null; } }, true);
     A.store('alert', { msg: _flash?.kind === 'alert' ? _flash.msg : '' });
     A.store('confirm', {
-      open: false, title: '', lines: [], okLabel: 'Potwierdź', cancelLabel: 'Anuluj', variant: 'primary', run: null, back: null,
+      open: false, title: '', lines: [], okLabel: 'Potwierdź', cancelLabel: 'Anuluj', variant: 'primary', run: null,
       ask({ title, lines = [], ok, cancel = 'Anuluj', variant = 'primary', run }) {
-        Object.assign(this, { title, lines, okLabel: ok, cancelLabel: cancel, variant, run, back: document.activeElement, open: true });
+        Object.assign(this, { title, lines, okLabel: ok, cancelLabel: cancel, variant, run, open: true });
+        const _d = document.getElementById('confirm-dialog');
+        if (!_d.open) _d.showModal();
       },
-      ok() { const _run = this.run; this.open = false; _run?.(); },
-      cancel() { this.open = false; this.back?.focus?.(); },
-    });
-    A.directive('trap', (el) => {
-      el.addEventListener('keydown', (e) => {
-        if (e.key !== 'Tab') return;
-        const _f = [...el.querySelectorAll('button, [href], input, select, textarea')];
-        if (e.shiftKey && document.activeElement === _f[0]) { e.preventDefault(); _f.at(-1).focus(); }
-        else if (!e.shiftKey && document.activeElement === _f.at(-1)) { e.preventDefault(); _f[0].focus(); }
-      });
+      close() { this.open = false; const _d = document.getElementById('confirm-dialog'); if (_d.open) _d.close(); },
+      ok() { const _run = this.run; this.close(); _run?.(); },
+      cancel() { this.close(); },
     });
     // Bez rozpakowania {...}: rozpakowanie wywołałoby gettery komponentu raz, przed init.
     A.data('page', () => { const _c = component(); for (const [k, v] of Object.entries(helpers)) if (!(k in _c)) _c[k] = v; return _c; });

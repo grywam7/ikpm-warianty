@@ -2,52 +2,58 @@
 <html lang="pl">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:,">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Klient — IKPM</title>
   <link rel="stylesheet" href="../assets/bootstrap/bootstrap.min.css">
   <link rel="stylesheet" href="../assets/bootstrap-icons/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="../assets/ikpm-ui.css">
   <link rel="stylesheet" href="../assets/app.css">
 </head>
 <body data-section="clients">
-  <main id="main"><div id="app" class="container-xxl" x-data="page" x-cloak>
+  <main id="main"><div id="app" class="ikpm-content" x-data="page" x-cloak>
     <template x-if="c">
       <div>
-        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 page-title">
-          <h1 class="mb-0" x-text="c.name"></h1>
-          <div class="d-flex gap-2">
-            <a class="btn btn-outline-primary" :href="link('screens/client-form.html?id=' + c.id)"><i class="bi bi-pencil" aria-hidden="true"></i> Edytuj</a>
-            <button type="button" class="btn btn-outline-danger" @click="askDelete()"><i class="bi bi-trash" aria-hidden="true"></i> Usuń</button>
+        <div class="ikpm-page-head">
+          <a class="ikpm-back" :href="link('screens/clients.html')">Klienci</a>
+          <div class="ikpm-page-heading"><h1 class="ikpm-page-title" x-text="c.name"></h1></div>
+          <div class="ikpm-page-actions">
+            <a class="btn btn-outline-primary btn-lg" :href="link('screens/client-form.html?id=' + c.id)"><i class="bi bi-pencil" aria-hidden="true"></i>Edytuj</a>
+            <button type="button" class="btn btn-outline-danger btn-lg" @click="askDelete()"><i class="bi bi-trash" aria-hidden="true"></i>Usuń</button>
           </div>
         </div>
-        <dl class="row list-card mx-0">
-          <dt class="col-sm-3">Email</dt><dd class="col-sm-9"><template x-if="c.email"><a class="tap-link" :href="'mailto:' + c.email" x-text="c.email"></a></template><span x-show="!c.email">—</span></dd>
-          <dt class="col-sm-3">Telefon</dt><dd class="col-sm-9"><template x-if="c.phone"><a class="tap-link" :href="'tel:' + c.phone.replace(/\s/g, '')" x-text="c.phone"></a></template><span x-show="!c.phone">—</span></dd>
-          <dt class="col-sm-3">Notatki</dt><dd class="col-sm-9 mb-0 text-pre" x-text="c.notes || '—'"></dd>
-        </dl>
-        <div class="row g-4 mt-1">
-          <section class="col-lg-6" aria-labelledby="h-q">
-            <h2 class="h4" id="h-q">Wyceny</h2>
-            <template x-for="q in myQuotes" :key="q.id">
-              <article class="list-card d-flex flex-wrap gap-2 justify-content-between align-items-center">
-                <div><a class="fw-semibold tap-link" :href="link('screens/quote-show.html?id=' + q.id)" x-text="'Wycena #' + q.id"></a> <span x-html="badge('quote', q.status)"></span>
-                  <span class="d-block small" x-text="'Wartość: ' + pln(net(q)) + ' · Wysłana: ' + dateText(q.sent_at)"></span></div>
-                <template x-if="q.status === 'draft'"><a class="btn btn-outline-primary" :href="builderLink(q, 'sprawdz')">Edytuj</a></template>
-              </article>
-            </template>
+        <div class="box mb-4 ikpm-measure">
+          <dl class="ikpm-dl">
+            <dt>Email</dt><dd><template x-if="c.email"><a :href="'mailto:' + c.email" x-text="c.email"></a></template><span x-show="!c.email">—</span></dd>
+            <dt>Telefon</dt><dd><template x-if="c.phone"><a :href="'tel:' + c.phone.replace(/\s/g, '')" x-text="c.phone"></a></template><span x-show="!c.phone">—</span></dd>
+            <dt>Notatki</dt><dd class="text-pre" x-text="c.notes || '—'"></dd>
+          </dl>
+        </div>
+        <div class="start-work">
+          <section aria-labelledby="h-q">
+            <h2 class="ikpm-section-title" id="h-q">Wyceny</h2>
+            <ul class="ikpm-list" x-show="myQuotes.length">
+              <template x-for="q in myQuotes" :key="q.id">
+                <li><div class="ikpm-row">
+                  <span class="ikpm-row-main"><a class="ikpm-row-title" :href="link('screens/quote-show.html?id=' + q.id)" x-text="'Wycena #' + q.id"></a>
+                    <span class="ikpm-row-meta" x-text="'Wartość: ' + pln(net(q)) + ' · Wysłana: ' + dateText(q.sent_at)"></span></span>
+                  <span class="ikpm-row-end"><span x-html="badge('quote', q.status)"></span></span>
+                  <template x-if="q.status === 'draft'"><span class="row-actions"><a class="btn btn-outline-primary btn-sm" :href="builderLink(q, 'sprawdz')">Edytuj</a></span></template>
+                </div></li>
+              </template>
+            </ul>
             <p x-show="!myQuotes.length">Brak wycen.</p>
           </section>
-          <section class="col-lg-6" aria-labelledby="h-r">
-            <h2 class="h4" id="h-r">Realizacje</h2>
-            <template x-for="r in myRealizations" :key="r.id">
-              <article class="list-card">
-                <a class="fw-semibold tap-link" :href="link('screens/realization-show.html?id=' + r.id)" x-text="'Realizacja #' + r.id"></a> <span x-html="badge('realization', r.status)"></span>
-                <span class="d-block small" x-text="'Wartość (z wyceny): ' + pln(r.total_price)"></span>
-                <div class="d-flex align-items-center gap-2 small mt-1">
-                  <div class="progress flex-grow-1" role="progressbar" :aria-label="'Postęp: ' + prog(r).pct + '%'" aria-valuemin="0" aria-valuemax="100" :aria-valuenow="prog(r).pct"><div class="progress-bar bg-success" :style="`width: ${prog(r).pct}%`"></div></div>
-                  <span x-text="prog(r).pct + '%'"></span>
-                </div>
-              </article>
-            </template>
+          <section aria-labelledby="h-r">
+            <h2 class="ikpm-section-title" id="h-r">Realizacje</h2>
+            <ul class="ikpm-list" x-show="myRealizations.length">
+              <template x-for="r in myRealizations" :key="r.id">
+                <li><a class="ikpm-row" :href="link('screens/realization-show.html?id=' + r.id)">
+                  <span class="ikpm-row-main"><span class="ikpm-row-title" x-text="'Realizacja #' + r.id"></span><span class="ikpm-row-meta" x-text="'Wartość (z wyceny): ' + pln(r.total_price) + ' · Postęp: ' + prog(r).pct + '%'"></span></span>
+                  <span class="ikpm-row-end"><span x-html="badge('realization', r.status)"></span></span>
+                  <i class="bi bi-chevron-right ikpm-chevron" aria-hidden="true"></i></a></li>
+              </template>
+            </ul>
             <p x-show="!myRealizations.length">Brak realizacji.</p>
           </section>
         </div>

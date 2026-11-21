@@ -2,19 +2,20 @@
 <html lang="pl">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Finanse — IKPM</title>
 <link rel="stylesheet" href="../assets/bootstrap/bootstrap.min.css">
 <link rel="stylesheet" href="../assets/bootstrap-icons/bootstrap-icons.min.css">
+<link rel="stylesheet" href="../assets/ikpm-ui.css">
 <link rel="stylesheet" href="../assets/app.css">
 </head>
 <body data-screen="finance" data-nav="finance" data-tab="wiecej">
 <main x-data="page" x-cloak>
-<div class="page"><div class="pane-inner">
-<div class="pane-head"><a class="back-link back-only-phone" :href="link('more')"><i class="bi bi-chevron-left" aria-hidden="true"></i>Więcej</a>
-<h1 class="pane-title" x-text="title()"></h1><div class="pane-sub">Finanse — raporty dla księgowości</div></div>
-<div class="card-plain"><p class="mb-2"><span class="koncepcja">prototyp</span> W badaniu Finanse są tylko pozycją menu. Raporty (Wynik, Koszty, Realizacje, Oferty, Wykonawcy) z filtrem „Od”, „Do”, „Pokaż” i eksportem „CSV” zostają w obecnym wyglądzie — układ dostaną po wyborze wariantu.</p>
-<p class="small text-body-secondary mb-0">Wszystkie kwoty w raportach są netto.</p></div>
+<div class="page"><div class="ikpm-content">
+<div class="pane-head"><a class="ikpm-back back-only-phone" :href="link('more')">Więcej</a>
+<h1 class="ikpm-page-title" x-text="title()"></h1><div class="pane-sub">Finanse — raporty dla księgowości</div></div>
+<div class="card card-body"><p class="mb-2"><span class="ikpm-koncepcja">prototyp</span> W badaniu Finanse są tylko pozycją menu. Raporty (Wynik, Koszty, Realizacje, Oferty, Wykonawcy) z filtrem „Od”, „Do”, „Pokaż” i eksportem „CSV” zostają w obecnym wyglądzie — układ dostaną po wyborze wariantu.</p>
+<p class="ikpm-meta mb-0">Wszystkie kwoty w raportach są netto.</p></div>
 </div></div>
 </main>
 <script type="module">

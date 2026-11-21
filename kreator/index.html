@@ -2,75 +2,83 @@
 <html lang="pl">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:,">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>IKPM — System kosztorysów</title>
   <link rel="stylesheet" href="assets/bootstrap/bootstrap.min.css">
   <link rel="stylesheet" href="assets/bootstrap-icons/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="assets/ikpm-ui.css">
   <link rel="stylesheet" href="assets/app.css">
 </head>
 <body data-section="start">
-  <main id="main"><div id="app" class="container-xxl" x-data="page" x-cloak>
-    <h1 class="page-title">Co chcesz zrobić?</h1>
-    <div class="big-actions">
-      <a class="big-action" :href="link('screens/quotes-new.html')">
-        <i class="bi bi-file-earmark-plus" aria-hidden="true"></i>
-        <span><strong>Nowa wycena</strong><span>Krok po kroku: klient, pokoje, wymiary, prace, wykonawcy, termin, wysyłka.</span></span>
-      </a>
-      <a class="big-action" :href="link('screens/obchod.html')">
-        <i class="bi bi-cone-striped" aria-hidden="true"></i>
-        <span><strong>Obchód na budowie</strong><span>Praca po pracy: „Zrobione” albo „Do poprawy”, notatki i zdjęcia.</span></span>
-      </a>
-    </div>
-    <div class="chip-row mt-3">
-      <a class="btn btn-outline-primary" :href="link('screens/quotes-new.html?mode=simple')"><i class="bi bi-file-earmark" aria-hidden="true"></i> Nowa wycena (prosta)</a>
-      <a class="btn btn-outline-primary" :href="link('screens/job-wizard.html')"><i class="bi bi-plus-lg" aria-hidden="true"></i> Dodaj pracę do cennika</a>
-    </div>
+  <main id="main"><div id="app" class="ikpm-content" x-data="page" x-cloak>
+    <div class="start">
+      <div class="start-head"><h1>Co chcesz zrobić?</h1></div>
+      <div class="start-actions">
+        <a class="big-action" :href="link('screens/quotes-new.html')">
+          <i class="bi bi-plus-square" aria-hidden="true"></i>
+          <span><strong>Nowa wycena</strong><span>Krok po kroku: klient, pokoje, wymiary, prace, wykonawcy, termin, wysyłka.</span></span>
+        </a>
+        <a class="big-action" :href="link('screens/obchod.html')">
+          <i class="bi bi-cone-striped" aria-hidden="true"></i>
+          <span><strong>Obchód na budowie</strong><span>Praca po pracy: „Zrobione” albo „Do poprawy”, notatki i zdjęcia.</span></span>
+        </a>
+        <div class="start-more">
+          <a class="btn btn-outline-primary" :href="link('screens/quotes-new.html?mode=simple')"><i class="bi bi-plus-lg" aria-hidden="true"></i>Nowa wycena (prosta)</a>
+          <a class="btn btn-outline-primary" :href="link('screens/job-wizard.html')"><i class="bi bi-list-task" aria-hidden="true"></i>Dodaj pracę do cennika</a>
+        </div>
+      </div>
 
-    <div class="row g-4 mt-1">
-      <section class="col-lg-6" aria-labelledby="h-site">
-        <h2 class="h4" id="h-site">Na budowie</h2>
-        <template x-for="r in activeRealizations" :key="r.id">
-          <article class="list-card">
-            <div class="d-flex flex-wrap justify-content-between gap-2">
-              <div class="min-w-0">
-                <h3 class="h6 mb-0" x-text="r.client.name"></h3>
-                <p class="small mb-1" x-text="r.site_address"></p>
-              </div>
-              <span x-html="badge('realization', r.status)"></span>
-            </div>
-            <div class="d-flex align-items-center gap-2 small">
-              <div class="progress flex-grow-1" role="progressbar" :aria-label="'Postęp prac: ' + prog(r).pct + '%'" aria-valuemin="0" aria-valuemax="100" :aria-valuenow="prog(r).pct"><div class="progress-bar bg-success" :style="`width: ${prog(r).pct}%`"></div></div>
-              <span x-text="`${prog(r).pct}% (${prog(r).done} / ${prog(r).all})`"></span>
-            </div>
-            <p class="small mb-2 mt-1">Termin: <span x-text="dateText(r.expected_end_on || r.promised_end_on)"></span></p>
-            <div class="d-flex flex-wrap gap-2">
-              <a class="btn btn-primary" :href="link('screens/obchod.html?id=' + r.id + '&krok=pokoj')"><i class="bi bi-cone-striped" aria-hidden="true"></i> Obchód</a>
-              <a class="btn btn-outline-secondary" :href="link('screens/realization-show.html?id=' + r.id)">Realizacja #<span x-text="r.id"></span></a>
-            </div>
-          </article>
-        </template>
-        <p x-show="!activeRealizations.length">Brak realizacji w trakcie.</p>
-      </section>
-
-      <section class="col-lg-6" aria-labelledby="h-quotes">
-        <h2 class="h4" id="h-quotes">Wyceny — następny krok</h2>
-        <template x-for="g in quoteGroups" :key="g.title">
-          <div class="mb-3" x-show="g.items.length">
-            <h3 class="h6 mt-3" x-text="g.title"></h3>
-            <template x-for="it in g.items" :key="it.q.id">
-              <article class="list-card d-flex flex-wrap justify-content-between align-items-center gap-2">
-                <div class="min-w-0">
-                  <a class="fw-semibold tap-link" :href="link('screens/quote-show.html?id=' + it.q.id)" x-text="'Wycena #' + it.q.id"></a>
-                  <span x-html="badge('quote', it.q.status)"></span>
-                  <span class="d-block small" x-text="(it.q.client?.name || '(brak klienta)') + (it.q.notes ? ' · ' + it.q.notes.split('\n')[0] : '')"></span>
-                  <span class="d-block small" x-text="'Razem netto: ' + pln(net(it.q))"></span>
-                </div>
-                <a class="btn" :class="it.primary ? 'btn-primary' : 'btn-outline-primary'" :href="it.href" x-text="it.label"></a>
-              </article>
+      <div class="start-work">
+        <section aria-labelledby="h-site">
+          <h2 class="ikpm-section-title" id="h-site">Na budowie</h2>
+          <ul class="ikpm-list" x-show="activeRealizations.length">
+            <template x-for="r in activeRealizations" :key="r.id">
+              <li><div class="ikpm-row row-wrap">
+                <span class="ikpm-row-main">
+                  <a class="ikpm-row-title" :href="link('screens/realization-show.html?id=' + r.id)" x-text="r.client.name"></a>
+                  <span class="ikpm-row-meta" x-text="r.site_address"></span>
+                  <span class="ikpm-row-meta" x-text="'Termin: ' + dateText(r.expected_end_on || r.promised_end_on)"></span>
+                </span>
+                <span class="ikpm-row-end">
+                  <span x-html="badge('realization', r.status)"></span>
+                  <span class="ikpm-progress row-progress">
+                    <span class="ikpm-progress-head ikpm-meta"><span :id="'pp-' + r.id">Postęp prac:</span><span x-text="`${prog(r).pct}% (${prog(r).done} / ${prog(r).all})`"></span></span>
+                    <span class="progress" role="progressbar" :aria-labelledby="'pp-' + r.id" aria-valuemin="0" aria-valuemax="100" :aria-valuenow="prog(r).pct"><span class="progress-bar" :style="`width: ${prog(r).pct}%`"></span></span>
+                  </span>
+                </span>
+                <span class="row-actions">
+                  <a class="btn btn-primary" :href="link('screens/obchod.html?id=' + r.id + '&krok=pokoj')"><i class="bi bi-cone-striped" aria-hidden="true"></i>Obchód</a>
+                  <a class="btn btn-outline-secondary" :href="link('screens/realization-show.html?id=' + r.id)" x-text="'Realizacja #' + r.id"></a>
+                </span>
+              </div></li>
             </template>
-          </div>
-        </template>
-      </section>
+          </ul>
+          <div class="ikpm-empty" x-show="!activeRealizations.length"><i class="bi bi-cone-striped" aria-hidden="true"></i><p class="ikpm-empty-title">Brak realizacji w trakcie</p><p>Przekształć zaakceptowaną wycenę na jej stronie (przycisk „Przekształć w realizację”).</p></div>
+        </section>
+
+        <section aria-labelledby="h-quotes">
+          <h2 class="ikpm-section-title" id="h-quotes">Wyceny — następny krok</h2>
+          <template x-for="g in quoteGroups" :key="g.title">
+            <div x-show="g.items.length">
+              <h3 class="group-label" x-text="g.title + ' (' + g.items.length + ')'"></h3>
+              <ul class="ikpm-list">
+                <template x-for="it in g.items" :key="it.q.id">
+                  <li><div class="ikpm-row row-wrap">
+                    <span class="ikpm-row-main">
+                      <a class="ikpm-row-title" :href="link('screens/quote-show.html?id=' + it.q.id)" x-text="'Wycena #' + it.q.id + ' · ' + (it.q.client?.name || '(brak klienta)')"></a>
+                      <span class="ikpm-row-meta" x-show="it.q.notes" x-text="it.q.notes ? it.q.notes.split('\n')[0] : ''"></span>
+                      <span class="ikpm-row-meta" x-text="'Razem netto: ' + pln(net(it.q))"></span>
+                    </span>
+                    <span class="ikpm-row-end"><span x-html="badge('quote', it.q.status)"></span></span>
+                    <span class="row-actions"><a class="btn" :class="it.primary ? 'btn-primary' : 'btn-outline-primary'" :href="it.href" x-text="it.label"></a></span>
+                  </div></li>
+                </template>
+              </ul>
+            </div>
+          </template>
+        </section>
+      </div>
     </div>
   </div></main>
   <script type="module">

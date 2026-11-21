@@ -2,19 +2,20 @@
 <html lang="pl">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Mail z ofertą — IKPM</title>
 <link rel="stylesheet" href="../assets/bootstrap/bootstrap.min.css">
 <link rel="stylesheet" href="../assets/bootstrap-icons/bootstrap-icons.min.css">
+<link rel="stylesheet" href="../assets/ikpm-ui.css">
 <link rel="stylesheet" href="../assets/app.css">
 </head>
 <body data-screen="mail-offer" class="bg-body-tertiary">
 <main x-data="page" x-cloak>
 
-<template x-if="q"><article class="mail">
-  <div class="mail-head"><div><b>Od:</b> IKPM &lt;noreply@ikpm.local&gt;</div><div><b>Do:</b> <span x-text="client(q.client_id)?.email"></span></div>
+<template x-if="q"><article class="ikpm-mail">
+  <div class="ikpm-mail-head"><div><b>Od:</b> IKPM &lt;noreply@ikpm.local&gt;</div><div><b>Do:</b> <span x-text="client(q.client_id)?.email"></span></div>
     <div><b>Temat:</b> <span x-text="'Wycena #' + q.id"></span></div><div><b>Załącznik:</b> <a :href="link('quote-pdf', {id: q.id})" x-text="'wycena-' + q.id + '.pdf'"></a></div></div>
-  <div class="mail-body">
+  <div class="ikpm-mail-body">
     <h1 class="visually-hidden" x-text="'Wycena #' + q.id"></h1>
     <p x-text="'Dzień dobry ' + clientName(q) + ','"></p>
     <p x-text="'Przesyłamy wycenę nr #' + q.id + ' do akceptacji.'"></p>

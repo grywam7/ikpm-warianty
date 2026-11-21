@@ -2,36 +2,57 @@
 <html lang="pl">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Realizacje — IKPM</title>
 <link rel="stylesheet" href="../assets/bootstrap/bootstrap.min.css">
 <link rel="stylesheet" href="../assets/bootstrap-icons/bootstrap-icons.min.css">
+<link rel="stylesheet" href="../assets/ikpm-ui.css">
 <link rel="stylesheet" href="../assets/app.css">
+<style>
+  /* Lista węższa niż pełna tabela (tablet, okno 37,5–72rem): wiersz to karta — klient z adresem i status,
+     pod nimi kwoty, termin i wycena, na dole postęp i „Otwórz”. Bez przewijania tabeli w bok. Telefon — wspólny stos. */
+  @container ikpm-table (min-width: 37.51rem) and (max-width: 72rem) {
+    .k-reals > thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+    .k-reals, .k-reals > tbody { display: block; width: 100%; }
+    .k-reals > tbody > tr { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) auto; gap: .5rem 1.25rem; align-items: start;
+      grid-template-areas: "lead lead lead status" "val cost end quote" "prog prog prog act"; padding: .875rem 1rem;
+      border-bottom: 1px solid var(--ikpm-border-subtle); }
+    .k-reals > tbody > tr:last-child { border-bottom: 0; }
+    .k-reals.table > tbody > tr > * { display: block; padding: 0; border: 0; background: transparent; text-align: left; }
+    .k-reals > tbody > tr > [data-label]::before { content: attr(data-label); display: block; margin-bottom: .125rem;
+      font-size: var(--ikpm-fs-xs); font-weight: 600; color: var(--ikpm-text-2); }
+    .k-reals .k-r-lead { grid-area: lead; } .k-reals .k-r-status { grid-area: status; justify-self: end; align-self: center; }
+    .k-reals .k-r-val { grid-area: val; } .k-reals .k-r-cost { grid-area: cost; } .k-reals .k-r-end { grid-area: end; }
+    .k-reals .k-r-quote { grid-area: quote; } .k-reals .k-r-prog { grid-area: prog; align-self: end; } .k-reals .k-r-act { grid-area: act; }
+    .k-reals > tbody > tr > .k-r-status::before { content: none; }
+  }
+</style>
 </head>
 <body data-nav="realizations">
 <div id="nav"></div>
-<main x-data="page" x-cloak class="container-xxl px-3 mw-doc pb-5">
+<main id="main" x-data="page" x-cloak class="ikpm-content">
   <div id="alerts"></div>
-  <h1 class="h3 my-3">Realizacje</h1>
-  <p class="text-body-secondary" x-show="!list.length">Brak realizacji — przekształć zaakceptowaną wycenę na jej stronie (przycisk „Przekształć w realizację").</p>
-  <div class="card" x-show="list.length">
-    <table class="table doc-table reflow reflow-lg mb-0">
+  <div class="ikpm-page-head"><div class="ikpm-page-heading"><h1 class="ikpm-page-title">Realizacje</h1><div class="ikpm-page-meta"><span>Najnowsze pierwsze</span></div></div></div>
+  <div class="ikpm-empty" x-show="!list.length"><i class="bi bi-cone-striped" aria-hidden="true"></i><p class="ikpm-empty-title">Brak realizacji</p><p>Brak realizacji — przekształć zaakceptowaną wycenę na jej stronie (przycisk „Przekształć w realizację").</p><a class="btn btn-primary" :href="ik.href('screens/quotes-index.html')">Lista wycen</a></div>
+  <div class="ikpm-table-box" x-show="list.length">
+    <table class="table ikpm-stack k-reals">
       <caption class="visually-hidden">Lista realizacji, najnowsze pierwsze</caption>
-      <thead class="table-light"><tr><th scope="col">Klient</th><th scope="col">Status</th><th scope="col" class="text-end">Wartość (z wyceny)</th><th scope="col" class="text-end">Koszt</th><th scope="col" style="min-width: 8rem">Postęp</th><th scope="col">Termin</th><th scope="col">Wycena</th><th scope="col"><span class="visually-hidden">Akcje</span></th></tr></thead>
+      <thead><tr><th scope="col">Klient</th><th scope="col">Status</th><th scope="col" class="ikpm-num">Wartość (z wyceny)</th><th scope="col" class="ikpm-num">Koszt</th><th scope="col" style="min-width: 10rem">Postęp</th><th scope="col">Termin</th><th scope="col">Wycena</th><th scope="col"><span class="visually-hidden">Akcje</span></th></tr></thead>
       <tbody>
         <template x-for="r in list" :key="r.id">
           <tr>
-            <td data-label="Klient" class="reflow-full"><strong x-text="'#' + r.id + ' ' + r.client.name"></strong><small class="d-block text-body-secondary" x-text="r.site_address"></small></td>
-            <td data-label="Status" x-html="ik.realBadge(r.status)"></td>
-            <td data-label="Wartość (z wyceny)" class="num" x-text="ik.pln(r.total_price)"></td>
-            <td data-label="Koszt" class="num" x-text="ik.pln(ik.realCost(r))"></td>
-            <td data-label="Postęp"><div class="d-flex align-items-center gap-2 w-100"><div class="progress flex-grow-1" role="progressbar" :aria-label="'Postęp prac #' + r.id" :aria-valuenow="ik.progress(r)" aria-valuemin="0" aria-valuemax="100"><div class="progress-bar bg-success" :style="'width:' + ik.progress(r) + '%'"></div></div><span class="small num" x-text="ik.progress(r) + '%'"></span></div></td>
-            <td data-label="Termin"><span x-text="r.status === 'cancelled' ? '—' : ik.date(ik.endOn(r))"></span><small class="d-block text-danger" x-show="ik.delayed(r)" x-text="'obiecany ' + ik.date(r.promised_end_on)"></small></td>
-            <td data-label="Wycena"><template x-if="r.quote_id"><a class="tap" :href="ik.href('screens/quote-show.html?id=' + r.quote_id)" x-text="'#' + r.quote_id"></a></template><template x-if="!r.quote_id"><span>—</span></template></td>
-            <td class="text-end text-nowrap">
+            <td class="ikpm-cell-lead k-r-lead"><a :href="ik.href('screens/realization-show.html?id=' + r.id)" x-text="'#' + r.id + ' ' + r.client.name"></a><span class="ikpm-meta d-block fw-normal" x-text="r.site_address"></span></td>
+            <td class="k-r-status" data-label="Status" x-html="ik.realBadge(r.status)"></td>
+            <td data-label="Wartość (z wyceny)" class="ikpm-num k-r-val" x-text="ik.pln(r.total_price)"></td>
+            <td data-label="Koszt" class="ikpm-num k-r-cost" x-text="ik.pln(ik.realCost(r))"></td>
+            <td class="k-r-prog" data-label="Postęp"><div class="d-flex align-items-center gap-2 w-100" style="min-width: 8rem"><div class="progress flex-grow-1" role="progressbar" :aria-label="'Postęp prac #' + r.id" :aria-valuenow="ik.progress(r)" aria-valuemin="0" aria-valuemax="100"><div class="progress-bar" :class="{ 'bg-success': r.status === 'done' }" :style="'width:' + ik.progress(r) + '%'"></div></div><span class="ikpm-num" x-text="ik.progress(r) + '%'"></span></div></td>
+            <td class="k-r-end" data-label="Termin"><span><span class="d-block" x-text="r.status === 'cancelled' ? '—' : ik.date(ik.endOn(r))"></span><span class="d-block small fw-semibold text-danger-emphasis" x-show="ik.delayed(r)" x-text="'obiecany ' + ik.date(r.promised_end_on)"></span></span></td>
+            <td class="k-r-quote" data-label="Wycena"><template x-if="r.quote_id"><a :href="ik.href('screens/quote-show.html?id=' + r.quote_id)" x-text="'#' + r.quote_id"></a></template><template x-if="!r.quote_id"><span>—</span></template></td>
+            <td class="text-end k-r-act"><div class="d-inline-flex gap-2">
               <a class="btn btn-primary" :href="ik.href('screens/realization-show.html?id=' + r.id)" :aria-label="'Otwórz realizację #' + r.id">Otwórz</a>
-              <template x-if="r.status !== 'done'"><button type="button" class="btn btn-outline-danger" :aria-label="'Usuń realizację #' + r.id" @click="remove(r)"><i class="bi bi-trash" aria-hidden="true"></i></button></template>
-            </td>
+              <template x-if="r.status !== 'done'"><button type="button" class="btn btn-outline-danger ikpm-btn-icon" :aria-label="'Usuń realizację #' + r.id" title="Usuń" @click="remove(r)"><i class="bi bi-trash" aria-hidden="true"></i></button></template>
+            </div></td>
           </tr>
         </template>
       </tbody>

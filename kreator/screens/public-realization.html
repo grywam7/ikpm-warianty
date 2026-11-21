@@ -2,58 +2,64 @@
 <html lang="pl">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:,">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Postęp prac — IKPM</title>
   <link rel="stylesheet" href="../assets/bootstrap/bootstrap.min.css">
   <link rel="stylesheet" href="../assets/bootstrap-icons/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="../assets/ikpm-ui.css">
   <link rel="stylesheet" href="../assets/app.css">
 </head>
 <body data-section="public">
   <!-- Strona klienta /r/:token — tylko statusy, komentarze, postęp, zdjęcia widoczne dla klienta; bez cen i notatek wewnętrznych. -->
-  <header class="public-bar"><div class="container-xxl"><strong class="fs-4">IKPM</strong></div></header>
-  <main id="main"><div id="app" class="container-xxl" x-data="page" x-cloak style="max-width: 960px">
+  <header class="ikpm-public-bar"><strong>IKPM</strong><span class="ikpm-meta">Postęp prac</span></header>
+  <main id="main" class="ikpm-public"><div id="app" x-data="page" x-cloak>
     <template x-if="r">
       <div>
-        <h1 class="page-title mb-1">Postęp prac</h1>
-        <p class="lead-line mb-3">dla <span x-text="r.client.name"></span></p>
-        <div class="row g-3">
-          <div class="col-md-6"><div class="list-card h-100">
-            <h2 class="h6">Status realizacji</h2>
-            <p x-html="badge('realization', r.status)"></p>
-            <h2 class="h6">Postęp prac</h2>
-            <p class="mb-1" x-text="`${prog.pct}% (${prog.done} / ${prog.all})`"></p>
-            <div class="progress" role="progressbar" aria-label="Postęp prac" aria-valuemin="0" aria-valuemax="100" :aria-valuenow="prog.pct"><div class="progress-bar bg-success" :style="`width: ${prog.pct}%`"></div></div>
-          </div></div>
-          <div class="col-md-6"><div class="list-card h-100">
-            <template x-if="r.site_address"><div><h2 class="h6">Adres inwestycji</h2><p x-text="r.site_address"></p></div></template>
-            <template x-if="endText"><div><h2 class="h6">Termin zakończenia</h2><p class="mb-2" x-text="endText"></p></div></template>
-            <p class="mb-0" x-text="from"></p>
-          </div></div>
+        <h1 class="mb-1">Postęp prac</h1>
+        <p class="ikpm-meta mb-2">dla <span x-text="r.client.name"></span></p>
+        <div class="ikpm-contact mb-4"><strong x-text="from?.display_name || 'Zespół IKPM'"></strong><template x-if="from"><a :href="'mailto:' + from.email"><i class="bi bi-envelope" aria-hidden="true"></i><span x-text="from.email"></span></a></template></div>
+        <div class="public-intro">
+          <dl class="ikpm-dl">
+            <dt>Status realizacji</dt><dd x-html="badge('realization', r.status)"></dd>
+            <template x-if="r.site_address"><dt>Adres inwestycji</dt></template><template x-if="r.site_address"><dd x-text="r.site_address"></dd></template>
+            <template x-if="endText"><dt>Termin zakończenia</dt></template><template x-if="endText"><dd x-text="endText"></dd></template>
+          </dl>
+          <section class="card"><div class="card-body">
+            <div class="ikpm-progress">
+              <div class="ikpm-progress-head"><span id="pp">Postęp prac</span><span x-text="`${prog.pct}% (${prog.done} / ${prog.all})`"></span></div>
+              <div class="progress" role="progressbar" aria-labelledby="pp" aria-valuemin="0" aria-valuemax="100" :aria-valuenow="prog.pct"><div class="progress-bar" :class="r.status === 'done' ? 'bg-success' : ''" :style="`width: ${prog.pct}%`"></div></div>
+            </div>
+          </div></section>
         </div>
+        <h2 class="ikpm-section-title">Prace</h2>
         <template x-for="room in r.rooms" :key="room.id">
-          <section class="list-card mt-3" :aria-labelledby="'room-' + room.id">
-            <h2 class="h5" :id="'room-' + room.id" x-text="room.name"></h2>
-            <table class="table stack-table mb-0">
-              <thead><tr><th scope="col">Praca</th><th scope="col">Etap</th><th scope="col">Status</th><th scope="col">Komentarz</th></tr></thead>
-              <tbody>
-                <template x-for="job in sorted(room.jobs)" :key="job.id">
-                  <tr><td class="lead-cell" x-text="job.name"></td><td data-label="Etap" x-text="job.stage"></td>
-                    <td data-label="Status" x-html="badge('job', job.status)"></td><td data-label="Komentarz" x-text="job.notes || '—'"></td></tr>
-                </template>
-                <tr x-show="!room.jobs.length"><td colspan="4">(brak prac w tym pomieszczeniu)</td></tr>
-              </tbody>
-            </table>
+          <section class="public-room" :aria-labelledby="'room-' + room.id">
+            <div class="public-room-head"><h2 :id="'room-' + room.id" x-text="room.name"></h2><span class="ikpm-meta" x-text="roomProgress(room)"></span></div>
+            <div class="ikpm-table-box">
+              <table class="table ikpm-stack compact">
+                <thead><tr><th scope="col">Praca</th><th scope="col">Etap</th><th scope="col">Status</th><th scope="col">Komentarz</th></tr></thead>
+                <tbody>
+                  <template x-for="job in sorted(room.jobs)" :key="job.id">
+                    <tr><td class="ikpm-cell-lead" x-text="job.name"></td><td class="cell-meta" data-label="Etap" x-text="job.stage"></td>
+                      <td class="cell-end" data-label="Status" x-html="badge('job', job.status)"></td>
+                      <td class="cell-full" data-label="Komentarz" :data-empty="job.notes ? null : ''" x-text="job.notes || '—'"></td></tr>
+                  </template>
+                  <tr x-show="!room.jobs.length"><td colspan="4" class="ikpm-colspan">(brak prac w tym pomieszczeniu)</td></tr>
+                </tbody>
+              </table>
+            </div>
           </section>
         </template>
         <section class="mt-4" aria-labelledby="h-photos" x-show="groups.length">
-          <h2 class="h4" id="h-photos">Zdjęcia</h2>
+          <h2 class="ikpm-section-title" id="h-photos">Zdjęcia</h2>
           <template x-for="g in groups" :key="g.name">
             <div class="mb-3"><h3 class="h6" x-text="g.name"></h3>
-              <div class="photo-grid">
+              <div class="ikpm-photo-grid">
                 <template x-for="ph in g.photos" :key="ph.filename + ph.i">
-                  <div class="photo-card">
-                    <template x-if="ph.src"><img class="photo-thumb" :src="ph.src" :alt="'Zdjęcie ' + ph.filename"></template>
-                    <template x-if="!ph.src"><div class="photo-thumb" role="img" :aria-label="'Zdjęcie ' + ph.filename"><i class="bi bi-image" aria-hidden="true"></i><span x-text="ph.filename"></span></div></template>
+                  <div class="ikpm-photo">
+                    <template x-if="ph.src"><a class="ikpm-photo-thumb p-0" :href="ph.src" target="_blank" :aria-label="'Otwórz zdjęcie ' + ph.filename"><img class="ikpm-photo-thumb" :src="ph.src" alt=""></a></template>
+                    <template x-if="!ph.src"><div class="ikpm-photo-thumb" role="img" :aria-label="'Zdjęcie ' + ph.filename"><i class="bi bi-image" aria-hidden="true"></i><span x-text="ph.filename"></span></div></template>
                   </div>
                 </template>
               </div></div>
@@ -62,7 +68,7 @@
       </div>
     </template>
   </div></main>
-  <footer class="app-footer"><div class="container-xxl">Wygenerowane przez system IKPM.</div></footer>
+  <footer class="ikpm-public-footer">Wygenerowane przez system IKPM.</footer>
   <script type="module">
     import { start, getRealization, progress, sortJobs, endDateText, getQuote, sender } from '../assets/app.js';
     const _r = getRealization(new URLSearchParams(location.search).get('id') ?? 1);
@@ -71,7 +77,8 @@
     const _from = _q && sender(_q);
     start(() => ({
       r: _r, sorted: sortJobs, prog: _r && progress(_r), endText: _r && endDateText(_r),
-      from: _from ? `${_from.display_name}, ${_from.email}` : 'Zespół IKPM',
+      from: _from,
+      roomProgress(room) { const _p = progress(this.r, room); return `${_p.done} / ${_p.all} zrobione`; },
       get groups() {
         const _vis = (this.r.photos ?? []).map((p, i) => ({ ...p, i })).filter((p) => p.client_visible);
         return [{ name: 'Ogólne', photos: _vis.filter((p) => !p.room) }, ...this.r.rooms.map((rm) => ({ name: rm.name, photos: _vis.filter((p) => p.room === rm.name) }))].filter((g) => g.photos.length);

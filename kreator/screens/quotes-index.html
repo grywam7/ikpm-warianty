@@ -2,51 +2,51 @@
 <html lang="pl">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:,">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Wyceny — IKPM</title>
   <link rel="stylesheet" href="../assets/bootstrap/bootstrap.min.css">
   <link rel="stylesheet" href="../assets/bootstrap-icons/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="../assets/ikpm-ui.css">
   <link rel="stylesheet" href="../assets/app.css">
 </head>
 <body data-section="quotes">
-  <main id="main"><div id="app" class="container-xxl" x-data="page" x-cloak>
-    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 page-title">
-      <h1 class="mb-0">Wyceny</h1>
-      <div class="d-flex flex-wrap gap-2">
-        <a class="btn btn-primary btn-main" :href="link('screens/quotes-new.html?mode=rooms')"><i class="bi bi-plus-lg" aria-hidden="true"></i> Nowa wycena (pokoje)</a>
-        <a class="btn btn-outline-primary btn-main" :href="link('screens/quotes-new.html?mode=simple')"><i class="bi bi-plus-lg" aria-hidden="true"></i> Nowa wycena (prosta)</a>
-        <a class="btn btn-outline-secondary btn-main" :href="link('screens/clients.html')"><i class="bi bi-people" aria-hidden="true"></i> Klienci</a>
+  <main id="main"><div id="app" class="ikpm-content" x-data="page" x-cloak>
+    <div class="ikpm-page-head">
+      <div class="ikpm-page-heading"><h1 class="ikpm-page-title">Wyceny</h1></div>
+      <div class="ikpm-page-actions">
+        <a class="btn btn-primary btn-lg" :href="link('screens/quotes-new.html?mode=rooms')"><i class="bi bi-plus-square" aria-hidden="true"></i>Nowa wycena (pokoje)</a>
+        <a class="btn btn-outline-primary btn-lg" :href="link('screens/quotes-new.html?mode=simple')"><i class="bi bi-plus-lg" aria-hidden="true"></i>Nowa wycena (prosta)</a>
+        <a class="btn btn-outline-secondary btn-lg" :href="link('screens/clients.html')"><i class="bi bi-people" aria-hidden="true"></i>Klienci</a>
       </div>
     </div>
-    <template x-for="q in list" :key="q.id">
-      <article class="list-card">
-        <div class="row g-2 align-items-center">
-          <div class="col-lg-4 min-w-0">
-            <a class="fw-semibold tap-link" :href="link('screens/quote-show.html?id=' + q.id)" x-text="'Wycena #' + q.id"></a>
-            <span x-html="badge('quote', q.status)"></span>
-            <span class="d-block" x-text="q.client?.name || '(brak klienta)'"></span>
-            <span class="d-block small" x-show="q.site_address" x-text="q.site_address"></span>
-          </div>
-          <div class="col-lg-4">
-            <dl class="row small mb-0 g-0">
-              <dt class="col-4 fw-normal">Pokoje</dt><dd class="col-8 mb-0" x-text="q.rooms.length"></dd>
-              <dt class="col-4 fw-normal">Prace</dt><dd class="col-8 mb-0" x-text="jobCount(q)"></dd>
-              <dt class="col-4 fw-normal">Wartość</dt><dd class="col-8 mb-0 fw-semibold" x-text="pln(net(q))"></dd>
-              <dt class="col-4 fw-normal">Wysłana</dt><dd class="col-8 mb-0" x-text="dateText(q.sent_at)"></dd>
-              <dt class="col-4 fw-normal">Odpowiedź</dt><dd class="col-8 mb-0" x-text="dateText(q.responded_at)"></dd>
-            </dl>
-          </div>
-          <div class="col-lg-4 d-flex flex-wrap gap-2 justify-content-lg-end">
-            <template x-if="q.status === 'draft'"><a class="btn btn-primary" :href="builderLink(q, nextStep(q).step)" x-text="nextStep(q).label"></a></template>
-            <template x-if="q.status === 'draft'"><a class="btn btn-outline-primary" :href="builderLink(q, 'sprawdz')">Edytuj</a></template>
-            <a class="btn btn-outline-secondary btn-icon" :href="link('screens/quote-show.html?id=' + q.id)" :aria-label="'Podgląd: wycena #' + q.id" title="Podgląd"><i class="bi bi-eye" aria-hidden="true"></i></a>
-            <button type="button" class="btn btn-outline-secondary btn-icon" @click="copy(q)" :aria-label="'Kopiuj: wycena #' + q.id" title="Kopiuj"><i class="bi bi-copy" aria-hidden="true"></i></button>
-            <template x-if="q.status === 'draft'"><button type="button" class="btn btn-outline-danger btn-icon" @click="askDelete(q)" :aria-label="'Usuń: wycena #' + q.id" title="Usuń"><i class="bi bi-trash" aria-hidden="true"></i></button></template>
-          </div>
-        </div>
-      </article>
-    </template>
-    <p x-show="!list.length">Brak wycen. Utwórz pierwszą wycenę.</p>
+    <div class="ikpm-table-box" x-show="list.length">
+      <table class="table ikpm-stack">
+        <thead><tr><th scope="col">#</th><th scope="col">Klient</th><th scope="col">Status</th><th scope="col" class="ikpm-num">Pokoje</th><th scope="col" class="ikpm-num">Prace</th><th scope="col" class="ikpm-num">Wartość</th><th scope="col">Wysłana</th><th scope="col">Odpowiedź</th><th scope="col" class="col-actions"><span class="visually-hidden">Akcje</span></th></tr></thead>
+        <tbody>
+          <template x-for="q in list" :key="q.id">
+            <tr>
+              <td class="ikpm-cell-lead"><a class="text-nowrap" :href="link('screens/quote-show.html?id=' + q.id)" x-text="'Wycena #' + q.id"></a></td>
+              <td data-label="Klient"><span><span x-text="q.client?.name || '(brak klienta)'"></span><span class="d-block ikpm-meta" x-show="q.site_address" x-text="q.site_address"></span></span></td>
+              <td data-label="Status" x-html="badge('quote', q.status)"></td>
+              <td class="ikpm-num" data-label="Pokoje" x-text="q.rooms.length"></td>
+              <td class="ikpm-num" data-label="Prace" x-text="jobCount(q)"></td>
+              <td class="ikpm-num fw-semibold" data-label="Wartość" x-text="pln(net(q))"></td>
+              <td data-label="Wysłana" x-text="dateText(q.sent_at)"></td>
+              <td data-label="Odpowiedź" x-text="dateText(q.responded_at)"></td>
+              <td class="ikpm-cell-full"><div class="d-flex flex-wrap gap-2 justify-content-end">
+                <template x-if="q.status === 'draft'"><a class="btn btn-primary btn-sm" :href="builderLink(q, nextStep(q).step)" x-text="nextStep(q).label"></a></template>
+                <template x-if="q.status === 'draft'"><a class="btn btn-outline-primary btn-sm" :href="builderLink(q, 'sprawdz')">Edytuj</a></template>
+                <a class="btn btn-outline-secondary btn-sm ikpm-btn-icon" :href="link('screens/quote-show.html?id=' + q.id)" :aria-label="'Podgląd: wycena #' + q.id" title="Podgląd"><i class="bi bi-eye" aria-hidden="true"></i></a>
+                <button type="button" class="btn btn-outline-secondary btn-sm ikpm-btn-icon" @click="copy(q)" :aria-label="'Kopiuj: wycena #' + q.id" title="Kopiuj"><i class="bi bi-copy" aria-hidden="true"></i></button>
+                <template x-if="q.status === 'draft'"><button type="button" class="btn btn-outline-danger btn-sm ikpm-btn-icon" @click="askDelete(q)" :aria-label="'Usuń: wycena #' + q.id" title="Usuń"><i class="bi bi-trash" aria-hidden="true"></i></button></template>
+              </div></td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+    </div>
+    <div class="ikpm-empty" x-show="!list.length"><i class="bi bi-file-earmark-text" aria-hidden="true"></i><p class="ikpm-empty-title">Brak wycen.</p><p>Utwórz pierwszą wycenę.</p><a class="btn btn-primary" :href="link('screens/quotes-new.html?mode=rooms')">Nowa wycena (pokoje)</a></div>
   </div></main>
   <script type="module">
     import { start, quotes, quoteJobs, totals, nextStep, builderLink, copyQuote, saveQuote, go } from '../assets/app.js';

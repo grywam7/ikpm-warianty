@@ -2,35 +2,40 @@
 <html lang="pl">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Użytkownik — formularz — IKPM</title>
 <link rel="stylesheet" href="../assets/bootstrap/bootstrap.min.css">
 <link rel="stylesheet" href="../assets/bootstrap-icons/bootstrap-icons.min.css">
+<link rel="stylesheet" href="../assets/ikpm-ui.css">
 <link rel="stylesheet" href="../assets/app.css">
 </head>
 <body data-nav="users">
 <div id="nav"></div>
-<main x-data="page" x-cloak class="container px-3 pb-5" style="max-width: 720px">
-  <form class="card my-3" @submit.prevent="submit()" novalidate aria-labelledby="f-title">
-    <div class="card-body">
-      <h1 id="f-title" class="h3" x-text="user ? 'Edycja użytkownika ' + user.email : 'Nowy użytkownik'"></h1>
-      <div class="alert alert-danger" role="alert" x-show="errors.length"><ul class="mb-0"><template x-for="e in errors" :key="e"><li x-text="e"></li></template></ul></div>
-      <div class="row g-3">
-        <div class="col-12"><label class="form-label" for="u-email">Email</label><input id="u-email" type="email" class="form-control" x-model="form.email" required></div>
-        <div class="col-md-6"><label class="form-label" for="u-first">Imię</label><input id="u-first" class="form-control" x-model="form.first_name"></div>
-        <div class="col-md-6"><label class="form-label" for="u-last">Nazwisko</label><input id="u-last" class="form-control" x-model="form.last_name"></div>
-        <div class="col-md-6"><label class="form-label" for="u-phone">Telefon</label><input id="u-phone" type="tel" class="form-control" title="Numer telefonu: cyfry, spacje oraz + ( ) -" x-model="form.phone"></div>
-        <div class="col-md-6"><label class="form-label" for="u-pass" x-text="user ? 'Nowe hasło (puste = bez zmiany)' : 'Hasło'"></label><input id="u-pass" type="password" class="form-control" autocomplete="new-password" x-model="form.password"></div>
-        <div class="col-md-6"><label class="form-label" for="u-pass2">Powtórz hasło</label><input id="u-pass2" type="password" class="form-control" autocomplete="new-password" x-model="form.password2"></div>
-        <fieldset class="col-12"><legend class="form-label fs-6">Role</legend>
+<main id="main" x-data="page" x-cloak class="ikpm-content">
+  <div class="ikpm-page-head">
+    <a class="ikpm-back" :href="ik.href('screens/users.html')">Użytkownicy</a>
+    <div class="ikpm-page-heading"><h1 class="ikpm-page-title" x-text="user ? 'Edycja użytkownika ' + user.email : 'Nowy użytkownik'"></h1></div>
+  </div>
+  <form class="k-form" @submit.prevent="submit()" novalidate aria-label="Dane użytkownika">
+    <div class="alert alert-danger" role="alert" x-show="errors.length"><ul class="mb-0"><template x-for="e in errors" :key="e"><li x-text="e"></li></template></ul></div>
+    <div class="ikpm-grid k-fields">
+      <div class="ikpm-span-all"><label class="form-label" for="u-email">Email</label><input id="u-email" type="email" class="form-control" autocomplete="off" x-model="form.email" required></div>
+      <div><label class="form-label" for="u-first">Imię</label><input id="u-first" class="form-control" x-model="form.first_name"></div>
+      <div><label class="form-label" for="u-last">Nazwisko</label><input id="u-last" class="form-control" x-model="form.last_name"></div>
+      <div><label class="form-label" for="u-phone">Telefon</label><input id="u-phone" type="tel" class="form-control" title="Numer telefonu: cyfry, spacje oraz + ( ) -" x-model="form.phone"></div>
+      <div><label class="form-label" for="u-pass" x-text="user ? 'Nowe hasło (puste = bez zmiany)' : 'Hasło'"></label><input id="u-pass" type="password" class="form-control" autocomplete="new-password" x-model="form.password"></div>
+      <div><label class="form-label" for="u-pass2">Powtórz hasło</label><input id="u-pass2" type="password" class="form-control" autocomplete="new-password" x-model="form.password2"></div>
+      <fieldset class="ikpm-span-all"><legend class="form-label">Role</legend>
+        <div class="d-flex flex-wrap column-gap-4">
           <template x-for="[k, label] in Object.entries(ik.labels().role)" :key="k">
             <div class="form-check"><input class="form-check-input" type="checkbox" :id="'role-' + k" :value="k" x-model="form.roles"><label class="form-check-label" :for="'role-' + k" x-text="label"></label></div>
           </template>
-        </fieldset>
-        <template x-if="user"><div class="col-12"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" role="switch" id="u-active" x-model="form.active" aria-describedby="u-active-hint"><label class="form-check-label" for="u-active">Konto aktywne</label></div><p id="u-active-hint" class="small text-body-secondary mb-0">Nieaktywne konto nie zaloguje się — jego wyceny i realizacje zostają.</p></div></template>
-      </div>
-      <div class="d-flex justify-content-end gap-2 mt-4"><a class="btn btn-outline-secondary btn-main" :href="ik.href('screens/users.html')">Anuluj</a><button class="btn btn-primary btn-main">Zapisz</button></div>
+        </div>
+      </fieldset>
+      <template x-if="user"><div class="ikpm-span-all"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" role="switch" id="u-active" x-model="form.active" aria-describedby="u-active-hint"><label class="form-check-label" for="u-active">Konto aktywne</label><p id="u-active-hint" class="form-text">Nieaktywne konto nie zaloguje się — jego wyceny i realizacje zostają.</p></div></div></template>
     </div>
+    <div class="d-flex flex-wrap gap-2 mt-4"><button class="btn btn-primary btn-lg">Zapisz</button><a class="btn btn-outline-secondary btn-lg" :href="ik.href('screens/users.html')">Anuluj</a></div>
   </form>
 </main>
 <script type="module">

@@ -2,69 +2,116 @@
 <html lang="pl">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Materiały — IKPM</title>
 <link rel="stylesheet" href="../assets/bootstrap/bootstrap.min.css">
 <link rel="stylesheet" href="../assets/bootstrap-icons/bootstrap-icons.min.css">
+<link rel="stylesheet" href="../assets/ikpm-ui.css">
 <link rel="stylesheet" href="../assets/app.css">
+<style>
+  /* Lista materiałów: od 992 px tabela; 768–991 px (tablet pionowo) arkusz — wiersz w dwóch liniach pod nagłówkiem kolumn
+     (zaznaczenie, nazwa, cena, ilość, jedn.; pod nimi link do sklepu i przyciski); telefon — karta z etykietami pól. */
+  .k-mat > thead > tr > th { position: sticky; top: var(--ikpm-sticky-top); z-index: 4; }
+  /* Zaznaczenie: cała komórka jest celem (etykieta pokrywa ją). */
+  .k-mat td.k-c-check { position: relative; }
+  .k-mat .k-c-check .form-check { position: static; min-height: 0; }
+  .k-mat .k-c-check .form-check-input { position: relative; z-index: 1; }
+  .k-mat .k-c-check .form-check-label::after { content: ""; position: absolute; inset: 0; }
+  /* Od 768 px etykieta bez widocznego tekstu — sama jest całą komórką. */
+  @media (min-width: 768px) { .k-mat td.k-c-check .form-check-label { position: absolute; inset: 0; padding: 0; } }
+  @media (max-width: 991.98px) {
+    .k-mat, .k-mat > tbody { display: block; width: 100%; }
+    .k-mat > tbody > tr { display: grid; gap: .5rem .75rem; align-items: center; padding: .625rem 1rem; border-bottom: 1px solid var(--ikpm-border-subtle); }
+    .k-mat > tbody > tr:last-child { border-bottom: 0; }
+    .k-mat.table > tbody > tr > * { display: block; padding: 0; border: 0; background: transparent; min-width: 0; text-align: left; }
+    .k-mat .k-c-check { grid-area: check; } .k-mat .k-c-name { grid-area: name; } .k-mat .k-c-price { grid-area: price; }
+    .k-mat .k-c-qty { grid-area: qty; } .k-mat .k-c-unit { grid-area: unit; } .k-mat .k-c-link { grid-area: link; }
+    .k-mat.table > tbody > tr > .k-c-act { grid-area: act; justify-self: end; }
+    .k-mat.table > tbody > tr > .k-c-check { align-self: stretch; display: flex; align-items: center; }
+  }
+  @media (min-width: 768px) and (max-width: 991.98px) {
+    .k-mat > thead { display: block; position: sticky; top: var(--ikpm-sticky-top); z-index: 4; }
+    .k-mat > thead > tr, .k-mat > tbody > tr { grid-template-columns: 2.75rem minmax(0, 1fr) 8.5rem 6rem 6.75rem; }
+    .k-mat > thead > tr { display: grid; gap: 0 .75rem; padding: .5rem 1rem; background: var(--ikpm-surface-2); border-bottom: 1px solid var(--ikpm-border);
+      grid-template-areas: "check name price qty unit"; }
+    .k-mat.table > thead > tr > th { position: static; display: block; width: auto !important; padding: 0; border: 0; background: transparent; }
+    .k-mat.table > thead > tr > :is(.k-c-link, .k-c-act) { display: none; }
+    .k-mat > tbody > tr { grid-template-areas: "check name price qty unit" ". link link link act"; }
+    .k-mat.table > tbody > tr > .k-c-link { display: flex; align-items: center; gap: .75rem; }
+    .k-mat > tbody > tr > .k-c-link::before { content: attr(data-label); flex: none; font-size: var(--ikpm-fs-sm); color: var(--ikpm-text-2); }
+  }
+  @media (max-width: 767.98px) {
+    .k-mat > thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+    .k-mat > tbody > tr { grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-areas: "check check act" "name name name" "price qty unit" "link link link"; }
+    .k-mat > tbody > tr > [data-label]::before { content: attr(data-label); display: block; margin-bottom: .25rem; font-size: var(--ikpm-fs-xs);
+      font-weight: 600; color: var(--ikpm-text-2); }
+  }
+</style>
 </head>
 <body data-nav="data">
 <div id="nav"></div>
-<main x-data="page" x-cloak class="container-xxl px-3 mw-doc pb-5">
+<main id="main" x-data="page" x-cloak class="ikpm-content">
   <div id="alerts"></div>
-  <h1 class="h3 mt-3 mb-0">Materiały</h1>
+  <div class="ikpm-page-head mb-3"><div class="ikpm-page-heading"><h1 class="ikpm-page-title">Materiały</h1></div></div>
   <div id="data-tabs" data-active="materials"></div>
 
-  <div class="row g-3 mb-3">
-    <form class="col-12 col-xl-7" @submit.prevent="add()" aria-labelledby="add-title">
-      <div class="card h-100"><div class="card-body row g-2 align-items-end">
-        <h2 id="add-title" class="h6 col-12 mb-0">Dodaj materiał</h2>
-        <div class="col-12 col-md-6"><label class="form-label small mb-1" for="m-name">Nazwa materiału</label><input id="m-name" class="form-control" maxlength="100" placeholder="np. Farba lateksowa biała" x-model="draft.name" required></div>
-        <div class="col-6 col-md-3"><label class="form-label small mb-1" for="m-price">Cena (zł)</label><input id="m-price" type="number" inputmode="decimal" step="any" min="0" class="form-control text-end" x-model="draft.price"></div>
-        <div class="col-6 col-md-3"><label class="form-label small mb-1" for="m-qty">Ilość</label><input id="m-qty" type="number" inputmode="decimal" step="any" min="0" class="form-control text-end" x-model="draft.quantity"></div>
-        <div class="col-6 col-md-3"><label class="form-label small mb-1" for="m-unit">Jedn.</label><select id="m-unit" class="form-select" x-model="draft.unit"><template x-for="u in UNITS" :key="u"><option :value="u" :selected="draft.unit === u" x-text="u"></option></template></select></div>
-        <div class="col-6 col-md-6"><label class="form-label small mb-1" for="m-link">Link do sklepu</label><input id="m-link" type="url" class="form-control" placeholder="https://..." x-model="draft.link"></div>
-        <div class="col-12 col-md-3"><button class="btn btn-success w-100">Dodaj</button></div>
-      </div></div>
+  <div class="ikpm-grid mb-4" style="--ikpm-grid-min: 24rem">
+    <form class="card" @submit.prevent="add()" aria-labelledby="add-title">
+      <div class="card-body">
+        <h2 id="add-title" class="k-sub-title">Dodaj materiał</h2>
+        <div class="ikpm-grid k-fields align-items-end" style="--ikpm-grid-min: 8rem">
+          <div class="ikpm-span-all"><label class="form-label" for="m-name">Nazwa materiału</label><input id="m-name" class="form-control" maxlength="100" placeholder="np. Farba lateksowa biała" x-model="draft.name" required></div>
+          <div><label class="form-label" for="m-price">Cena (zł)</label><input id="m-price" type="number" inputmode="decimal" step="any" min="0" class="form-control ikpm-num" x-model="draft.price"></div>
+          <div><label class="form-label" for="m-qty">Ilość</label><input id="m-qty" type="number" inputmode="decimal" step="any" min="0" class="form-control ikpm-num" x-model="draft.quantity"></div>
+          <div><label class="form-label" for="m-unit">Jedn.</label><select id="m-unit" class="form-select" x-model="draft.unit"><template x-for="u in UNITS" :key="u"><option :value="u" :selected="draft.unit === u" x-text="u"></option></template></select></div>
+          <div class="ikpm-span-all"><label class="form-label" for="m-link">Link do sklepu</label><input id="m-link" type="url" class="form-control" placeholder="https://..." x-model="draft.link"></div>
+          <div><button class="btn btn-primary w-100"><i class="bi bi-plus-lg" aria-hidden="true"></i>Dodaj</button></div>
+        </div>
+      </div>
     </form>
-    <form id="materials-price-change" class="col-12 col-xl-5" @submit.prevent="preview()" aria-labelledby="pc-title">
-      <div class="card h-100"><div class="card-body">
-        <h2 id="pc-title" class="h6">Zmiana cen</h2>
-        <fieldset class="mb-2"><legend class="form-label small mb-1">Zakres</legend>
-          <div class="form-check"><input class="form-check-input" type="radio" name="scope" id="sc-all" value="all" x-model="scope" required><label class="form-check-label" for="sc-all">Wszystkie materiały</label></div>
-          <div class="form-check"><input class="form-check-input" type="radio" name="scope" id="sc-sel" value="selected" x-model="scope"><label class="form-check-label" for="sc-sel">Zaznaczone na liście <span class="text-body-secondary" x-text="'(' + selected.length + ')'"></span></label></div>
+    <form id="materials-price-change" class="card" @submit.prevent="preview()" aria-labelledby="pc-title">
+      <div class="card-body">
+        <h2 id="pc-title" class="k-sub-title">Zmiana cen</h2>
+        <fieldset class="mb-2"><legend class="form-label">Zakres</legend>
+          <div class="d-flex flex-wrap column-gap-4">
+            <div class="form-check"><input class="form-check-input" type="radio" name="scope" id="sc-all" value="all" x-model="scope" required><label class="form-check-label" for="sc-all">Wszystkie materiały</label></div>
+            <div class="form-check"><input class="form-check-input" type="radio" name="scope" id="sc-sel" value="selected" x-model="scope"><label class="form-check-label" for="sc-sel">Zaznaczone na liście <span class="ikpm-muted" x-text="'(' + selected.length + ')'"></span></label></div>
+          </div>
         </fieldset>
         <div class="d-flex gap-2 align-items-end">
-          <div class="flex-grow-1"><label class="form-label small mb-1" for="pc-percent">Zmień ceny o % <span class="text-body-secondary">(od -90 do +200)</span></label><input id="pc-percent" type="number" inputmode="decimal" step="0.1" min="-90" max="200" class="form-control" x-model="percent" required></div>
+          <div class="flex-grow-1"><label class="form-label" for="pc-percent">Zmień ceny o % <span class="fw-normal ikpm-muted">(od -90 do +200)</span></label><input id="pc-percent" type="number" inputmode="decimal" step="0.1" min="-90" max="200" class="form-control ikpm-num" x-model="percent" required></div>
           <button class="btn btn-outline-primary">Podgląd</button>
         </div>
-      </div></div>
+      </div>
     </form>
   </div>
 
-  <section class="card" aria-labelledby="list-title">
-    <div class="card-header bg-body"><h2 id="list-title" class="h6 mb-0">Lista materiałów <span class="badge text-bg-secondary" x-text="db.materials.length"></span></h2></div>
-    <p class="card-body mb-0 text-body-secondary" x-show="!db.materials.length">Brak materiałów. Dodaj pierwszy materiał powyżej.</p>
-    <table class="table doc-table reflow-lg mb-0">
+  <section aria-labelledby="list-title">
+    <h2 id="list-title" class="ikpm-section-title d-flex align-items-center gap-2">Lista materiałów <span class="ikpm-chip" x-text="db.materials.length"></span></h2>
+    <div class="ikpm-empty" x-show="!db.materials.length"><i class="bi bi-box-seam" aria-hidden="true"></i><p>Brak materiałów. Dodaj pierwszy materiał powyżej.</p></div>
+    <div class="card" x-show="db.materials.length">
+    <table class="table k-mat">
       <caption class="visually-hidden">Lista materiałów — ceny opakowań</caption>
-      <thead class="table-light"><tr><th scope="col"><span class="visually-hidden">Zaznacz</span></th><th scope="col">Nazwa</th><th scope="col">Cena</th><th scope="col">Ilość</th><th scope="col">Jedn.</th><th scope="col">Link do sklepu</th><th scope="col"><span class="visually-hidden">Akcje</span></th></tr></thead>
+      <thead><tr><th scope="col" class="k-act-col k-c-check"><span class="visually-hidden">Zaznacz</span></th><th scope="col" class="k-c-name" style="width: 34%">Nazwa</th><th scope="col" class="ikpm-num k-c-price" style="width: 10rem">Cena</th><th scope="col" class="ikpm-num k-c-qty" style="width: 7rem">Ilość</th><th scope="col" class="k-c-unit" style="width: 7rem">Jedn.</th><th scope="col" class="k-c-link">Link do sklepu</th><th scope="col" class="k-c-act" style="width: 7rem"><span class="visually-hidden">Akcje</span></th></tr></thead>
       <tbody>
         <template x-for="m in materials" :key="m.id">
           <tr>
-            <td><label class="form-check check-cell"><input class="form-check-input" type="checkbox" :id="'sel-' + m.id" :value="m.id" x-model.number="selected" :aria-label="'Zaznacz: ' + m.name + ' (' + m.package + ')'"></label></td>
-            <td data-label="Nazwa"><input class="form-control" maxlength="100" :value="m.name" :aria-label="'Nazwa: ' + m.name" @change="setField(m, 'name', $event.target)"></td>
-            <td data-label="Cena"><div class="input-group"><input type="number" inputmode="decimal" step="any" min="0" class="form-control text-end" :value="Number(m.price)" :aria-label="'Cena: ' + m.name" @change="setField(m, 'price', $event.target)"><span class="input-group-text">zł</span></div></td>
-            <td data-label="Ilość"><input type="number" inputmode="decimal" step="any" min="0" class="form-control text-end" style="min-width: 5rem" :value="Number(m.quantity)" :aria-label="'Ilość: ' + m.name" @change="setField(m, 'quantity', $event.target)"></td>
-            <td data-label="Jedn."><select class="form-select" style="min-width: 5.5rem" :aria-label="'Jedn.: ' + m.name" @change="setField(m, 'unit', $event.target)"><template x-for="u in UNITS" :key="u"><option :value="u" :selected="m.unit === u" x-text="u"></option></template></select></td>
-            <td data-label="Link do sklepu"><input type="url" class="form-control" placeholder="https://..." :value="m.link" :aria-label="'Link do sklepu: ' + m.name" @change="setField(m, 'link', $event.target)"></td>
-            <td class="text-end text-nowrap">
-              <a class="btn btn-sm btn-outline-secondary" x-show="/^https?:\/\//.test(m.link)" :href="m.link" target="_blank" rel="noopener" :aria-label="'Otwórz w sklepie: ' + m.name"><i class="bi bi-box-arrow-up-right" aria-hidden="true"></i></a>
-              <button type="button" class="btn btn-sm btn-outline-danger" :aria-label="'Usuń materiał ' + m.name" @click="remove(m)"><i class="bi bi-trash" aria-hidden="true"></i></button>
-            </td>
+            <td class="k-c-check"><div class="form-check"><input class="form-check-input" type="checkbox" :id="'sel-' + m.id" :value="m.id" x-model.number="selected"><label class="form-check-label" :for="'sel-' + m.id"><span class="d-md-none">Zaznacz</span><span class="visually-hidden" x-text="': ' + m.name + ' (' + m.package + ')'"></span></label></div></td>
+            <td data-label="Nazwa" class="k-c-name"><input class="form-control" maxlength="100" :value="m.name" :aria-label="'Nazwa: ' + m.name" @change="setField(m, 'name', $event.target)"></td>
+            <td data-label="Cena" class="k-c-price"><div class="input-group"><input type="number" inputmode="decimal" step="any" min="0" class="form-control ikpm-num" :value="Number(m.price)" :aria-label="'Cena: ' + m.name" @change="setField(m, 'price', $event.target)"><span class="input-group-text">zł</span></div></td>
+            <td data-label="Ilość" class="k-c-qty"><input type="number" inputmode="decimal" step="any" min="0" class="form-control ikpm-num" :value="Number(m.quantity)" :aria-label="'Ilość: ' + m.name" @change="setField(m, 'quantity', $event.target)"></td>
+            <td data-label="Jedn." class="k-c-unit"><select class="form-select" :aria-label="'Jedn.: ' + m.name" @change="setField(m, 'unit', $event.target)"><template x-for="u in UNITS" :key="u"><option :value="u" :selected="m.unit === u" x-text="u"></option></template></select></td>
+            <td data-label="Link do sklepu" class="k-c-link"><input type="url" class="form-control" placeholder="https://..." :value="m.link" :aria-label="'Link do sklepu: ' + m.name" @change="setField(m, 'link', $event.target)"></td>
+            <td class="text-end k-c-act"><div class="d-inline-flex gap-2">
+              <a class="btn btn-outline-secondary ikpm-btn-icon" x-show="/^https?:\/\//.test(m.link)" :href="m.link" target="_blank" rel="noopener" :aria-label="'Otwórz w sklepie: ' + m.name" title="Otwórz w sklepie"><i class="bi bi-box-arrow-up-right" aria-hidden="true"></i></a>
+              <button type="button" class="btn btn-outline-danger ikpm-btn-icon" :aria-label="'Usuń materiał ' + m.name" title="Usuń materiał" @click="remove(m)"><i class="bi bi-trash" aria-hidden="true"></i></button>
+            </div></td>
           </tr>
         </template>
       </tbody>
     </table>
+    </div>
   </section>
 </main>
 <script type="module">

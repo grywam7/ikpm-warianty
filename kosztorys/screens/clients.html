@@ -2,34 +2,35 @@
 <html lang="pl">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Klienci — IKPM</title>
 <link rel="stylesheet" href="../assets/bootstrap/bootstrap.min.css">
 <link rel="stylesheet" href="../assets/bootstrap-icons/bootstrap-icons.min.css">
+<link rel="stylesheet" href="../assets/ikpm-ui.css">
 <link rel="stylesheet" href="../assets/app.css">
 </head>
 <body data-nav="clients">
 <div id="nav"></div>
-<main x-data="page" x-cloak class="container-xxl px-3 mw-doc pb-5">
-  <div id="alerts"></div>
-  <div class="d-grid d-sm-flex flex-wrap align-items-center gap-2 my-3">
-    <h1 class="h3 mb-0 me-sm-auto">Klienci</h1>
-    <a class="btn btn-success btn-main" :href="ik.href('screens/client-form.html')"><i class="bi bi-person-plus" aria-hidden="true"></i> Nowy klient</a>
+<main id="main" x-data="page" x-cloak class="ikpm-content">
+  <div class="ikpm-page-head">
+    <div class="ikpm-page-heading"><h1 class="ikpm-page-title">Klienci</h1></div>
+    <div class="ikpm-page-actions"><a class="btn btn-primary btn-lg" :href="ik.href('screens/client-form.html')"><i class="bi bi-person-plus" aria-hidden="true"></i>Nowy klient</a></div>
   </div>
-  <p class="text-body-secondary" x-show="!db.clients.length">Brak klientów — dodaj pierwszego przyciskiem „Nowy klient”.</p>
-  <div class="card" x-show="db.clients.length">
-    <table class="table doc-table reflow mb-0">
+  <div class="ikpm-empty" x-show="!db.clients.length"><i class="bi bi-people" aria-hidden="true"></i><p class="ikpm-empty-title">Brak klientów</p><p>Brak klientów — dodaj pierwszego przyciskiem „Nowy klient”.</p></div>
+  <div class="ikpm-table-box" x-show="db.clients.length">
+    <table class="table ikpm-stack">
       <caption class="visually-hidden">Lista klientów</caption>
-      <thead class="table-light"><tr><th scope="col">Nazwa</th><th scope="col">Email</th><th scope="col">Telefon</th><th scope="col" class="text-end">Wyceny</th><th scope="col" class="text-end">Realizacje</th><th scope="col"><span class="visually-hidden">Akcje</span></th></tr></thead>
+      <thead><tr><th scope="col">Nazwa</th><th scope="col">Email</th><th scope="col">Telefon</th><th scope="col" class="ikpm-num">Wyceny</th><th scope="col" class="ikpm-num">Realizacje</th><th scope="col"><span class="visually-hidden">Akcje</span></th></tr></thead>
       <tbody>
         <template x-for="c in clients" :key="c.id">
           <tr>
-            <td data-label="Nazwa" class="reflow-full"><a class="tap fw-semibold" :href="ik.href('screens/client-show.html?id=' + c.id)" x-text="c.name"></a></td>
+            <td class="ikpm-cell-lead"><a :href="ik.href('screens/client-show.html?id=' + c.id)" x-text="c.name"></a></td>
             <td data-label="Email" class="text-break" x-text="c.email || '—'"></td>
             <td data-label="Telefon" x-text="c.phone || '—'"></td>
-            <td data-label="Wyceny" class="num" x-text="db.quotes.filter(q => q.client && q.client.name === c.name).length"></td>
-            <td data-label="Realizacje" class="num" x-text="db.realizations.filter(r => r.client.name === c.name).length"></td>
-            <td class="text-end"><a class="btn btn-outline-secondary" :href="ik.href('screens/client-form.html?id=' + c.id)" :aria-label="'Edytuj klienta ' + c.name"><i class="bi bi-pencil" aria-hidden="true"></i> Edytuj</a></td>
+            <td data-label="Wyceny" class="ikpm-num" x-text="db.quotes.filter(q => q.client && q.client.name === c.name).length"></td>
+            <td data-label="Realizacje" class="ikpm-num" x-text="db.realizations.filter(r => r.client.name === c.name).length"></td>
+            <td class="text-end"><a class="btn btn-outline-secondary" :href="ik.href('screens/client-form.html?id=' + c.id)" :aria-label="'Edytuj klienta ' + c.name"><i class="bi bi-pencil" aria-hidden="true"></i>Edytuj</a></td>
           </tr>
         </template>
       </tbody>

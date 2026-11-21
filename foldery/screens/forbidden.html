@@ -2,18 +2,19 @@
 <html lang="pl">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Brak uprawnień — IKPM</title>
 <link rel="stylesheet" href="../assets/bootstrap/bootstrap.min.css">
 <link rel="stylesheet" href="../assets/bootstrap-icons/bootstrap-icons.min.css">
+<link rel="stylesheet" href="../assets/ikpm-ui.css">
 <link rel="stylesheet" href="../assets/app.css">
 </head>
 <body data-screen="forbidden" data-nav="start" data-tab="wiecej">
 <main x-data="page" x-cloak>
-<div class="page"><div class="pane-inner">
-<div class="text-center py-5"><i class="bi bi-shield-lock fs-1" aria-hidden="true"></i>
-<h1 class="pane-title mt-2">Brak uprawnień</h1><p class="mt-2">Twoje konto nie ma dostępu do tej sekcji. Poproś administratora o nadanie roli.</p>
-<a class="btn btn-primary btn-main px-4" :href="link('profile')">Mój profil</a></div>
+<div class="page"><div class="ikpm-content">
+<div class="ikpm-empty"><i class="bi bi-shield-lock" aria-hidden="true"></i>
+<h1 class="ikpm-page-title">Brak uprawnień</h1><p>Twoje konto nie ma dostępu do tej sekcji. Poproś administratora o nadanie roli.</p>
+<a class="btn btn-primary btn-lg px-4" :href="link('profile')">Mój profil</a></div>
 </div></div>
 </main>
 <script type="module">
