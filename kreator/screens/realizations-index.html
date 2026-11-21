@@ -18,23 +18,23 @@
     </div>
     <div class="ikpm-table-box" x-show="list.length">
       <table class="table ikpm-stack">
-        <thead><tr><th scope="col">Klient</th><th scope="col">Status</th><th scope="col" class="ikpm-num">Wartość (z wyceny)</th><th scope="col" class="ikpm-num">Koszt</th><th scope="col">Postęp</th><th scope="col">Termin</th><th scope="col">Wycena</th><th scope="col"><span class="visually-hidden">Akcje</span></th></tr></thead>
+        <thead><tr><th scope="col">Klient</th><th scope="col">Status</th><th scope="col" class="col-aux ikpm-num">Wartość (z wyceny)</th><th scope="col" class="col-aux ikpm-num">Koszt</th><th scope="col">Postęp</th><th scope="col">Termin</th><th class="col-aux" scope="col">Wycena</th><th scope="col"><span class="visually-hidden">Akcje</span></th></tr></thead>
         <tbody>
           <template x-for="r in list" :key="r.id">
             <tr>
               <td class="ikpm-cell-lead"><a :href="link('screens/realization-show.html?id=' + r.id)" x-text="r.client.name"></a><span class="d-block ikpm-meta fw-normal" x-text="r.site_address"></span></td>
               <td data-label="Status" x-html="badge('realization', r.status)"></td>
-              <td class="ikpm-num fw-semibold" data-label="Wartość (z wyceny)" x-text="pln(r.total_price)"></td>
-              <td class="ikpm-num" data-label="Koszt" x-text="pln(cost(r))"></td>
+              <td class="col-aux ikpm-num fw-semibold" data-label="Wartość (z wyceny)" x-text="pln(r.total_price)"></td>
+              <td class="col-aux ikpm-num" data-label="Koszt" x-text="pln(cost(r))"></td>
               <td data-label="Postęp"><span class="d-flex align-items-center gap-2" style="min-width: 8rem">
                 <span class="progress flex-grow-1" role="progressbar" :aria-label="'Postęp: ' + prog(r).pct + '%'" aria-valuemin="0" aria-valuemax="100" :aria-valuenow="prog(r).pct"><span class="progress-bar" :style="`width: ${prog(r).pct}%`"></span></span>
                 <span class="ikpm-num" x-text="prog(r).pct + '%'"></span></span></td>
               <td data-label="Termin"><span><span x-text="dateText(r.status === 'done' ? r.end_on : (r.expected_end_on || r.promised_end_on))"></span>
                 <template x-if="delayed(r)"><span class="text-danger-emphasis d-block"><i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i> obiecany <span x-text="dateText(r.promised_end_on)"></span></span></template></span></td>
-              <td data-label="Wycena"><template x-if="r.quote_id"><a :href="link('screens/quote-show.html?id=' + r.quote_id)" x-text="'#' + r.quote_id"></a></template><span x-show="!r.quote_id">—</span></td>
+              <td class="col-aux" data-label="Wycena"><template x-if="r.quote_id"><a :href="link('screens/quote-show.html?id=' + r.quote_id)" x-text="'#' + r.quote_id"></a></template><span x-show="!r.quote_id">—</span></td>
               <td class="ikpm-cell-full"><div class="d-flex flex-wrap gap-2 justify-content-end">
                 <template x-if="active(r)"><a class="btn btn-primary btn-sm" :href="link('screens/obchod.html?id=' + r.id + '&krok=pokoj')"><i class="bi bi-cone-striped" aria-hidden="true"></i>Obchód</a></template>
-                <a class="btn btn-outline-primary btn-sm" :href="link('screens/realization-show.html?id=' + r.id)">Otwórz</a>
+                <a class="btn btn-outline-primary btn-sm col-aux" :href="link('screens/realization-show.html?id=' + r.id)">Otwórz</a>
                 <template x-if="r.status !== 'done'"><button type="button" class="btn btn-outline-danger btn-sm ikpm-btn-icon" @click="askDelete(r)" :aria-label="'Usuń realizację: ' + r.client.name" title="Usuń"><i class="bi bi-trash" aria-hidden="true"></i></button></template>
               </div></td>
             </tr>

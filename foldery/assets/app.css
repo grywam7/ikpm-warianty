@@ -1,8 +1,5 @@
 /* Foldery — układ wariantu: lista → folder → szczegóły (jak Ustawienia / Kontakty). Wygląd (kolory, typografia, kontrolki,
    wiersze list, statusy, tabele, komunikaty, okna) daje wspólny ikpm-ui.css; tu tylko kompozycja z jego tokenów. */
-[x-cloak] { display: none !important; }
-/* x-show (inline display: none) wygrywa z klasami Bootstrapa d-flex / d-grid / d-block (!important) */
-[style*="display: none"] { display: none !important; }
 :root { --rail-w: 5rem; --nav-w: 15rem; }
 details > summary { list-style: none; cursor: pointer; }
 details > summary::-webkit-details-marker { display: none; }
@@ -43,7 +40,8 @@ details > summary::-webkit-details-marker { display: none; }
 .panes[data-level="1"] .pane-list, .panes[data-level="2"] .pane-folder, .panes[data-level="3"] .pane-detail { display: block; }
 .pane-empty { display: none !important; }
 @media (min-width: 768px) {
-  .panes { --col-1: 16rem; display: grid; align-items: start; grid-template-columns: minmax(0, 1fr); }
+  /* iPad pionowo: kolumna nadrzędna 18–19 rem — wiersze pokoi i etapów mieszczą wymiary i liczbę prac w jednej linii */
+  .panes { --col-1: clamp(16rem, 40vw, 19rem); display: grid; align-items: start; grid-template-columns: minmax(0, 1fr); }
   .panes[data-level="2"], .panes[data-level="3"] { grid-template-columns: var(--col-1) minmax(0, 1fr); }
   .panes[data-level="2"] .pane-list, .panes[data-level="3"] .pane-folder { display: block; position: sticky; top: 0; max-height: 100dvh;
     overflow-y: auto; overscroll-behavior: contain; border-right: 1px solid var(--ikpm-border); background: var(--ikpm-surface); }
@@ -230,10 +228,6 @@ section ~ section > .ikpm-section-title:first-child, template + section > .ikpm-
   .dl-stack.ikpm-dl { grid-template-columns: minmax(0, 1fr); row-gap: 0; }
   .dl-stack.ikpm-dl > dd { margin-bottom: .625rem; }
   .dl-stack.ikpm-dl > dd:last-child { margin-bottom: 0; }
-  .ikpm-public .ikpm-actionbar-total { flex-direction: row; justify-content: space-between; align-items: baseline; flex-basis: 100%; margin-right: 0; }
-  .ikpm-public .ikpm-actionbar-total > :first-child { font-size: var(--ikpm-fs-sm); }
-  .ikpm-public .ikpm-actionbar-actions > .btn { --bs-btn-padding-x: .5rem; }
-  .ikpm-public .ikpm-actionbar-actions > .btn > .bi { display: none; }
 }
 .pub-table > tfoot > tr > * { border-bottom: 0; }
 

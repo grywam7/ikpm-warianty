@@ -29,7 +29,7 @@ export const persist = () => {
 export const nextId = () => { state.seq.id += 1; return state.seq.id; };
 if (new URLSearchParams(location.search).has('reset')) {
   try { localStorage.removeItem(KEY); sessionStorage.clear(); } catch { /* bez pamięci */ }
-  location.replace(location.pathname);
+  const _u = new URL(location.href); _u.searchParams.delete('reset'); location.replace(_u); // reszta adresu (id, krok) zostaje
 }
 
 // ---------------------------------------------------------------- formatowanie

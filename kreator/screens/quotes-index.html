@@ -22,18 +22,18 @@
     </div>
     <div class="ikpm-table-box" x-show="list.length">
       <table class="table ikpm-stack">
-        <thead><tr><th scope="col">#</th><th scope="col">Klient</th><th scope="col">Status</th><th scope="col" class="ikpm-num">Pokoje</th><th scope="col" class="ikpm-num">Prace</th><th scope="col" class="ikpm-num">Wartość</th><th scope="col">Wysłana</th><th scope="col">Odpowiedź</th><th scope="col" class="col-actions"><span class="visually-hidden">Akcje</span></th></tr></thead>
+        <thead><tr><th scope="col">#</th><th scope="col">Klient</th><th scope="col">Status</th><th scope="col" class="col-aux ikpm-num">Pokoje</th><th scope="col" class="col-aux ikpm-num">Prace</th><th scope="col" class="ikpm-num">Wartość</th><th class="col-aux" scope="col">Wysłana</th><th class="col-aux" scope="col">Odpowiedź</th><th scope="col" class="col-actions"><span class="visually-hidden">Akcje</span></th></tr></thead>
         <tbody>
           <template x-for="q in list" :key="q.id">
             <tr>
               <td class="ikpm-cell-lead"><a class="text-nowrap" :href="link('screens/quote-show.html?id=' + q.id)" x-text="'Wycena #' + q.id"></a></td>
               <td data-label="Klient"><span><span x-text="q.client?.name || '(brak klienta)'"></span><span class="d-block ikpm-meta" x-show="q.site_address" x-text="q.site_address"></span></span></td>
               <td data-label="Status" x-html="badge('quote', q.status)"></td>
-              <td class="ikpm-num" data-label="Pokoje" x-text="q.rooms.length"></td>
-              <td class="ikpm-num" data-label="Prace" x-text="jobCount(q)"></td>
+              <td class="col-aux ikpm-num" data-label="Pokoje" x-text="q.rooms.length"></td>
+              <td class="col-aux ikpm-num" data-label="Prace" x-text="jobCount(q)"></td>
               <td class="ikpm-num fw-semibold" data-label="Wartość" x-text="pln(net(q))"></td>
-              <td data-label="Wysłana" x-text="dateText(q.sent_at)"></td>
-              <td data-label="Odpowiedź" x-text="dateText(q.responded_at)"></td>
+              <td class="col-aux" data-label="Wysłana" x-text="dateText(q.sent_at)"></td>
+              <td class="col-aux" data-label="Odpowiedź" x-text="dateText(q.responded_at)"></td>
               <td class="ikpm-cell-full"><div class="d-flex flex-wrap gap-2 justify-content-end">
                 <template x-if="q.status === 'draft'"><a class="btn btn-primary btn-sm" :href="builderLink(q, nextStep(q).step)" x-text="nextStep(q).label"></a></template>
                 <template x-if="q.status === 'draft'"><a class="btn btn-outline-primary btn-sm" :href="builderLink(q, 'sprawdz')">Edytuj</a></template>

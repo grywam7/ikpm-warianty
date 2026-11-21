@@ -1,9 +1,4 @@
 /* Prototyp „Kreator” — tylko układ wariantu. Wygląd (kolory, typografia, gęstość, komponenty): ikpm-ui.css. */
-[x-cloak] { display: none !important; }
-/* x-show chowa przez styl w linii — klasy Bootstrapa d-flex / d-block (z !important) nie mogą go przebić */
-[style*="display: none"] { display: none !important; }
-.text-pre { white-space: pre-line; }
-.min-w-0 { min-width: 0; }
 
 /* ---------------------------------------------------------------- powłoka: menu u góry z podpisami; telefon — dolne zakładki */
 .app-header { display: flex; align-items: stretch; gap: 0 var(--ikpm-space-4); padding: 0 var(--ikpm-gutter);
@@ -12,7 +7,6 @@
 .app-header .ikpm-topnav { flex: 1 1 auto; justify-content: flex-end; border-bottom: 0; flex-wrap: nowrap; min-width: 0; }
 .app-header .ikpm-topnav .ikpm-nav-link { white-space: nowrap; min-height: 3.5rem; }
 .ikpm-nav-link.dropdown-toggle::after { display: none; }
-button.ikpm-nav-link { border: 0; background: transparent; font-family: inherit; }
 .nav-wide { display: none !important; }
 @media (min-width: 1100px) { .nav-wide { display: flex !important; } .nav-narrow { display: none !important; } }
 @media (max-width: 767.98px) { .app-header .ikpm-topnav { display: none; } .app-header .ikpm-brand { min-height: 3.25rem; } }
@@ -256,6 +250,8 @@ a.ikpm-row-title:hover { text-decoration: underline; }
 .cost-cards > div { background: #fff; border: 1px solid var(--ikpm-border); border-radius: var(--ikpm-radius-lg); padding: var(--ikpm-space-3) var(--ikpm-space-4); }
 
 /* ---------------------------------------------------------------- strony klienta: krótkie wiersze pozycji na telefonie */
+/* iPad pionowo: listy wycen i realizacji bez kolumn pomocniczych (są w szczegółach) — tabela mieści się bez przewijania w bok */
+@container ikpm-table (min-width: 37.51rem) and (max-width: 64rem) { .ikpm-stack .col-aux { display: none; } }
 @container ikpm-table (max-width: 37.5rem) {
   .ikpm-stack.compact.table > tbody > tr:not(.ikpm-group-row) { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: .375rem; row-gap: .125rem; }
   .ikpm-stack.compact.table > tbody > tr > td { display: block; width: auto; padding: 0; text-align: left; }

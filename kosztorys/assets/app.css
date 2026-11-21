@@ -1,13 +1,8 @@
 /* Wariant „Kosztorys” — tylko układ i elementy koncepcji: menu u góry, zakładki arkuszy „Dane”, dokument z przyklejonymi
    nagłówkami pokoi, spis pokoi obok dokumentu. Wygląd (kolory, typografia, komponenty, gęstość): wspólna warstwa
    ikpm-ui.css — tu tylko jej tokeny. */
-[x-cloak] { display: none !important; }
-/* x-show (inline display: none) wygrywa z klasami d-flex / d-grid Bootstrapa (!important). */
-[style*="display: none"] { display: none !important; }
-.text-pre { white-space: pre-line; }
-.min-w-0 { min-width: 0; }
 .flex-none { flex: none; }
-button.ikpm-nav-link { width: 100%; background: none; border: 0; font-family: inherit; text-align: left; }
+button.ikpm-nav-link { width: 100%; text-align: left; }
 
 /* ---------- Menu: pasek u góry od 768 px (przyklejony — zawsze widoczny), dolne zakładki na telefonie ---------- */
 :root { --k-nav-h: 3.25rem; }
@@ -207,7 +202,6 @@ label.btn:has(.k-file:focus-visible) { outline: 3px solid var(--ikpm-focus); out
 .k-pdf-wrap { padding: var(--ikpm-gutter) 0; overflow-x: hidden; }
 .k-pdf-wrap .ikpm-paper { width: 210mm; max-width: none; margin: 0 auto; padding: 15mm; }
 @media (max-width: 575.98px) { .k-pdf-wrap .ikpm-paper { padding: 15mm; border: 1px solid var(--ikpm-border); } }
-.d-contents { display: contents; }
 @media (min-width: 576px) { .k-span2-md { grid-column: span 2; } }
 /* Etap zwinięty: sam nagłówek bez linii pod spodem; przycisk etapu to cały wiersz nagłówka. */
 .k-stage > .doc-room-head:nth-last-child(2) { border-bottom: 0; border-radius: calc(var(--ikpm-radius-lg) - 1px); }

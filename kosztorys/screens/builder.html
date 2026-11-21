@@ -22,6 +22,9 @@
   .k-meta-grid { display: grid; gap: .75rem 1rem; grid-template-columns: repeat(auto-fill, minmax(min(100%, 12rem), 1fr)); }
   .k-meta-grid .form-label { margin-bottom: .25rem; }
   .k-m-client, .k-m-adr, .k-m-sugg { grid-column: 1 / -1; }
+  /* Co zobaczy klient: od 1100 px w kolumnie spisu pokoi, żeby pierwszy pokój zaczynał się na pierwszym ekranie laptopa */
+  .k-hint-side { display: none; margin-top: 1rem; }
+  @media (min-width: 1100px) { .k-hint-main { display: none; } .k-hint-side { display: block; } }
   @container k-meta (min-width: 38rem) {
     .k-meta-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); grid-template-areas: "client client adr adr" "start end markup vat" "sugg sugg sugg sugg"; row-gap: .5rem; }
     .k-m-client { grid-area: client; } .k-m-adr { grid-area: adr; } .k-m-start { grid-area: start; } .k-m-end { grid-area: end; }
@@ -65,6 +68,7 @@
         <li><a class="ikpm-row" href="#all-jobs"><span class="ikpm-row-main"><span class="ikpm-row-title">Wszystkie prace w wycenie</span></span><span class="ikpm-row-end ikpm-meta" x-text="ik.jobsOf(q).length"></span></a></li>
         <li><a class="ikpm-row" href="#summary"><span class="ikpm-row-main"><span class="ikpm-row-title">Podsumowanie i notatki</span></span></a></li>
       </ul>
+      <p class="ikpm-meta k-hint-side"><i class="bi bi-eye" aria-hidden="true"></i> Klient zobaczy w ofercie (strona oferty i PDF): pokoje, prace, ilości, ceny dla klienta („Cena/j.” i „Wartość”), sumy i terminy. <i class="bi bi-lock" aria-hidden="true"></i> Tylko firma: wykonawcy, ceny ekip, koszt materiałów, notatki, koszt i marża.</p>
     </nav>
 
     <div class="ikpm-pane">
@@ -151,7 +155,7 @@
         </template>
         <button type="button" class="btn btn-primary" @click="addRoom()"><i class="bi bi-plus-lg" aria-hidden="true"></i>Dodaj pokój</button>
       </nav>
-      <p class="ikpm-meta ikpm-measure"><i class="bi bi-eye" aria-hidden="true"></i> Klient zobaczy w ofercie (strona oferty i PDF): pokoje, prace, ilości, ceny dla klienta („Cena/j.” i „Wartość”), sumy i terminy. <i class="bi bi-lock" aria-hidden="true"></i> Tylko firma: wykonawcy, ceny ekip, koszt materiałów, notatki, koszt i marża.</p>
+      <p class="ikpm-meta ikpm-measure k-hint-main"><i class="bi bi-eye" aria-hidden="true"></i> Klient zobaczy w ofercie (strona oferty i PDF): pokoje, prace, ilości, ceny dla klienta („Cena/j.” i „Wartość”), sumy i terminy. <i class="bi bi-lock" aria-hidden="true"></i> Tylko firma: wykonawcy, ceny ekip, koszt materiałów, notatki, koszt i marża.</p>
       <div class="ikpm-empty" x-show="!q.rooms.length"><i class="bi bi-door-open" aria-hidden="true"></i><p class="ikpm-empty-title">Dodaj pierwszy pokój, aby rozpocząć wycenę</p><button type="button" class="btn btn-primary" @click="addRoom()">Dodaj pokój</button></div>
 
       <!-- Pokoje: jeden dokument -->

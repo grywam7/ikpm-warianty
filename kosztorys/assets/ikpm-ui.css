@@ -152,6 +152,16 @@ table, input[type="number"], input[inputmode="decimal"], .progress, .badge { fon
 .form-control:focus, .form-select:focus { border-color: var(--ikpm-accent); outline: 0; box-shadow: 0 0 0 2px var(--ikpm-accent); }
 .form-control.is-invalid:focus, .form-select.is-invalid:focus { border-color: var(--ikpm-danger-solid); box-shadow: 0 0 0 2px var(--ikpm-danger-solid); }
 
+/* Alpine.js helpers every variant needs: x-cloak hides until Alpine starts; x-show hides with an inline display: none,
+   which Bootstrap's d-* utilities (!important) would otherwise override. */
+[x-cloak], [style*="display: none"] { display: none !important; }
+/* A <button> styled as a nav link (the „Więcej” menu, dropdowns). */
+button.ikpm-nav-link { border: 0; background: none; font-family: inherit; }
+/* Small utilities: a wrapper without its own box (Alpine x-for needs one root), pre-line text, a flex child that may shrink. */
+.d-contents { display: contents; }
+.text-pre { white-space: pre-line; }
+.min-w-0 { min-width: 0; }
+
 /* ========================================================================== 3. Bootstrap components */
 /* Buttons: one height per density; main actions are .btn-lg. */
 .btn { --bs-btn-font-weight: 600; --bs-btn-padding-x: 1rem; --bs-btn-padding-y: .375rem; --bs-btn-line-height: 1.25;
@@ -433,7 +443,13 @@ input.ikpm-num { text-align: right; }
 :root:has(.ikpm-actionbar) { --ikpm-actionbar-h: 4.75rem; }
 @media (max-width: 575.98px) {
   .ikpm-actionbar-actions { flex-basis: 100%; }
-  .ikpm-actionbar-actions > .btn { flex: 1 1 0; }
+  /* A label never breaks: buttons share the row while their text fits, otherwise each takes a row of its own.
+     The icon goes — on a phone the words carry the action („Akceptuję wycenę”, „Oczekuję zmiany” in one line at 360 px). */
+  .ikpm-actionbar-actions > .btn { flex: 1 1 auto; min-width: max-content; white-space: nowrap; --bs-btn-padding-x: .5rem; }
+  .ikpm-actionbar-actions > .btn > .bi { display: none; }
+  /* Client pages: label and total in one line, so the decision sits lower on the screen less. */
+  .ikpm-public .ikpm-actionbar-total { flex-direction: row; justify-content: space-between; align-items: baseline; flex-basis: 100%; margin-right: 0; }
+  .ikpm-public .ikpm-actionbar-total > :first-child { font-size: var(--ikpm-fs-sm); }
   :root:has(.ikpm-actionbar) { --ikpm-actionbar-h: 8.5rem; }
 }
 
@@ -575,7 +591,7 @@ a.ikpm-step:hover, button.ikpm-step:hover { background: var(--ikpm-surface-2); c
 
 /* ========================================================================== 11. Data tables (document and registers) */
 /* <div class="ikpm-table-box"><table class="table ikpm-stack">… — the box is the container the stack query measures. */
-.ikpm-table-box { container: ikpm-table / inline-size; overflow-x: auto; background: #fff; border: 1px solid var(--ikpm-border);
+.ikpm-table-box { container: ikpm-table / inline-size; overflow-x: auto; position: relative; /* clips absolutely placed children (.visually-hidden) too */ background: #fff; border: 1px solid var(--ikpm-border);
   border-radius: var(--ikpm-radius-lg); }
 .ikpm-table-box > .table { margin-bottom: 0; }
 .ikpm-table-box > .table > :last-child > tr:last-child > * { border-bottom: 0; }
